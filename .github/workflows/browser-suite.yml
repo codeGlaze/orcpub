@@ -30,14 +30,11 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      # Pinned to the version locale.yml and continuous-integration.yml use.
+      # Pinned to the version continuous-integration.yml uses.
       - name: Install Leiningen
-        run: |
-          curl -fsSL -o "$HOME/lein" \
-            https://raw.githubusercontent.com/technomancy/leiningen/2.11.2/bin/lein
-          chmod +x "$HOME/lein"
-          echo "$HOME" >> "$GITHUB_PATH"
-          "$HOME/lein" version
+        uses: ./.github/actions/install-lein
+        with:
+          lein-version: '2.11.2'
 
       - uses: actions/setup-node@v4
         with:
@@ -55,3 +52,38 @@ jobs:
       # Exits 0 only when every test passes and no FAIL or ERROR is reported.
       - name: Run the suite headless
         run: node test/e2e/cljs-harness.js
+
+  # Every page loads only what its allowance lists (no third-party hosts) and the production
+  # bundle stays under its ceiling (test/browser/page_load_budget_e2e.js).
+  page-load-budget:
+    name: Page-load budget (production bundle)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install Leiningen
+        uses: ./.github/actions/install-lein
+        with:
+          lein-version: '2.11.2'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Playwright and Chromium
+        working-directory: scripts/e2e
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      # Builds the production bundle and stylesheet, boots the app on in-memory Datomic, and exits
+      # non-zero unless its last line reads "E2E RESULT ... PASS".
+      - name: Pages load only their allowance, under the bundle ceiling
+        run: ./scripts/e2e/run.sh test/browser/page_load_budget_e2e.js
+

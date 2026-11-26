@@ -3,6 +3,7 @@
   ;; explicit :refer to avoid namespace pollution from :refer :all
   (:require [clojure.test :refer [deftest is testing]]
             [orcpub.config :as config]
+            [orcpub.errors :as errors]
             [orcpub.routes :as routes]
             [orcpub.work-pool :as work-pool])
   (:import (java.util.concurrent Semaphore)))
@@ -128,11 +129,14 @@
           bounded (bound-request {:character-name "T"
                                   :spellcasting-class-1 "Wizard"
                                   (keyword (str "spellcasting-class-" (inc ceiling))) "Wizard"
-                                  :spellcasting-class-9999 "Wizard"})]
+                                  :spellcasting-class-9999 "Wizard"
+                                  :spellcasting-class-9223372036854775808 "Wizard"})]
       (is (contains? bounded :spellcasting-class-1))
       (is (not (contains? bounded :spellcasting-class-9999))
           "the field is dropped, so neither the handler nor add-missing-spell-pages!
            can derive a number too large -- the reason the first fix missed one")
+      (is (not (contains? bounded :spellcasting-class-9223372036854775808))
+          "a number too long to parse is dropped too, not let through as zero")
       (is (= "T" (:character-name bounded)) "ordinary fields pass through")))
 
   (testing "any collection is capped, including one nobody has written yet"
@@ -148,6 +152,24 @@
                                                  :bard   (repeat limit {:key :z})}}) ]
       (is (= limit (reduce + (map count (vals (:spells-known bounded)))))
           "capping per class would let thirteen classes carry the limit each")))
+
+  (testing "a zero-padded caster name cannot pass as a second section"
+    (let [bounded (bound-request {:spellcasting-class-1 "Wizard"
+                                  :spellcasting-class-01 "Cleric"
+                                  :spellcasting-class-0 "Bard"})]
+      (is (contains? bounded :spellcasting-class-1))
+      (is (not (contains? bounded :spellcasting-class-01))
+          "-01 parses to 1, so fourteen padded names would pass a ceiling of 13")
+      (is (not (contains? bounded :spellcasting-class-0)) "section 0 does not exist")))
+
+  (testing "sets are capped too, top-level or in a map, and stay sets"
+    (let [limit (config/get-pdf-max-cards)
+          bounded (bound-request {:top (set (range (* 3 limit)))
+                                  :by-class {:wizard (set (range (* 3 limit)))
+                                             :cleric (vec (range (* 3 limit)))}})]
+      (is (= limit (count (:top bounded))))
+      (is (set? (:top bounded)) "a reader that expects a set still gets one")
+      (is (= limit (reduce + (map count (vals (:by-class bounded))))))))
 
   (testing "scalars and nil are untouched"
     (is (= {:a 1 :b "x" :c nil :d true}
@@ -170,3 +192,23 @@
         (is (= 6 (count (filter #(re-matches #"spellcasting-class-\d+" (name %))
                                 (keys bounded))))
             "only the sections within the ceiling survive parsing")))))
+
+(deftest truncating-a-request-says-so
+  ;; bound-request caps collections before anything else sees them, so bound-cards'
+  ;; own "n requested, m printed" check compares a capped count against the cap and is
+  ;; never true. The cards went missing in silence -- the exact failure the notice page
+  ;; was added for, defeated by the order the two bounds run in.
+  (let [limit (config/get-pdf-max-cards)
+        over (+ limit 7)]
+    (testing "a request over the cap records what it lost"
+      (binding [errors/*notices* (atom [])]
+        (let [bounded (bound-request {:spells-known {:wizard (repeat over {:key :acid-arrow})}})]
+          (is (= limit (count (:wizard (:spells-known bounded)))) "still capped")
+          (let [n (errors/notices)]
+            (is (seq n) "the truncation is reported")
+            (is (some #(re-find (re-pattern (str over)) (:detail %)) n)
+                (str "the notice names the " over " requested: " (pr-str n)))))))
+    (testing "a request within the cap stays silent"
+      (binding [errors/*notices* (atom [])]
+        (bound-request {:spells-known {:wizard (repeat 3 {:key :acid-arrow})}})
+        (is (empty? (errors/notices)) "nothing was lost, so nothing is claimed")))))

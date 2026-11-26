@@ -19,7 +19,7 @@
 (defn- get-route
   "The GET route at `path` in the server's routes, or nil."
   [path]
-  (first (filter #(and (= :get (:method %)) (= path (:path %))) routes/routes)))
+  (first (filter #(and (= :get (:method %)) (= path (:path %))) (:routes routes/routes))))
 
 (deftest the-data-page-and-its-repair-alias-are-served
   (doseq [route-key [route-map/dnd-e5-char-data-page-route route-map/dnd-e5-char-repair-page-route]]

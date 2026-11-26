@@ -44,8 +44,8 @@ drawing is served anyway.
   seconds for edits like hit points; those find the file already there and do nothing. A changed
   portrait is drawn once, 3 s after the last save of a burst, with what was saved last. A removed
   portrait's files are deleted.
-- **On request.** Memory (64 drawings), then the file, then a draw. Characters saved before this
-  existed are drawn on their first request and kept.
+- **On request.** Memory (64 drawings), then the file, then a draw. A character with no stored drawing
+  is drawn on its first request and kept.
 - **Limits.** Every draw takes a portrait-pool permit; concurrent requests for one drawing share
   it. A save never waits for a draw.
 
@@ -72,6 +72,15 @@ image someone uploads, and the shared picture carries the artist's name.
 
 When a portrait changes, its fingerprint and so its address change: chat apps that cached the old
 picture under the old address fetch the new one, and nothing has to be purged.
+
+## Artist-page examples
+
+`/artists/<slug>/examples/<n>` draws its small watermarked JPEG through the same portrait pool
+(`portrait-store/draw-pool`), single-flight and kept in a bounded cache keyed by artist, example and
+watermark text (the text comes from the artist's links, so an edit makes new keys and old ones age
+out). A failed draw is remembered for 60 s, so a broken example is not redrawn on every request. A
+busy pool answers 503 + Retry-After. The credits are refreshed first, so a fresh container
+watermarks with the artist's current links.
 
 ## Strand fields
 

@@ -11,7 +11,11 @@
       log/error's value instead discards the response: Pedestal then has
       nothing to write and Jetty emits a bare 200. That is what made defect 1
       silent -- the exception was logged, but the response was already gone."
-  (:require [clojure.test :refer [deftest testing is use-fixtures]]
+  (:require [io.pedestal.http.jetty]
+            [io.pedestal.http.route]
+            [io.pedestal.connector.test]
+            [orcpub.system]
+            [clojure.test :refer [deftest testing is use-fixtures]]
             [orcpub.pedestal :as pedestal])
   (:import [java.time ZonedDateTime]
            [java.time.format DateTimeFormatter]
@@ -98,3 +102,70 @@
           out (leave ctx)]
       (is (= 304 (get-in out [:response :status])))
       (is (nil? (get-in out [:response :body]))))))
+
+(defn- referrer-leave
+  "The :leave of orcpub.pedestal's referrer-policy interceptor, or nil when there is none."
+  []
+  (some-> (ns-resolve 'orcpub.pedestal 'referrer-policy-interceptor) deref :leave))
+
+(deftest every-page-sends-only-its-origin-to-other-sites
+  (let [leave (or (referrer-leave) identity)]
+    (testing "a page that says nothing gets strict-origin-when-cross-origin: other sites see the domain"
+      (is (= "strict-origin-when-cross-origin"
+             (get-in (leave {:response {:status 200 :headers {}}}) [:response :headers "Referrer-Policy"]))))
+    (testing "a page that set its own keeps it (the password-reset page sends nothing at all)"
+      (is (= "no-referrer"
+             (get-in (leave {:response {:status 200 :headers {"Referrer-Policy" "no-referrer"}}})
+                     [:response :headers "Referrer-Policy"]))))))
+
+(def ^:private stream-closed?
+  "Whether the body /stream last answered with has been closed."
+  (atom false))
+
+(defn- stream-body
+  "An input stream holding \"data\" that sets stream-closed? when it is closed."
+  []
+  (reset! stream-closed? false)
+  (proxy [java.io.ByteArrayInputStream] [(.getBytes "data")]
+    (close [] (reset! stream-closed? true))))
+
+(defn- service-response
+  "The response of a minimal service built the way system.clj builds the real one (default
+   interceptors, then the referrer policy and HEAD handling first), for a request of `path` with
+   `method` (default :get). Routes: /here (text), /edn (a map) and /stream (stream-body)."
+  ([path] (service-response :get path))
+  ([method path]
+   (let [wrap (fn [sym] (or (some-> (ns-resolve 'orcpub.system sym) deref) identity))
+         service (-> {:routes (io.pedestal.http.route/expand-routes #{["/here" :get (fn [_] {:status 200 :body "ok"}) :route-name ::here]
+                                                 ["/edn" :get (fn [_] {:status 200 :body {:a 1}}) :route-name ::edn]
+                                                 ["/stream" :get (fn [_] {:status 200 :body (stream-body)}) :route-name ::stream]})
+                      :resource-path "/public"
+                      :interceptors []
+                      :port 0}
+                     orcpub.system/default-interceptors
+                     ((wrap 'with-referrer-policy))
+                     ((wrap 'with-head-as-get))
+                     (io.pedestal.http.jetty/create-connector {}))]
+     (io.pedestal.connector.test/response-for service method path))))
+
+(deftest a-head-request-is-answered-like-a-get-without-the-body
+  (doseq [path ["/here" "/edn" "/stream" "/favicon.ico"]
+          :let [get-resp (service-response :get path)
+                head-resp (service-response :head path)]]
+    (testing path
+      (is (= 200 (:status get-resp)))
+      (is (= 200 (:status head-resp)) "HEAD finds the page GET finds")
+      (is (nil? (:body head-resp)) "and sends no body")
+      (is (= (get-in get-resp [:headers "Content-Type"]) (get-in head-resp [:headers "Content-Type"])))
+      (is (= "strict-origin-when-cross-origin" (get-in head-resp [:headers "Referrer-Policy"])))))
+  (testing "a stream body HEAD drops is closed"
+    (service-response :head "/stream")
+    (is @stream-closed?))
+  (is (= "application/edn" (get-in (service-response :head "/edn") [:headers "Content-Type"])))
+  (is (= 404 (:status (service-response :head "/no-such-page"))) "a missing page is still missing")
+  (is (= :head-as-get (-> (orcpub.system/system :prod) :service-map :interceptors first :name))
+      "the real service reads HEAD as GET before anything else"))
+
+(deftest static-files-and-404s-carry-the-referrer-policy-too
+  (doseq [path ["/favicon.ico" "/no-such-page"]]
+    (is (= "strict-origin-when-cross-origin" (get-in (service-response path) [:headers "Referrer-Policy"])) path)))

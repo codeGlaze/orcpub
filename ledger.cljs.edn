@@ -1,5 +1,6 @@
-;; Figwheel-main build: the character data page's own script (advanced compilation, always).
-;; Run with: lein fig:ledger   (also part of `lein build` and the Docker build)
+;; The character data page's own script (advanced compilation, always), compiled by cljs.main.
+;; Run with: lein cljs:ledger   (fig:ledger is the same alias; also part of `lein build` and the
+;; Docker build). The metadata map below is figwheel's and is ignored by cljs.main.
 ;; The page (orcpub.ledger-page) loads this and never the app bundle. character-rescue.md
 ^{:watch-dirs ["src/cljc" "src/cljs"]
   :css-dirs []}

@@ -4,6 +4,7 @@
             [orcpub.common :as common]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.content-specs :as content-specs]
+            [orcpub.dnd.e5.homebrew-shapes :as shapes]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.character-drafts :as drafts]
@@ -73,6 +74,10 @@
 ;; switch itself stays visible and labelled so the tools are one click away when
 ;; validation is the thing that's broken.
 (def local-storage-dev-mode-key "dev-mode")
+
+;; Show the builder's "select any number / complete" lines, which never say anything. Per-device;
+;; absent means hidden. Stored as "show" because a stored false reads as absent.
+(def local-storage-show-empty-pick-counts-key "show-empty-pick-counts")
 
 (def default-route route-map/dnd-e5-char-builder-route)
 
@@ -370,22 +375,15 @@
   (when js/window.localStorage
     (set-item local-storage-health-dismissed-key (str sig))))
 
-(defn cookie-banner-pending?
-  "Will the cookie notice (resources/public/js/cookies.js) put itself on screen?
-   It shows unless its consent cookie is set or the localStorage opt-out is on.
-   Two overlays at once on a first visit is one too many, so the release panel
-   waits a visit rather than stacking on top of it."
-  []
-  (let [suppressed? (try
-                      (= "1" (.getItem js/window.localStorage "orcpub:no-cookie-banner"))
-                      (catch js/Object _ false))
-        consented? (boolean (re-find #"flatsome_cookie_notice"
-                                     (or js/document.cookie "")))]
-    (not (or suppressed? consented?))))
-
 (defn dev-mode->local-store [on?]
   (when js/window.localStorage
     (set-item local-storage-dev-mode-key (str (boolean on?)))))
+
+(defn show-empty-pick-counts->local-store
+  "Stores whether the builder shows pick counts that say nothing. Args: `on?`. Returns nil."
+  [on?]
+  (when js/window.localStorage
+    (set-item local-storage-show-empty-pick-counts-key (str (boolean on?)))))
 
 (defn whats-new-seen->local-store [release-id]
   (when js/window.localStorage
@@ -619,6 +617,13 @@
  local-storage-dev-mode-key
  ::dev-mode)
 
+;; Whether the builder shows pick counts that say nothing on this device.
+(spec/def ::show-empty-pick-counts boolean?)
+(reg-local-store-cofx
+ ::e5/show-empty-pick-counts
+ local-storage-show-empty-pick-counts-key
+ ::show-empty-pick-counts)
+
 ;; Which release the What's New panel last showed on this device.
 (spec/def ::whats-new-seen string?)
 (reg-local-store-cofx
@@ -779,10 +784,10 @@
    (assoc cofx
           ::e5/plugins
           (when-let [stored (get-local-storage-item local-storage-plugins-key)]
-            ;; Put damaged shapes back first (e5/mend-library), a library stored as
+            ;; Put damaged structure back first (homebrew-shapes/read-library), a library stored as
             ;; text included. The mended library is written back below, so each
             ;; repair happens once.
-            (let [{mended :library repairs :repairs} (e5/mend-library stored)]
+            (let [{mended :library repairs :repairs} (shapes/read-library stored)]
               (if (not (map? mended))
                 ;; Still not a library: preserve raw in the :corrupt slot — NOT
                 ;; :rejected, a clean name-keyed map we must not clobber — and load
@@ -802,23 +807,37 @@
 
                 ;; It's a map: salvage per source — keep the valid sources and
                 ;; reconcile the name-keyed quarantine map (see reconcile-rejected).
-                (let [;; An entry with no source takes the name of the source it is
+                (let [;; Then made to fit homebrew-shapes, before anything reads it: the fixes are
+                      ;; written back below, after a copy of the library as it was; an entry
+                      ;; that cannot be read is set aside with the rest, as written.
+                      {cleaned :library findings :findings} (shapes/clean-library mended)
+                      {shaped :library unreadable :set-aside}
+                      (shapes/split-unreadable cleaned mended findings)
+                      reshaped? (not (identical? shaped mended))
+                      ;; the repaired library is written back only once a copy of the original is kept
+                      backed-up? (not (and reshaped? (:failed? (keep-pre-fix-copy! mended))))
+                      ;; An entry with no source takes the name of the source it is
                       ;; stored under (e5/source-for) rather than being set aside --
                       ;; written back with the repairs below.
-                      {sourced :library fills :filled} (e5/fill-library-sources mended)
+                      {sourced :library fills :filled} (e5/fill-library-sources shaped)
                       {:keys [kept rejected]}
                       ;; PER-ENTRY salvage: keep each source's valid items, set aside only its broken
                       ;; ones, so one bad entry can't drop a whole source. The item floor comes from
                       ;; the shared content-specs registry (save & load agree, not inline, so it can't
                       ;; drift); `rejected` is usually empty here, a defensive net for when the floor tightens.
                       (e5/salvage-library-items content-specs/valid-item-for-load? sourced)
+                      rejected (e5/merge-all-plugins rejected unreadable)
                       reconciled (e5/reconcile-rejected-items
                                   (get-local-storage-item local-storage-plugins-rejected-key)
                                   rejected
                                   kept)]
                   (persist-set-aside! set-item
                                       #(when js/window.localStorage (.removeItem js/window.localStorage %))
-                                      kept reconciled rejected (or (seq repairs) (seq fills)))
+                                      kept reconciled rejected (or (seq repairs) (seq fills) (and reshaped? backed-up?)))
+                  (when reshaped?
+                    (js/console.warn
+                     (str "Made damaged homebrew fit on load: "
+                          (pr-str (mapv (juxt :source :key :path :action) findings)))))
                   (when (seq fills)
                     (js/console.warn
                      (str "Gave " (count fills) " homebrew entr" (if (= 1 (count fills)) "y" "ies")

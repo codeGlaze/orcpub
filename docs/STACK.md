@@ -7,7 +7,7 @@ A guide to the libraries, frameworks, and architecture for developers getting or
 ```
 Browser (ClojureScript)          Server (Clojure/JVM)
 ┌─────────────────────┐          ┌─────────────────────┐
-│  Reagent + React 18 │  HTTP    │  Pedestal 0.7       │
+│  Reagent + React 18 │  HTTP    │  Pedestal 0.8       │
 │  re-frame           │ ◄──────► │  Buddy (auth)       │
 │  Garden (CSS)       │  Transit │  PDFBox 3 (PDF gen) │
 │  Figwheel (dev)     │          │  Datomic Pro (db)   │
@@ -35,7 +35,7 @@ This is a **Clojure/ClojureScript monorepo**. Code lives in three source trees:
 
 Reagent 2.0 uses React 18's `createRoot` API. The app mounts via `reagent.dom.client/render`.
 
-**Key gotcha**: Use `:class` (not `:class-name`) when the hiccup tag has inline classes like `[:div.foo ...]`. Reagent 2.x changed `:class-name` to overwrite rather than merge.
+**Note:** Use `:class` (not `:class-name`) when the hiccup tag has inline classes like `[:div.foo ...]`. Reagent 2.x changed `:class-name` to overwrite rather than merge.
 
 ### re-frame (State Management)
 
@@ -66,19 +66,20 @@ We use the **lambdaisland/garden** fork (drop-in replacement) because the origin
 
 ### Figwheel (Hot Reload)
 
-[figwheel-main](https://figwheel.org/) provides hot code reloading during development:
+[figwheel-main](https://figwheel.org/) provides hot code reloading during development. It is a dev-only dependency (`:dev-config` profile), not in the uberjar; the production bundle is built by `lein cljs:prod` (`fig:prod` is the same alias):
 
 | Command | Mode | Use |
 |---------|------|-----|
 | `lein fig:dev` | REPL + watch | Interactive development |
 | `lein fig:watch` | Watch (headless) | Background/scripted |
 | `lein fig:build` | Build once | CI / compilation check |
+| `lein cljs:prod` | Production build | Release bundle, no figwheel |
 
 Config: `dev.cljs.edn` (preloads, compiler options).
 
 ## Backend
 
-### Pedestal 0.7 (Web Framework)
+### Pedestal 0.8 (Web Framework)
 
 [Pedestal](http://pedestal.io/) is an interceptor-based web framework. Routes map URL patterns to interceptor chains:
 
@@ -90,7 +91,7 @@ Config: `dev.cljs.edn` (preloads, compiler options).
 
 Interceptors are composable middleware units (auth, parsing, ownership checks). Always wrap with `interceptor/interceptor` for proper Pedestal records.
 
-**Pinned at 0.7.0**: Pedestal 0.7.1+ uses Jetty 12, which breaks figwheel-main's Ring adapter. See `project.clj` comments.
+**Jetty 12.1.15**: every Jetty artifact is pinned in `:managed-dependencies` so Pedestal and figwheel agree. See [migration/pedestal-0.8.md](migration/pedestal-0.8.md).
 
 ### Datomic Pro (Database)
 
@@ -155,7 +156,7 @@ Key aliases:
 
 | Command | What it does |
 |---------|-------------|
-| `lein test` | Run JVM tests (206 tests) |
+| `lein test` | Run the JVM tests |
 | `lein fig:build` | One-shot CLJS compilation |
 | `lein fig:dev` | CLJS dev with REPL + hot reload |
 | `lein fig:test` | Compile + run CLJS tests in browser |
@@ -163,9 +164,9 @@ Key aliases:
 | `lein lint` | Run clj-kondo linter |
 | `lein uberjar` | Production build (AOT + advanced CLJS + CSS) |
 
-**Known issue**: `lein uberjar` hangs after completing the build due to
-Clojure's non-daemon agent threads. Docker builds use `timeout` to work
-around this. See [LEIN-UBERJAR-HANG.md](LEIN-UBERJAR-HANG.md) for details.
+`lein uberjar` can hang after AOT compilation finishes and before the JAR is written, because of
+Clojure's non-daemon agent threads; until it exits there is no usable JAR.
+The Docker build works around it with `timeout`. See [LEIN-UBERJAR-HANG.md](LEIN-UBERJAR-HANG.md) for details.
 
 ### Profiles
 
@@ -204,10 +205,10 @@ Several dependencies are pinned to specific versions for compatibility:
 
 | Dependency | Pin | Reason |
 |-----------|-----|--------|
-| Pedestal | 0.7.0 | 0.7.1+ uses Jetty 12, breaks figwheel |
+| Jetty (all artifacts) | 12.1.15 | Pedestal brings 12.0.x, figwheel's Ring 12.1.x; a mix fails at start-up |
 | Jackson | 2.15.2 | Resolves transitive conflicts and CVEs |
 | Guava | 32.1.2-jre | Same |
-| commons-io | 2.15.1 | Required by Pedestal 0.7 ring-middlewares |
+| commons-io | 2.15.1 | Required by Pedestal ring-middlewares |
 | javax.servlet-api | 4.0.1 | Required on Java 9+ |
 
 See [migration/library-upgrades.md](migration/library-upgrades.md) for the full upgrade history.

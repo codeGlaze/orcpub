@@ -5,9 +5,13 @@
             [datomic.api :as datomic]
             [buddy.hashers :as hashers]
             [orcpub.routes :as r]
+            [orcpub.routes.auth :as auth]
             [orcpub.system :as s]
+            [orcpub.common :as common]
+            [orcpub.server :as server]
             [orcpub.db.schema :as schema]
-            [orcpub.config :as config])
+            [orcpub.config :as config]
+            [orcpub.user-email :as user-email])
   (:gen-class))
 
 ;; ---------------------------------------------------------------------------
@@ -110,6 +114,9 @@
 
 (defn start-server
   []
+  ;; scripts/start.sh starts the server here, not through -main, so the pin is needed
+  ;; on this path too -- it is the one self-hosters run.
+  (server/pin-locale!)
   ; restart
   (stop-server)
   (reset! -server (component/start (s/system :dev))))
@@ -119,9 +126,9 @@
    since the email never gets sent."
   [username-or-email]
   (with-db [conn db]
-    (let [user (r/find-user-by-username-or-email db username-or-email)
+    (let [user (auth/find-user-by-username-or-email db username-or-email)
           verification-key (:orcpub.user/verification-key user)]
-      (r/verify {:query-params {:key verification-key}
+      (auth/verify {:query-params {:key verification-key}
                  :conn conn
                  :db db}))))
 
@@ -164,7 +171,7 @@
     (let [username "test"
           email "test@example.com"
           password "testpass"]
-      (r/register {:username username :email email :password password :verified true}))
+      (auth/register {:username username :email email :password password :verified true}))
     (println "add-test-user is disabled outside dev environment.")))
 
 ;; ---------------------------------------------------------------------------
@@ -181,9 +188,14 @@
 ;; User CRUD (for CLI and REPL use — does not require a running server)
 ;; ---------------------------------------------------------------------------
 
-(defn email-exists? [db email]
-  (boolean (datomic/q '[:find ?e . :in $ ?email :where [?e :orcpub.user/email ?email]]
-                      db (str/lower-case email))))
+(defn email-exists?
+  "Whether an account in `db` has email `email`, in any casing."
+  [db email]
+  (boolean (datomic/q '[:find ?e . :in $ ?email
+                         :where (or-join [?e ?email]
+                                         [?e :orcpub.user/email-key ?email]
+                                         [?e :orcpub.user/email ?email])]
+                      db (user-email/email-key email))))
 
 (defn username-exists? [db username]
   (boolean (datomic/q '[:find ?e . :in $ ?username :where [?e :orcpub.user/username ?username]]
@@ -199,7 +211,7 @@
     lein with-profile init-db run -m user create-user bob bob@example.com pass verify"
   [conn {:keys [username email password verify? send-updates?] :or {verify? false send-updates? false}}]
   (let [db (datomic/db conn)
-        email (when email (str/lower-case (str/trim email)))
+        email (user-email/email-key email)
         username (when username (str/trim username))]
     (cond
       (and email (email-exists? db email))
@@ -212,6 +224,7 @@
       (let [now (java.util.Date.)
             pw (hashers/encrypt (or password "password"))
             tx {:orcpub.user/email email
+                :orcpub.user/email-key email
                 :orcpub.user/username username
                 :orcpub.user/password pw
                 :orcpub.user/created now
@@ -224,7 +237,7 @@
    Does not require a running server."
   [conn username-or-email]
   (let [db (datomic/db conn)
-        user (r/find-user-by-username-or-email db username-or-email)]
+        user (auth/find-user-by-username-or-email db username-or-email)]
     (if-not user
       (throw (ex-info "User not found" {:username-or-email username-or-email}))
       @(datomic/transact conn [[:db/add (:db/id user) :orcpub.user/verified? true]]))))
@@ -233,7 +246,7 @@
   "Remove a user entity by username or email. Dev only."
   [conn username-or-email]
   (let [db (datomic/db conn)
-        user (r/find-user-by-username-or-email db username-or-email)]
+        user (auth/find-user-by-username-or-email db username-or-email)]
     (if-not user
       (throw (ex-info "User not found" {:username-or-email username-or-email}))
       @(datomic/transact conn [[:db/retractEntity (:db/id user)]]))))

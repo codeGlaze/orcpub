@@ -1,5 +1,7 @@
 (ns orcpub.config
   (:require [orcpub.env :as env]
+            [orcpub.fork.branding :as branding]
+            [orcpub.whats-new :as whats-new]
             [clojure.string :as str]
             [clojure.java.io :as io])
   (:import [java.util Locale]))
@@ -16,14 +18,14 @@
 
 (defn redact-secrets
   "Blank out credentials in a connection string so it can be logged; nil for nil.
-   Redacts a `password=`/`secret=`/`token=`-style query parameter and `scheme://user:pass@host`
-   userinfo; anything else is returned unchanged.
+   Redacts a query parameter whose name ends in password, passwd, pwd, secret, token or api-key
+   (so `sslpassword=` too) and `scheme://user:pass@host` userinfo; anything else is unchanged.
    GOTCHA: redacted is not safe to print. Call it only on values meant to be seen, and never
    widen what is logged because it is redacted."
   [s]
   (when s
     (-> (str s)
-        (str/replace #"(?i)([?&](?:password|passwd|pwd|secret|token|api[-_]?key)=)[^&\s]*" "$1****")
+        (str/replace #"(?i)([?&][\w-]*(?:password|passwd|pwd|secret|token|api[-_]?key)=)[^&\s]*" "$1****")
         (str/replace #"(?i)(://[^:/?#\s]+):[^@/?#\s]+@" "$1:****@"))))
 
 (defn datomic-env
@@ -50,16 +52,16 @@
       (env/value :profile-encryption-keys)))
 
 (defn get-datomic-uri
-  "Return the Datomic URI: the raw env value (`datomic-env`), else the local development
-  default datomic:dev://localhost:4334/orcpub.
-
-  When DATOMIC_PASSWORD is set and the URL has no `password=`, appends `?password=<pw>`, so
-  the password can be kept out of DATOMIC_URL (e.g. in a Docker secret)."
+  "Returns DATOMIC_URL (`datomic-env`), else datomic:dev://localhost:4334/orcpub. When
+  DATOMIC_PASSWORD is set and the URL has no `password=` parameter (`sslpassword=` is another),
+  appends `password=<pw>` to the innermost URL's query: `?` when it has none, else `&`.
+  GOTCHA: a SQL URI always has a `?` before `jdbc:`; only the text after the last `://` counts."
   []
   (let [url (or (datomic-env) default-datomic-uri)
-        pw  (datomic-password)]
-    (if (and pw (not (str/includes? url "password=")))
-      (str url "?password=" pw)
+        pw  (datomic-password)
+        inner (if-let [i (str/last-index-of url "://")] (subs url (+ i 3)) url)]
+    (if (and pw (not (re-find #"(?i)[?&]password=" url)))
+      (str url (if (str/includes? inner "?") "&" "?") "password=" pw)
       url)))
 
 ;; CSP_POLICY options (read by `get-csp-policy`):
@@ -71,11 +73,13 @@
   "CSP that allows same-origin scripts without strict-dynamic.
    Compatible with traditional <script src> tags. Less secure than strict mode."
   {:default-src "'self'"
-   :script-src "'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com"
-   :style-src "'self' 'unsafe-inline' https://fonts.googleapis.com"
-   :font-src "'self' https://fonts.gstatic.com"
+   :script-src "'self' 'unsafe-inline' 'unsafe-eval'"
+   :style-src "'self' 'unsafe-inline'"   ; + https://fonts.googleapis.com to use Google Fonts
+   :font-src "'self'"                    ; + https://fonts.gstatic.com to use Google Fonts
    :img-src "'self' data: https:"
    :object-src "'none'"})
+
+(def turnstile-origin "https://challenges.cloudflare.com")
 
 (defn get-csp-policy
   "Return the CSP policy from CSP_POLICY env var. Defaults to 'strict'."
@@ -199,6 +203,44 @@
   (or (not-empty (env/value :portrait-store-dir))
       (str (io/file (System/getProperty "java.io.tmpdir") "orcpub-portraits"))))
 
+(defn get-alert-spool-dir
+  "Where admin alerts that could not be sent wait, from ALERT_SPOOL_DIR. Defaults to orcpub-alerts
+   under the system temp directory, which a replaced container loses: point it at a volume."
+  []
+  (or (not-empty (env/value :alert-spool-dir))
+      (str (io/file (System/getProperty "java.io.tmpdir") "orcpub-alerts"))))
+
+(defn get-alert-max-per-hour
+  "Most admin alert emails sent in an hour, from ALERT_MAX_PER_HOUR; past it alerts are logged only."
+  []
+  (positive-int-env ["ALERT_MAX_PER_HOUR"] 20))
+
+(defn get-trusted-proxies
+  "Extra proxies to trust for the player's address, from TRUSTED_PROXIES: comma-separated
+   addresses or CIDR ranges, or nil. Private networks are always trusted."
+  []
+  (env/value :trusted-proxies))
+
+(defn trust-cloudflare?
+  "Whether Cloudflare's edge ranges are trusted as proxies, from TRUST_CLOUDFLARE: only when the site
+   is served through Cloudflare."
+  []
+  (env/flag? :trust-cloudflare))
+
+(defn redis-url
+  "REDIS_URL, where the abuse limits are counted when several app containers share them, or nil
+   for this server's own memory. May carry a password: never print it."
+  []
+  (env/value :redis-url))
+
+(defn copy-name
+  "This server's name among several copies: HOSTNAME (Docker and Swarm set it per container), else
+   the machine's host name, else \"server\". Names its alert spool file and its alerts."
+  []
+  (or (env/value :hostname)
+      (try (.getHostName (java.net.InetAddress/getLocalHost)) (catch Exception _ nil))
+      "server"))
+
 (defn dev-mode?
   "Returns true when running in dev mode (DEV_MODE env var is 'true').
    Env vars are strings — (boolean \"false\") is true in Clojure, so we
@@ -232,25 +274,44 @@
        "   Keep it stable: changing it signs out everyone and invalidates unsubscribe links."))
 
 (def email-missing-message
-  "Registration is inside the same try as the verification email, so an unconfigured mail
-   server does not merely skip the email -- signup throws and the caller is told to \"try
-   again\", which will never work. Password reset fails the same way."
+  "Fix text for the EMAIL_SERVER_URL row. `start-refusal` stops a deployed server that has no SMTP
+   unless DEV_MODE, EMAIL_REQUIRED=false or ALLOW_UNVERIFIED_REGISTRATION opts out, so this row
+   shows only on a server that opted out. What signup does then is the value of the
+   ALLOW_UNVERIFIED_REGISTRATION row, so the text names both outcomes."
   (str "EMAIL_SERVER_URL is not set, so no mail can be sent.\n"
-       "   Registration FAILS for every new user -- the verification email is sent inside the\n"
-       "   signup transaction, so the whole signup errors with \"please try again\". Password\n"
-       "   reset fails too, so existing users cannot recover an account.\n"
+       "   This server started without it on purpose (DEV_MODE, EMAIL_REQUIRED=false or\n"
+       "   ALLOW_UNVERIFIED_REGISTRATION=true). Password reset FAILS and admin alerts reach nobody.\n"
+       "   Signup is REFUSED with a message, unless ALLOW_UNVERIFIED_REGISTRATION=true,\n"
+       "   which accepts accounts without checking the address -- private sites only.\n"
+       "   The ALLOW_UNVERIFIED_REGISTRATION row above shows which is in effect.\n"
        "   Fix: set EMAIL_SERVER_URL to your SMTP host, with EMAIL_ACCESS_KEY and\n"
        "        EMAIL_SECRET_KEY for authentication, then restart.\n"
        "        EMAIL_SERVER_PORT defaults to 587; set EMAIL_SSL or EMAIL_TLS if required."))
+
+(defn registration-mode
+  "What signup will do, given `smtp?` (EMAIL_SERVER_URL set) and `open?`
+   (ALLOW_UNVERIFIED_REGISTRATION=true): the VALUE of that row. Returns \"verified by email\",
+   \"REFUSED: no mail server\", \"OPEN: no address check\" or \"verified by email (flag set, inert)\".
+   GOTCHA: inert is not harmless; if the SMTP value is lost, signup opens on the next start."
+  [smtp? open?]
+  (cond (and smtp? open?) "verified by email (flag set, inert)"
+        smtp?             "verified by email"
+        open?             "OPEN: no address check"
+        :else             "REFUSED: no mail server"))
+
+(def current-release
+  "The release this build ships as. Settings whose `:since` is this one end the boot report while
+   unset, so an operator upgrading sees what is new."
+  "Long Rest Update")
 
 (def branding-vars
   "The APP_* fork-branding variables. Reported as a count rather than twenty rows -- a
    banner nobody reads because it scrolls is no better than no banner."
   ["APP_NAME" "APP_TAGLINE" "APP_PAGE_TITLE" "APP_URL" "APP_LOGO_PATH" "APP_OG_IMAGE"
-   "APP_HELP_URL" "APP_SUPPORT_EMAIL" "APP_EMAIL_SENDER_NAME"
+   "APP_HELP_URL" "APP_SUPPORT_EMAIL" "APP_EMAIL_SENDER_NAME" "APP_EMAIL_SIGNOFF"
    "APP_COPYRIGHT_HOLDER" "APP_COPYRIGHT_URL" "APP_COPYRIGHT_YEAR"
    "APP_FIELD_LIMIT_NOTES" "APP_FIELD_LIMIT_NUMBER" "APP_FIELD_LIMIT_TEXT"
-   "APP_SOCIAL_BLUESKY" "APP_SOCIAL_DISCORD" "APP_SOCIAL_FACEBOOK"
+   "APP_SOCIAL_BLUESKY" "APP_SOCIAL_DEV_TIP" "APP_SOCIAL_DISCORD" "APP_SOCIAL_FACEBOOK"
    "APP_SOCIAL_PATREON" "APP_SOCIAL_REDDIT" "APP_SOCIAL_TWITTER"])
 
 (defn get-share-max-upload-kb
@@ -297,77 +358,167 @@
   (let [raw (some-> (env-raw "ORCPUB_PWNED_CHECK") str/trim (.toLowerCase Locale/ROOT))]
     (not (contains? #{"off" "false" "0" "no"} raw))))
 
+(defn turnstile-site-key
+  "TURNSTILE_SITE_KEY (public, sent to the browser), or nil when unset or blank."
+  []
+  (env-raw "TURNSTILE_SITE_KEY"))
+
+(defn turnstile-secret-key
+  "TURNSTILE_SECRET_KEY, or nil when unset or blank. NEVER log, print or send it."
+  []
+  (env-raw "TURNSTILE_SECRET_KEY"))
+
+(defn twitch-client-id
+  "TWITCH_CLIENT_ID, or nil when unset or blank. Public in Twitch's eyes, but not logged."
+  []
+  (env-raw "TWITCH_CLIENT_ID"))
+
+(defn twitch-client-secret
+  "TWITCH_CLIENT_SECRET: the Docker secret /run/secrets/twitch_client_secret first, then the
+   environment variable; nil when neither is set. NEVER log, print or send it."
+  []
+  (or (read-secret "twitch_client_secret")
+      (env-raw "TWITCH_CLIENT_SECRET")))
+
+(defn twitch-enabled?
+  "True only when both the Twitch client id and secret are set; the artist pages' live
+   indicator is off otherwise."
+  []
+  (boolean (and (twitch-client-id) (twitch-client-secret))))
+
+(defn turnstile-enabled?
+  "Whether the sign-up, password-reset and resend-verification forms (and sign-in after a
+   failure) ask for a Cloudflare Turnstile check: only when BOTH TURNSTILE_SITE_KEY and
+   TURNSTILE_SECRET_KEY are set."
+  []
+  (boolean (and (turnstile-site-key) (turnstile-secret-key))))
+
+(defn- positive-int-text?
+  "Whether text `raw` reads as a positive whole number."
+  [raw]
+  (let [n (try (Integer/parseInt (str/trim raw)) (catch NumberFormatException _ nil))]
+    (boolean (and n (pos? n)))))
+
 (def settings
-  "Everything the boot banner reports, in print order.
-   `:secret?`: the VALUE IS NEVER PRINTED, only whether it is present.
+  "Everything the boot banner reports, in print order. `:secret?`: the VALUE IS NEVER PRINTED,
+   only whether it is present (`:present?` asks the getter, for one a Docker secret can supply).
    `:critical?`: its absence breaks the site; called out below the table, with its `:fix`.
    `:get`: resolves the value where an accessor exists; otherwise the raw env value is shown,
-   which is right for settings that have no default of ours."
+   which is right for settings that have no default of ours.
+   `:since`: the release that added it; `current-release` rows end the report while unset."
   (concat
-   [{:group "runtime"  :var "PORT"}
-    {:group "runtime"  :var "DEV_MODE"      :note "dev-only behaviour and relaxed CORS"}
-    {:group "database" :var "DATOMIC_URL"   :get #(get-datomic-uri) :redact? true}
-    {:group "database" :var "DATOMIC_PASSWORD" :secret? true}
-    {:group "security" :var "SIGNATURE"     :secret? true :critical? true
-     :note "JWT signing key; every login and API call fails without it"
+   [{:group "runtime"  :var "PORT" :since "2.5"}
+    {:group "runtime"  :var "DEV_MODE" :since "2.5"      :note "development only: relaxed CORS"}
+    {:group "database" :var "DATOMIC_URL" :since "2.5"   :get #(get-datomic-uri) :redact? true}
+    {:group "database" :var "DATOMIC_PASSWORD" :since "2.5" :secret? true :present? #(some? (datomic-password))}
+    {:group "security" :var "SIGNATURE" :since "2.5"     :secret? true :critical? true :present? #(some? (signature))
+     :note "signs logins; every login and API call fails without it"
      :fix signature-missing-message}
-    {:group "security" :var "CSP_POLICY"    :note "overrides the built-in policy"}
-    {:group "email"    :var "EMAIL_SERVER_URL" :critical? true :fix email-missing-message
-     :note "SMTP host; signup and password reset fail without it"}
-    {:group "email"    :var "EMAIL_SERVER_PORT" :note "defaults to 587"}
-    {:group "email"    :var "EMAIL_ACCESS_KEY" :secret? true}
-    {:group "email"    :var "EMAIL_SECRET_KEY" :secret? true}
-    {:group "email"    :var "EMAIL_FROM_ADDRESS"}
-    {:group "email"    :var "EMAIL_ERRORS_TO"}
-    {:group "email"    :var "EMAIL_ADMIN_TO"
-     :note "artist-account notices; falls back to EMAIL_ERRORS_TO"}
-    {:group "security" :var "PROFILE_ENCRYPTION_KEYS" :secret? true
-     :note "encrypts preferred names; or the profile_encryption_keys secret"}
-    {:group "content"  :var "LOAD_HOMEBREW_URL" :note "homebrew loaded at page load"}
-    {:group "content"  :var "PORTRAIT_ARTISTS"
-     :note "artist credits and artist accounts; see ARTISTS.md"}
-    {:group "content"  :var "APP_URL"
-     :note "public site address; artist emails need it for their links"}]
-   [{:group "capacity" :var "ORCPUB_HTTP_MAX_THREADS" :get #(get-http-max-threads)
-     :note "worker pool: requests of any kind in flight"}
-    {:group "capacity" :var "ORCPUB_PDF_CONCURRENCY" :get #(get-pdf-concurrency)
-     :note "sheets generated at once"}
-    {:group "capacity" :var "ORCPUB_PDF_QUEUE_TIMEOUT_MS" :get #(get-pdf-queue-timeout-ms)
-     :note "how long an export waits for a slot"}
-    {:group "capacity" :var "ORCPUB_PORTRAIT_CONCURRENCY" :get #(get-portrait-concurrency)
-     :note "shared-link portraits drawn at once"}
-    {:group "capacity" :var "ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS" :get #(get-portrait-queue-timeout-ms)
-     :note "how long a portrait waits to be drawn"}
-    {:group "capacity" :var "PORTRAIT_STORE_DIR" :get #(get-portrait-store-dir)
+    {:group "security" :var "TRUST_CLOUDFLARE" :since current-release
+     :get #(if (trust-cloudflare?) "true" "false")
+     :note "true when the site is served through Cloudflare"}
+    {:group "security" :var "TRUSTED_PROXIES" :since current-release
+     :note "proxies to trust besides private networks; comma-separated"}
+    {:group "security" :var "REDIS_URL" :since current-release :secret? true
+     :note "shared abuse limits; unset counts in memory"}
+    {:group "security" :var "CSP_POLICY" :since "2.5"    :note "strict, permissive or none"}
+    {:group "email"    :var "EMAIL_SERVER_URL" :since "2.5" :critical? true :fix email-missing-message
+     :note "SMTP host; sign-up and password reset need it"}
+    {:group "email"    :var "EMAIL_REQUIRED" :since current-release
+     :note "false: start without email; sign-up stays off"}
+    {:group "email"    :var "EMAIL_SERVER_PORT" :since "2.5" :note "default 587"}
+    {:group "email"    :var "EMAIL_SSL" :since "2.5" :note "TRUE: connect over SSL"}
+    {:group "email"    :var "EMAIL_TLS" :since "2.5" :note "TRUE: use STARTTLS"}
+    {:group "email"    :var "ALLOW_UNVERIFIED_REGISTRATION" :since current-release
+     :get #(registration-mode (some? (env/value :email-server-url))
+                              (env/flag? :allow-unverified-registration))
+     :note "true: sign-up without an email check; private sites"}
+    {:group "email"    :var "EMAIL_ACCESS_KEY" :since "2.5" :secret? true}
+    {:group "email"    :var "EMAIL_SECRET_KEY" :since "2.5" :secret? true}
+    {:group "email"    :var "EMAIL_FROM_ADDRESS" :since "2.5"}
+    {:group "email"    :var "EMAIL_ERRORS_TO" :since "2.5"
+     :note "admin alerts; default EMAIL_ADMIN_TO, APP_SUPPORT_EMAIL"}
+    {:group "email"    :var "ALERT_SPOOL_DIR" :since current-release :get #(get-alert-spool-dir)
      :accepts (complement str/blank?) :expects "a directory path"
-     :note "where shared-link portrait drawings are kept"}
-    {:group "capacity" :var "ORCPUB_PDF_MAX_RETRIES" :get #(get-pdf-max-retries)
-     :note "busy-page retries before it waits for a click"}
-    {:group "capacity" :var "ORCPUB_PDF_MAX_CASTER_SECTIONS" :get #(get-pdf-max-caster-sections)
-     :note "spellcasting sections one sheet may grow to"}
-    {:group "capacity" :var "ORCPUB_PDF_MAX_CARDS" :get #(get-pdf-max-cards)
-     :note "cards of each kind per export; 9 to a sheet, so 22 sheets"}
-    {:group "capacity" :var "ORCPUB_SHARE_MAX_UPLOAD_KB" :get #(get-share-max-upload-kb)
-     :note "compressed share data one share link keeps"}
-    {:group "capacity" :var "ORCPUB_SHARE_MAX_TEXT_KB" :get #(get-share-max-text-kb)
-     :note "that share data unpacked"}
-    {:group "capacity" :var "ORCPUB_SHARE_MAX_ACCOUNT_KB" :get #(get-share-max-account-kb)
-     :note "share data one account keeps in all"}
-    {:group "runtime" :var "ORCPUB_PWNED_CHECK" :get #(if (pwned-check-enabled?) "on" "off")
+     :note "unsent admin alerts; keep it on a volume"}
+    {:group "email"    :var "ALERT_MAX_PER_HOUR" :since current-release :get #(get-alert-max-per-hour)
+     :accepts positive-int-text? :expects "a positive whole number"
+     :note "alert emails per hour; more are only logged"}
+    {:group "email"    :var "EMAIL_ADMIN_TO" :since current-release
+     :note "artist notices; default EMAIL_ERRORS_TO, APP_SUPPORT_EMAIL"}
+    {:group "security" :var "PROFILE_ENCRYPTION_KEYS" :since current-release :secret? true
+     :present? #(some? (profile-encryption-keys))
+     :note "encrypts preferred names; or its Docker secret"}
+    {:group "content"  :var "LOAD_HOMEBREW_URL" :since "2.5" :note "homebrew loaded with every page"}
+    {:group "content"  :var "PORTRAIT_ARTISTS" :since current-release
+     :note "artist credits and accounts; see ARTISTS.md"}
+    {:group "content"  :var "APP_URL" :since "2.5"
+     :note "public site address, for links in emails"}]
+   [{:group "capacity" :var "ORCPUB_HTTP_MAX_THREADS" :since current-release :get #(get-http-max-threads)
+     :note "requests handled at once"}
+    {:group "capacity" :var "ORCPUB_PDF_CONCURRENCY" :since current-release :get #(get-pdf-concurrency)
+     :note "PDF sheets made at once"}
+    {:group "capacity" :var "ORCPUB_PDF_QUEUE_TIMEOUT_MS" :since current-release :get #(get-pdf-queue-timeout-ms)
+     :note "how long an export waits for a slot"}
+    {:group "capacity" :var "ORCPUB_PORTRAIT_CONCURRENCY" :since current-release :get #(get-portrait-concurrency)
+     :note "share-link portraits drawn at once"}
+    {:group "capacity" :var "ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS" :since current-release :get #(get-portrait-queue-timeout-ms)
+     :note "how long a portrait waits to be drawn"}
+    {:group "capacity" :var "PORTRAIT_STORE_DIR" :since current-release :get #(get-portrait-store-dir)
+     :accepts (complement str/blank?) :expects "a directory path"
+     :note "where share-link portraits are kept"}
+    {:group "capacity" :var "ORCPUB_PDF_MAX_RETRIES" :since current-release :get #(get-pdf-max-retries)
+     :note "busy retries before asking for a click"}
+    {:group "capacity" :var "ORCPUB_PDF_MAX_CASTER_SECTIONS" :since current-release :get #(get-pdf-max-caster-sections)
+     :note "spellcasting sections per sheet, at most"}
+    {:group "capacity" :var "ORCPUB_PDF_MAX_CARDS" :since current-release :get #(get-pdf-max-cards)
+     :note "cards of each kind per export, 9 a sheet"}
+    {:group "capacity" :var "ORCPUB_SHARE_MAX_UPLOAD_KB" :since current-release :get #(get-share-max-upload-kb)
+     :note "one share link's data, compressed"}
+    {:group "capacity" :var "ORCPUB_SHARE_MAX_TEXT_KB" :since current-release :get #(get-share-max-text-kb)
+     :note "one share link's data, unpacked"}
+    {:group "capacity" :var "ORCPUB_SHARE_MAX_ACCOUNT_KB" :since current-release :get #(get-share-max-account-kb)
+     :note "share data per account, in all"}
+    {:group "runtime" :var "ORCPUB_PWNED_CHECK" :since current-release :get #(if (pwned-check-enabled?) "on" "off")
      :accepts #(contains? #{"on" "off" "true" "false" "1" "0" "yes" "no"} (.toLowerCase (str/trim %) Locale/ROOT))
      :expects "on or off"
-     :note "screens a new password against known breaches; fails open, off disables the call"}
-    {:group "retention" :var "ORCPUB_SHARE_PRUNE_DAYS" :get #(get-share-prune-days)
+     :note "checks new passwords against known breaches"}
+    {:group "security" :var "TURNSTILE_SITE_KEY" :since current-release :get #(turnstile-site-key)
+     :note "Turnstile on sign-up/reset/resend/sign-in; needs secret key"}
+    {:group "security" :var "TURNSTILE_SECRET_KEY" :since current-release :secret? true
+     :note "Turnstile on sign-up/reset/resend/sign-in; needs site key"}
+    {:group "integrations" :var "TWITCH_CLIENT_ID" :since current-release :get #(twitch-client-id)
+     :note "Twitch Live dot on artist pages; needs the secret"}
+    {:group "integrations" :var "TWITCH_CLIENT_SECRET" :since current-release :secret? true
+     :present? #(some? (twitch-client-secret))
+     :note "Twitch Live dot on artist pages; needs the client id"}
+    {:group "retention" :var "ORCPUB_SHARE_PRUNE_DAYS" :since current-release :get #(get-share-prune-days)
      :accepts #(some-> % str/trim parse-long (>= 0)) :expects "a whole number of days, 0 or more"
-     :note "days unused before a character's share link and share data are deleted; 0 keeps them, at least 30"}]))
+     :note "days before an unused share link is deleted; 0 never"}]))
+
+(def setting-classes
+  "Each setting's class, for the startup email (`orcpub.startup-email`): :required (a public site
+   cannot run right without it), :recommended (worth setting; mentioned once), :tuning (the
+   default suits nearly everyone; only counted). Every row of `settings` has an entry."
+  (merge
+   (zipmap ["SIGNATURE" "DATOMIC_URL" "DATOMIC_PASSWORD" "EMAIL_SERVER_URL" "EMAIL_FROM_ADDRESS"]
+           (repeat :required))
+   (zipmap ["APP_URL" "PROFILE_ENCRYPTION_KEYS" "EMAIL_ACCESS_KEY" "EMAIL_SECRET_KEY" "TRUST_CLOUDFLARE"]
+           (repeat :recommended))
+   (zipmap ["PORT" "DEV_MODE" "TRUSTED_PROXIES" "CSP_POLICY" "REDIS_URL" "EMAIL_SERVER_PORT" "EMAIL_SSL" "EMAIL_TLS"
+            "EMAIL_REQUIRED" "ALLOW_UNVERIFIED_REGISTRATION" "EMAIL_ERRORS_TO" "EMAIL_ADMIN_TO"
+            "ALERT_SPOOL_DIR" "ALERT_MAX_PER_HOUR" "LOAD_HOMEBREW_URL" "PORTRAIT_ARTISTS"
+            "ORCPUB_HTTP_MAX_THREADS" "ORCPUB_PDF_CONCURRENCY" "ORCPUB_PDF_QUEUE_TIMEOUT_MS"
+            "ORCPUB_PORTRAIT_CONCURRENCY" "ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS" "PORTRAIT_STORE_DIR"
+            "ORCPUB_PDF_MAX_RETRIES" "ORCPUB_PDF_MAX_CASTER_SECTIONS" "ORCPUB_PDF_MAX_CARDS"
+            "ORCPUB_SHARE_MAX_UPLOAD_KB" "ORCPUB_SHARE_MAX_TEXT_KB" "ORCPUB_SHARE_MAX_ACCOUNT_KB"
+            "ORCPUB_PWNED_CHECK" "ORCPUB_SHARE_PRUNE_DAYS" "TURNSTILE_SITE_KEY"
+            "TURNSTILE_SECRET_KEY" "TWITCH_CLIENT_ID" "TWITCH_CLIENT_SECRET"]
+           (repeat :tuning))))
 
 (def ^:private tunables
   "Kept for the capacity rows' typo detection: only these parse as integers."
   (filter #(= "capacity" (:group %)) settings))
-
-(defn- positive-int-text? [raw]
-  (let [n (try (Integer/parseInt (str/trim raw)) (catch NumberFormatException _ nil))]
-    (boolean (and n (pos? n)))))
 
 (defn report
   "What each setting resolved to, and whether that came from the environment.
@@ -376,7 +527,7 @@
    change was picked up, ignored as a typo, or never set. Secret values are dropped here, not
    at print time, so nothing downstream can leak one by accident."
   []
-  (for [{env-var :var getter :get :keys [secret? redact? critical? note group fix accepts expects]} settings]
+  (for [{env-var :var getter :get :keys [secret? redact? critical? note group fix accepts expects since present?]} settings]
     (let [raw      (env-raw env-var)
           tunable? (some? (some #(= env-var (:var %)) tunables))
           ;; A row with its own :accepts (the prune window takes 0) is checked by that instead.
@@ -385,22 +536,35 @@
           value    (cond secret? nil
                          getter  (getter)
                          :else   raw)]
-      {:var env-var :group group :note note :critical? critical? :fix fix :expects expects
+      {:var env-var :group group :note note :critical? critical? :fix fix :expects expects :since since
        :value (if (and value redact?) (redact-secrets value) value)
        :secret? secret?
        :raw (when-not secret? raw)
-       :set? (boolean (and raw (not ignored?)))
+       :set? (boolean (or (and raw (not ignored?)) (and present? (present?))))
        :ignored? ignored?})))
 
-(defn report-lines
-  "The boot banner, as lines.
+(defn- wrap-names
+  "`names` joined with commas into lines of at most `width` characters, each indented two spaces."
+  [names width]
+  (reduce (fn [lines nm]
+            (let [last-line (peek lines)
+                  joined    (str last-line ", " nm)]
+              (if (and last-line (<= (count joined) width))
+                (conj (pop lines) joined)
+                (conj lines (str "  " nm)))))
+          [] names))
 
-   ASCII only, no colour. This is read in log files and aggregators at least as often as in
-   a terminal: escape codes are noise in both, and a stray em dash came back as `?` through
-   one of those pipes. Alignment does the work instead."
-  ([] (report-lines (report) nil))
-  ([rows] (report-lines rows nil))
-  ([rows actual]
+(defn report-lines
+  "The boot banner, as lines: `rows` from `report`, `actual` values read off the running server
+   (var name to value), and `branding-ignored`, the branding values that fell back to a default
+   ({:var :value :why}), and `deployment`, lines from `deployment-lines`. Ends with this release's
+   new settings that are still unset. ASCII only,
+   no colour: it is read in log files and aggregators as often as in a terminal."
+  ([] (report-lines (report) nil nil))
+  ([rows] (report-lines rows nil nil))
+  ([rows actual] (report-lines rows actual nil nil))
+  ([rows actual branding-ignored] (report-lines rows actual branding-ignored nil))
+  ([rows actual branding-ignored deployment]
    (let [;; A secret is reported as present or absent and NEVER by value. `-` where we have
          ;; no number at all, so the VALUE column never argues with SOURCE beside it.
          val    (fn [{env-var :var :keys [value secret? set?]}]
@@ -412,7 +576,9 @@
          ;; says nothing, and "DEFAULT" next to "NOT SET" reads as though there is a
          ;; default password.
          source (fn [{:keys [set? secret?]}] (cond secret? "" set? "SET" :else "DEFAULT"))
-         rows   (vec rows)
+         ;; Each group once, in the order groups first appear; rows keep their order within it.
+         order  (into {} (map-indexed (fn [i g] [g i]) (distinct (map :group rows))))
+         rows   (vec (sort-by (comp order :group) rows))
          w      (apply max (map (comp count :var) rows))
          vw     (min 46 (apply max (map (comp count val) rows)))
          sw     7
@@ -432,11 +598,15 @@
               (partition-by :group rows))
       ["  [BRANDING]"
        (format "  %s   %s of %s set" (apply str (repeat w " ")) brand (count branding-vars))]
-      (when-let [bad (seq (filter :ignored? rows))]
+      (when (or (seq (filter :ignored? rows)) (seq branding-ignored))
         (cons rule
-              (for [{env-var :var raw :raw expects :expects} bad]
-                (format "  (!)  %s=%s was ignored: not %s. The default above is in use."
-                        env-var raw (or expects "a positive integer")))))
+              (concat
+               (for [{env-var :var raw :raw expects :expects} (filter :ignored? rows)]
+                 (format "  (!)  %s=%s was ignored: not %s. The default above is in use."
+                         env-var raw (or expects "a positive integer")))
+               (for [{env-var :var value :value why :why} branding-ignored]
+                 (format "  (!)  %s=%s was ignored: %s. Its default is in use."
+                         env-var value why)))))
       ;; A missing SIGNATURE means every login fails. That is not a row to be spotted.
       ;; Say what broke AND how to fix it. A boot line that names a symptom and leaves the
       ;; remedy to be guessed just moves the work.
@@ -449,33 +619,175 @@
                           (cons (str "  (!!) " (first body))
                                 (map #(str "        " (str/triml %)) (rest body))))))
                 miss))
+      (when (seq deployment)
+        (concat [rule "  DEPLOYMENT"] (map #(str "  " %) deployment)))
+      ;; Last, where an operator upgrading looks: what this release added and is still unset.
+      (when-let [fresh (seq (filter #(and (= current-release (:since %)) (not (:set? %))) rows))]
+        (concat
+         [rule (str "  NEW IN " (.toUpperCase ^String current-release Locale/ROOT)
+                    ": " (count fresh) " setting" (when (next fresh) "s") " not set yet, using defaults")]
+         (wrap-names (map :var fresh) 100)))
       [rule]))))
 
-(defn jetty-max-threads
-  "The worker-pool size the running server actually settled on, or nil.
+(defn start-refusal
+  "Why a deployed server must not start, or nil when it may. It refuses when no mail server is set
+   (EMAIL_SERVER_URL), unless DEV_MODE=true, EMAIL_REQUIRED=false, or
+   ALLOW_UNVERIFIED_REGISTRATION=true says running without email is intended. Returns the message
+   to print: what is missing and both ways to fix it."
+  []
+  (when-not (or (env/value :email-server-url)
+                (dev-mode?)
+                (env/flag? :allow-unverified-registration)
+                (= "false" (some-> (env/value :email-required) str/trim (.toLowerCase Locale/ROOT))))
+    (str "orcpub NOT STARTED: no mail server is set (EMAIL_SERVER_URL). Without one nobody can sign\n"
+         "up or reset a password, and admin alerts reach nobody.\n"
+         "  Fix: set EMAIL_SERVER_URL (with EMAIL_ACCESS_KEY, EMAIL_SECRET_KEY, EMAIL_FROM_ADDRESS).\n"
+         "  Or, to run without email on purpose (sign-up stays off): EMAIL_REQUIRED=false.")))
 
+(defn- first-address
+  "The first of `vars` (env var names) with a value, then APP_SUPPORT_EMAIL (which fork branding may
+   default), as {:address :from}; nil when none is set."
+  [vars]
+  (or (some (fn [v] (when-let [a (env-raw v)]
+                      {:address a :from v}))
+            vars)
+      (when (seq branding/support-email)
+        {:address branding/support-email :from "APP_SUPPORT_EMAIL"})))
+
+(defn alert-address
+  "Where admin alerts go: EMAIL_ERRORS_TO, else EMAIL_ADMIN_TO, else APP_SUPPORT_EMAIL, as
+   {:address :from} (:from names the setting it came from); nil when none is set."
+  []
+  (first-address ["EMAIL_ERRORS_TO" "EMAIL_ADMIN_TO"]))
+
+(defn admin-notice-address
+  "Where artist-account notices go: EMAIL_ADMIN_TO, else EMAIL_ERRORS_TO, else APP_SUPPORT_EMAIL,
+   as {:address :from}; nil when none is set."
+  []
+  (first-address ["EMAIL_ADMIN_TO" "EMAIL_ERRORS_TO"]))
+
+(def deployment-notes
+  "This release's deployment changes, one line each, printed in the boot report's DEPLOYMENT
+   block so an admin who deploys without ./run still sees them. docs/DOCKER.md has the detail."
+  ["Docker Swarm: Datomic needs TRANSACTOR_HOST=0.0.0.0 and ALT_HOST=datomic. Unset, it detects"
+   "  Swarm itself; its log line 'transactor: host=... alt-host=...' shows what it uses."
+   "Docker: the app container starts as root, prepares its folders, then runs Java as 'app'."
+   "  Remove any user: line from the orcpub service."
+   "Docker: container logs are capped by LOG_MAX_SIZE and LOG_MAX_FILES (10m x 5)."])
+
+(defn- shown-dir
+  "How `dir` reads to an admin: a /host-log path as the host's /var/log path, else as is."
+  [dir]
+  (if (str/starts-with? dir "/host-log/")
+    (str "/var/log/" (subs dir (count "/host-log/")) " on the host")
+    dir))
+
+(defn deployment-lines
+  "The boot report's DEPLOYMENT block, as lines. Keys: `:crash-dir` and `:alert-dir` (folders, nil
+   when unknown; one inside the container gets the mount that moves it), `:max-heap-bytes`, `:admin`
+   (alert-address's answer; line shown when given), `:app-url` (warned when given and empty) and
+   `:patron-credits` {:patreon? :names} (warned when Patreon is set and no names are listed).
+   Ends with `deployment-notes`."
+  [{:keys [crash-dir alert-dir max-heap-bytes admin patron-credits] :as dirs}]
+  (let [inside? #(and % (str/starts-with? % "/var/lib/orcpub/"))]
+    (concat
+     ;; The one startup warning about APP_URL: printed with the boot report, not per request.
+     (when (and (contains? dirs :app-url) (str/blank? (:app-url dirs)))
+       ["Warning: APP_URL is not set, so links in account emails follow the request's Host header. Set APP_URL in production."])
+     (when (and (:patreon? patron-credits) (zero? (or (:names patron-credits) 0)))
+       ["Warning: APP_SOCIAL_PATREON is set but resources/public/patron-credits.md lists no patrons, so What's New thanks them without names (docs/BRANDING-AND-INTEGRATIONS.md, \"Patron credits\")."])
+     (when (contains? dirs :admin)
+       [(if admin
+          (str "Admin email: " (:address admin) " (from " (:from admin) ")")
+          "Admin email: nobody; crash and failure alerts are only logged. Set APP_SUPPORT_EMAIL or EMAIL_ERRORS_TO.")])
+     [(str "Crash files: " (if crash-dir (shown-dir crash-dir) "not configured (no -XX:HeapDumpPath)"))
+      (str "Unsent alerts: " (if alert-dir (shown-dir alert-dir) "-"))]
+     (when (or (inside? crash-dir) (inside? alert-dir))
+       ["  Those are inside the container and go when it is replaced. Mount - /var/log:/host-log"
+        "  on this service to keep them in /var/log on the host."])
+     (when max-heap-bytes
+       [(str "Java memory limit: " (quot max-heap-bytes (* 1024 1024)) " MB"
+             " (raise it with JAVA_OPTS, for example -Xmx2g)")])
+     deployment-notes)))
+
+(defn- canonical
+  "`f`'s path with links followed, or as given when it cannot be resolved."
+  [f]
+  (try (.getCanonicalPath (io/file f)) (catch Exception _ (str f))))
+
+(defn crash-and-alert-dirs
+  "{:crash-dir :alert-dir}: the folder the JVM's -XX:HeapDumpPath points into (nil without the
+   flag) and the alert spool folder, both with links followed, so a container's
+   /var/lib/orcpub/state reads as the /host-log folder it links to."
+  []
+  (let [args (.getInputArguments (java.lang.management.ManagementFactory/getRuntimeMXBean))
+        heap (some #(when (str/starts-with? % "-XX:HeapDumpPath=") (subs % (count "-XX:HeapDumpPath="))) args)]
+    {:crash-dir (some-> heap io/file .getParentFile canonical)
+     :alert-dir (canonical (get-alert-spool-dir))}))
+
+(defn jetty-max-threads
+  "The worker-pool size the Jetty `server` (or nil) actually settled on, or nil.
    When ORCPUB_HTTP_MAX_THREADS is unset we pass Pedestal nothing and it chooses, so this is
    the only way to report the real number rather than a formula copied from Pedestal that
    would drift. Best effort by design: it reaches through a started Jetty, so any change of
    container returns nil and the banner falls back to `-` instead of failing a boot."
-  [created]
+  [server]
   (try
-    (some-> (if (map? created) (get created :io.pedestal.http/server) created)
-            (.getThreadPool) (.getMaxThreads))
+    (some-> server (.getThreadPool) (.getMaxThreads))
     (catch Exception _ nil)))
+
+(defn report-dir
+  "The folder the startup report is saved in: the parent of `:crash-dir`, else of `:alert-dir`
+   (the map `crash-and-alert-dirs` returns); nil when neither is known."
+  [{:keys [crash-dir alert-dir]}]
+  (some #(some-> % io/file .getParent) [crash-dir alert-dir]))
+
+(defn saved-line
+  "The report's closing line naming `path`, the saved file (a /host-log path read as the host's)."
+  [path]
+  (str "This report is saved in " (shown-dir path)))
+
+(defn save-report!
+  "Writes report `lines` to startup-report.txt in folder `dir`. Returns the report's closing line
+   naming the file (`saved-line`), or nil when it could not be written; never throws."
+  [dir lines]
+  (try
+    (let [f (io/file dir "startup-report.txt")]
+      (spit f (str (str/join "\n" lines) "\n"))
+      (saved-line (str f)))
+    (catch Exception _ nil)))
+
+(defn patron-credits
+  "{:patreon? :names}: whether APP_SOCIAL_PATREON is set, and how many patrons the shipped
+   public/patron-credits.md lists (0 when the file is missing or empty), for deployment-lines."
+  []
+  {:patreon? (boolean (env/value :app-social-patreon))
+   :names (or (some->> (io/resource "public/patron-credits.md") slurp whats-new/parse-credits
+                       (map (comp count :names)) (reduce + 0))
+              0)})
 
 (defn print-report!
   "Say the server is up and how it is configured. Called after the system has started, so
    `started` means started rather than `we got as far as printing`, and so the running
-   thread-pool size can be read back rather than guessed."
+   thread-pool size can be read back from the Jetty `server` (optional) rather than guessed."
   ([] (print-report! nil))
-  ([created]
-   (let [actual (when-let [n (jetty-max-threads created)]
-                  {"ORCPUB_HTTP_MAX_THREADS" n})]
+  ([server]
+   (let [actual (when-let [n (jetty-max-threads server)]
+                  {"ORCPUB_HTTP_MAX_THREADS" n})
+         dirs   (crash-and-alert-dirs)
+         lines  (vec (report-lines (report) actual @env/ignored
+                                   (deployment-lines (assoc dirs
+                                                            :max-heap-bytes (.maxMemory (Runtime/getRuntime))
+                                                            :admin (alert-address)
+                                                            :app-url branding/app-url
+                                                            :patron-credits (patron-credits)))))
+         saved  (some-> (report-dir dirs) (save-report! lines))]
      ;; One write, then flush. Printed line by line, Jetty's own logging interleaved with it
      ;; and cut the table in half -- buffered stdout against unbuffered stderr in the same
      ;; stream. A banner that arrives in pieces is worse than no banner.
-     (println (str/join (System/lineSeparator) (report-lines (report) actual)))
+     ;; The saved line goes just inside the closing rule; ./run prints the report up to it.
+     (println (str/join (System/lineSeparator)
+                        (cond-> lines saved (-> pop (conj (str "  " saved) (peek lines))))))
      (flush))))
 
 (defn get-secure-headers-config
@@ -496,5 +808,11 @@
     {:content-security-policy-settings nil}
 
     ;; Default to permissive
+    ;; Turnstile loads its script and renders in a frame from Cloudflare.
     :else
-    {:content-security-policy-settings permissive-csp-settings}))
+    {:content-security-policy-settings
+     (if (turnstile-enabled?)
+       (assoc permissive-csp-settings
+              :script-src (str (:script-src permissive-csp-settings) " " turnstile-origin)
+              :frame-src (str "'self' " turnstile-origin))
+       permissive-csp-settings)}))

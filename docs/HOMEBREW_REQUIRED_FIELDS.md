@@ -193,9 +193,6 @@ Add these to spec as `:req-un` for homebrew content:
 
 ---
 
-## Completed (2026-01-15)
+## Open items
 
-- [x] Test each "?" field to determine if it breaks functionality
-- [ ] Add export validation to prevent incomplete content
-- [x] Document what breaks (PDF, character builder, etc.) for each field
-- [x] Identify likely source of nil nil entries (empty functional-required fields)
+- Export validation does not yet block incomplete content.

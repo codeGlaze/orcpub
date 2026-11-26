@@ -1,15 +1,29 @@
 (ns orcpub.index
   (:require [hiccup.page :refer [include-css]]
             [hiccup2.core :as h]
-            [cheshire.core :as cheshire]
+            [charred.api :as cheshire]
             [orcpub.oauth :as oauth]
             [orcpub.fork.branding :as branding]
-            [orcpub.dnd.e5.views-2 :as views-2]
+            [orcpub.dnd.e5.views-shared :as views-shared]
             [orcpub.favicon :as fi]
             [orcpub.fork.integrations :as integrations]
             [orcpub.loading-spinner :as spinner]
             [orcpub.route-map :as routes]
-            [orcpub.env :as env]))
+            [orcpub.artist-credit :as artist-credit]
+            [orcpub.build-badge :as build-badge]
+            [orcpub.env :as env]
+            [orcpub.config :as config]
+            [orcpub.pedestal :as pedestal]))
+
+
+(defn asset-url
+  "`path` (a public file such as /js/compiled/orcpub.js) with ?v= its content stamp, so a new build
+   has a new address and can be cached for a year (pedestal/static-cache-control). The bare `path`
+   in dev mode, where Figwheel rewrites the file, or when the file is missing."
+  [path]
+  (if-let [v (when-not (config/dev-mode?) (pedestal/content-stamp path))]
+    (str path "?v=" v)
+    path))
 
 (def homebrew-url
   "URL to fetch server-hosted .orcbrew plugins from on first load.
@@ -38,7 +52,7 @@
   "JSON for an inline <script>: `<`, `>`, `&` and the line separators become
    \\u escapes, so a value (an artist's credit) cannot close the tag."
   [x]
-  (-> (cheshire/generate-string x)
+  (-> (cheshire/write-json-str x :escape-slash false)
       (.replace "<" "\\u003c")
       (.replace ">" "\\u003e")
       (.replace "&" "\\u0026")
@@ -173,19 +187,19 @@
        var link = document.getElementById('load-rescue-link');
        if (!el || !note || !link) { return; }
        var path = window.location.pathname.replace(/\\/+$/, '');
-       var charPath = " (cheshire/generate-string char-path) ";
+       var charPath = " (script-json char-path) ";
        var idAt = charPath.indexOf('ID');
        var prefix = charPath.slice(0, idAt), suffix = charPath.slice(idAt + 2);
-       var builders = " (cheshire/generate-string builder-paths) ";
+       var builders = " (script-json builder-paths) ";
        var target = null;
        if (path.indexOf(prefix) === 0 && path.slice(path.length - suffix.length) === suffix) {
          var id = path.slice(prefix.length, path.length - suffix.length);
          if (/^\\d+$/.test(id)) {
            target = ['This character didn\u2019t load.', 'Repair this character',
-                     " (cheshire/generate-string repair-path) ".replace('ID', id)];
+                     " (script-json repair-path) ".replace('ID', id)];
          }
        } else if (builders.indexOf(path) !== -1) {
-         target = ['The builder didn\u2019t load.', 'Repair this draft', " (cheshire/generate-string draft-path) "];
+         target = ['The builder didn\u2019t load.', 'Repair this draft', " (script-json draft-path) "];
        }
        if (!target) { return; }
        setTimeout(function () {
@@ -197,6 +211,23 @@
        }, " load-rescue-delay-ms ");
      })();
     "))))))
+
+(defn branding-client-config
+  "Map of branding values for CLJS injection, written into the page as window.__BRANDING__ and
+   read by branding.cljs. Operator settings only: artist credits, which artists can edit, reach
+   the browser from /dnd/5e/portrait-artists."
+  []
+  {:app-name                  branding/app-name
+   :logo-path                 branding/logo-path
+   :copyright-holder          branding/copyright-holder
+   :copyright-year            branding/copyright-year
+   :copyright-url             branding/copyright-url
+   :support-email             branding/support-email
+   :help-url                  branding/help-url
+   :social-links              branding/social-links
+   :field-limits              branding/field-limits
+   :registration-logo-class   branding/registration-logo-class
+   :restrict-print-to-owner?  branding/restrict-print-to-owner?})
 
 (defn index-page [{:keys [url
                           title
@@ -240,7 +271,7 @@
                        :img "/favicon"
                        :xml "/favicon"
                        :ver "1"))
-    (include-css "/css/cookiestyles.css")
+    (include-css (asset-url "/css/cookiestyles.css"))
     (script-tag {:nonce nonce}
      (h/raw "document.documentElement.style.setProperty('--innerHeight', `${window.innerHeight}px`);
      window.addEventListener('resize', () => document.documentElement.style.setProperty('--innerHeight', `${window.innerHeight}px`));"))
@@ -325,12 +356,15 @@ html {
     (integrations/head-tags nonce)
     (script-tag {:nonce nonce}
      ;; raw: operator settings as JSON, escaped for a script by script-json
-     (h/raw (str "window.__BRANDING__=" (script-json (branding/client-config)) ";"
-                 "window.__INTEGRATIONS__=" (script-json (integrations/client-config)) ";")))]
+     (h/raw (str "window.__BRANDING__=" (script-json (branding-client-config)) ";"
+                 "window.__INTEGRATIONS__=" (script-json (integrations/client-config)) ";"
+                 ;; The PUBLIC site key only, and only when Turnstile is fully configured.
+                 (when (config/turnstile-enabled?)
+                   (str "window.__TURNSTILE_SITE_KEY__=" (script-json (config/turnstile-site-key)) ";")))))]
    [:body {:style "margin:0;line-height:1"}
     [:div#app
      (if splash?
-       (views-2/splash-page)
+       (views-shared/splash-page)
        ;; raw: the spinner's own markup; its kind is one of three keywords (spinner/pick)
        (h/raw (spinner/markup (or spinner-kind (spinner/pick nil)))))]
     ;; Homebrew rescue, a dead-man's switch: present by default, removed by the app once it has
@@ -339,16 +373,14 @@ html {
     ;; not have loaded), plain localStorage, and a vanilla anchor download, not FileSaver.
     (boot-rescue nonce)
     (when-not splash? (load-rescue nonce))
-    (include-css "/css/compiled/styles.css")
+    (build-badge/badge)
+    (include-css (asset-url "/css/compiled/styles.css"))
     ;; Every script tag carries the per-request nonce. It is nil in dev mode,
     ;; where no CSP header is set at all; enforcing otherwise.
-    (script-tag {:src "/js/compiled/orcpub.js" :nonce nonce})
-    (script-tag {:src "/js/cookies.js" :nonce nonce})
+    (script-tag {:src (asset-url "/js/compiled/orcpub.js") :nonce nonce})
+    (script-tag {:src (asset-url "/js/cookies.js") :nonce nonce})
     (include-css "/assets/font-awesome/5.13.1/css/all.min.css")
-    ;; 400, 600 and 700: the stylesheet asks for bold on tabs, titles and labels, and with only
-    ;; 400 loaded Chrome rendered all of it at regular weight. One variable file serves all
-    ;; three, so the extra weights cost nothing over 400 alone. See docs/design/style-guide.md.
-    (include-css "https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap")
+    ;; Open Sans is served from this site (styles.core/open-sans-faces), not Google Fonts.
     (script-tag {:nonce nonce} (h/raw " window.start.init({Palette:\"palette7\",Mode:\"banner bottom\",})"))
     (when homebrew-url
       (script-tag {:nonce nonce}
@@ -380,3 +412,42 @@ html {
         }
        "))))]])))
   
+
+(def default-title branding/default-page-title)
+
+(def default-description branding/app-tagline)
+
+(defn default-image-url
+  "OG meta image URL. Uses https:// for social sharing compatibility. An APP_OG_IMAGE that is
+   already an absolute http(s) URL is returned as it is; a site path gets the host in front."
+  [host]
+  (let [image branding/og-image-filename]
+    (if (re-find #"(?i)^https?://" (str image))
+      image
+      (str "https://" host image))))
+
+(defn index-page-response [{:keys [headers uri csp-nonce] :as request}
+                           {:keys [title description image-url]}
+                           & [response]]
+  (let [host (headers "host")]
+    ;; before index-page reads the credits into __BRANDING__
+    (when-let [db (:db request)] (artist-credit/refresh! db))
+    (merge
+     response
+     {:status 200
+      :headers (merge {"Content-Type" "text/html"} (:headers response))
+      :body
+      (index-page
+       {:url (str "http://" host uri)
+        :title (or title default-title)
+        :description (or description default-description)
+        :image (or image-url (default-image-url host))
+        :nonce csp-nonce
+        :spinner-kind (spinner/pick (get-in request [:query-params :spinner]))}
+       (= "/" uri))})))
+
+(defn default-index-page [request & [response]]
+  (index-page-response request {} response))
+
+(defn index [{:keys [headers scheme uri server-name] :as request} & [response]]
+  (default-index-page request response))

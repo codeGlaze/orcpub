@@ -19,12 +19,6 @@ const authorLanguage = async (page, name) => {
   await dismissWhatsNew(page);
   await clickText(page, /^new language$/i).catch(() => {});
   await page.waitForTimeout(400);
-  // GOTCHA: plugin-datalist holds the source name in a component-local atom that NEW does not
-  // reset, so the field still SHOWS the previous source while the item has none — and filling it
-  // with the same string fires no change. Reload so the component mounts against the cleared item.
-  await page.reload({ waitUntil: 'networkidle' });
-  await page.waitForTimeout(1000);
-  await dismissWhatsNew(page);
   await fill(page, 'Name', name);
   await fill(page, 'Option Source Name', SOURCE);
   await clickText(page, /save to browser storage/i);

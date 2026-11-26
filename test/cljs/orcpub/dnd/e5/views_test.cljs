@@ -7,6 +7,8 @@
    are not covered here. The one piece of pure, side-effect-free logic that
    drives the diagnostics — blank-feature-name? — is tested directly."
   (:require [cljs.test :refer-macros [deftest testing is async]]
+            [reagent.core :as r]
+            [reagent.dom :as rdom]
             [cljs.reader :as reader]
             [re-frame.core :as rf]
             [orcpub.pdf-spec :as pdf-spec]
@@ -15,6 +17,7 @@
             [orcpub.dnd.e5.portrait-assets :as pa]
             [orcpub.artist-links]
             [orcpub.dnd.e5.views :as views]
+            [orcpub.dnd.e5.views.pdf-options :as pdf-options]
             [orcpub.dnd.e5.views.notifications :as notifications]
             [orcpub.dnd.e5.views.conflict-resolution :as conflict-resolution]))
 
@@ -119,7 +122,7 @@
 (defn- export!
   "Presses Create PDF for an empty character, as the export button's handler does. Returns nil."
   []
-  ((views/export-pdf {} 1 {}) nil))
+  ((pdf-options/export-pdf {} 1 {}) nil))
 
 (deftest a-portrait-this-site-cannot-draw-does-not-stop-the-export
   (with-redefs [pdf-spec/make-spec (constantly {:name "Bree"})
@@ -154,7 +157,7 @@
                     pa/drawable? (constantly true)
                     portrait/baked-png (constantly nil)
                     portrait/bake-ahead! (fn [_] (js/Promise. (fn [_ _])))
-                    views/portrait-wait-ms 30]
+                    pdf-options/portrait-wait-ms 30]
         (export!))
       (js/setTimeout (fn []
                        (is (= 1 (count @sent)) "after the wait the PDF goes without the portrait")
@@ -170,3 +173,120 @@
       (let [sent (with-download-form (fn [_] (export!)))]
         (is (empty? @sent))
         (is (= :show-error-message (first @shown)) "the player is told, not left with nothing")))))
+
+;; Imported homebrew is untrusted. The ability-increase and save forms, their notes and the feat
+;; section are drawn with every field holding each malformed shape; none may throw.
+(def ^:private malformed-grants
+  [nil 42 "x" true {} {:a 1} #{} #{:str} #{42} [] [nil] [42] ["x"] [{}] [[]] [[nil]] [[1]]
+   [[1 nil]] [[1 nil :save]] [[1 :foo]] [[1 #{}]] [[1 []]] [[1 [nil]]] [[1 #{2}]] [["1" :str]]
+   [[nil :str]] [[1 :str :save :extra]] [[0 :any]] [[-1 :any]] [[1.5 :any]] [[4 :mental]]
+   [[1 {:a 1}]] [[1 "str"]] [[1 #{:wis :con}]] (list [1 :str])])
+
+(defn- expand
+  "Draw `x` the way Reagent would: a vector headed by a function is a child component, so call it
+   (twice for a component that returns its render function) and draw what it returns."
+  [x]
+  (cond (and (vector? x) (fn? (first x)))
+        (let [[f & args] x
+              r (apply f args)]
+          (expand (if (fn? r) (apply r args) r)))
+        (map? x) x
+        (coll? x) (doall (map expand x))
+        :else x))
+
+(deftest grant-forms-draw-any-imported-shape
+  (let [draw (fn [f item] (try (expand (f item)) nil
+                               (catch :default e (.-message e))))
+        forms {"ability-increase-choices" #(views/ability-increase-choices % identity)
+               "save-proficiency-choices" #(views/save-proficiency-choices % identity)
+               "ability-save-notes"       views/ability-save-notes
+               "feat-ability-score-section" views/feat-ability-score-section}
+        failures (for [field [:ability-increases :save-proficiencies]
+                       v malformed-grants
+                       [label f] forms
+                       :let [msg (draw f {:name "Bad" field v})]
+                       :when msg]
+                   [label field v msg])]
+    (is (empty? failures) (pr-str (take 5 failures)))))
+
+(deftest the-feat-section-says-when-its-increases-are-junk
+  (let [text #(->> (views/feat-ability-score-section %) expand (tree-seq coll? seq)
+                   (filter string?) (apply str))
+        warned? #(boolean (re-find #"will be IGNORED" (text {:name "F" :ability-increases %})))]
+    (is (warned? 42) "a number is named, though the 2024 section starts closed")
+    (is (warned? "x"))
+    (is (warned? #{:str :con}) "a released set of short keys raises nothing, so it is named")
+    (is (not (warned? #{})) "an empty released set is not junk")
+    (is (not (warned? #{:orcpub.dnd.e5.character/str :saves?})) "nor is a released set")
+    (is (not (warned? [[1 :str]])) "nor a spread")))
+
+(deftest a-save-count-is-never-more-than-its-pool-gives
+  (let [row (fn [entry]
+              (let [stored (atom nil)
+                    form (views/save-proficiency-choices {:save-proficiencies [entry]}
+                                                         #(reset! stored (% [entry])))
+                    dd (fn [label] (some #(when (and (vector? %) (= label (second %))) (nth % 2))
+                                         (tree-seq coll? seq form)))]
+                {:how-many (dd "How many") :from (dd "From") :stored stored}))]
+    (let [{:keys [how-many]} (row [3 :str])]
+      (is (= 1 (:value how-many)) "an imported [3 :str] shows the one save it gives")
+      (is (= [1] (map :value (:items how-many)))))
+    (let [{:keys [from stored]} (row [3 :any])]
+      ((:on-change from) :str)
+      (is (= [[1 :str]] @stored) "choosing one ability brings the count down to one"))))
+
+(defn- on-click-of
+  "The :on-click of the button labelled `label` in hiccup `form`."
+  [form label]
+  (some #(when (and (vector? %) (= :button (first %)) (= label (last %))) (:on-click (second %)))
+        (tree-seq coll? seq form)))
+
+(deftest two-adds-before-a-redraw-keep-both-rows
+  (doseq [[editor field label] [[views/ability-increase-choices :ability-increases "Add increase"]
+                                [views/save-proficiency-choices :save-proficiencies "Add save"]]]
+    (let [stored (atom {field [[1 :str]]})
+          form (editor @stored #(swap! stored update field %))
+          add! (on-click-of form label)]
+      (add!)
+      (add!)
+      (is (= 3 (count (field @stored))) (str label ": the second click works on what the first stored")))))
+
+(deftest the-pdf-panel-reads-the-character-when-it-draws
+  ;; Storing the character in the panel would export it as it was when Export was pressed.
+  (let [shown (atom nil)]
+    (with-redefs [re-frame.core/dispatch #(reset! shown %)]
+      ((pdf-options/make-print-handler 7 false))
+      (is (= [pdf-options/live-print-options 7 false] (second @shown))
+          "the panel holds only which character to read")
+      ((pdf-options/make-print-handler nil true))
+      (is (= [pdf-options/live-print-options nil true] (second @shown))
+          "the builder's character is read from the builder"))))
+
+(deftest every-builder-section-gets-its-own-react-key
+  ;; Each section is wrapped in render-guard with the edited item, whose :key Reagent would take as
+  ;; the React key of every section.
+  (let [el (.createElement js/document "div")
+        errors (atom [])
+        error (.-error js/console)]
+    (set! (.-error js/console) (fn [& args] (swap! errors conj (apply str args))))
+    (try
+      (.appendChild (.-body js/document) el)
+      (rdom/render [:div (views/guarded-form {:key :spell-a :name "A"}
+                                             (fn [] [:div [:p "one"] [:p "two"] [:p "three"]]))]
+                   el)
+      (r/flush)
+      (is (empty? (filter #(re-find #"same key" %) @errors)) "no two sections share a React key")
+      (is (= "onetwothree" (.-textContent el)) "every section is drawn once")
+      (finally
+        (set! (.-error js/console) error)
+        (rdom/unmount-component-at-node el)
+        (.remove el)))))
+
+(deftest the-file-name-preview-cleans-names-as-the-server-does
+  (testing "in the browser too: letters of any script stay, emoji and invisible characters go"
+    (doseq [[in out] [["Zoë D’Artagnan" "Zoë D’Artagnan"]
+                      ["Кира 龍 🙂" "Кира 龍"]
+                      ["Zoë" "Zoë"]
+                      [". hidden ." "hidden"]
+                      ["a​b" "ab"]]]
+      (is (= out (pdf-spec/file-safe in)) (pr-str in)))))

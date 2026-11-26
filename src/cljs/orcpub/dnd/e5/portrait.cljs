@@ -1,25 +1,17 @@
 (ns orcpub.dnd.e5.portrait
-  "Paper-doll character-portrait compositor.
-
-   The drawer opens via [:portrait/open], which seeds a draft in app-db
-   (:portrait/draft) from the character's saved ::char5e/portrait. A draft
-   is {:layers {layer-key {:artist/id … :asset/id …}}
-       :colors {slot hex}
-       :tweaks {layer-key {:shade n :override hex}}}
-   (see portrait-assets for the color model). Every pick / randomize /
-   color change mutates the draft; Save writes it back as an EDN string
-   (events.cljs) and closes; Cancel discards it.
-
-   Rendering: each selected layer is a <div> whose CSS mask is the asset
-   image and whose background is the layer's effective tint
-   (portrait-assets/tint-for), so one asset renders in any hair / skin /
-   eye color. `composite` is shared with the character summary."
+  "The portrait compositor UI: `drawer`, the builder's `tab-panel`, `composite` (also used
+   by the character summary) and `rasterize` (the PNG for PDF export). Edits a draft at
+   app-db :portrait/draft, in portrait-assets' shape; :portrait/save writes it back.
+   Each layer is a div tinted by background-blend multiply, clipped to the asset by a mask.
+   See PORTRAIT-COMPOSITOR.md and PORTRAIT-TINTING.md."
   (:require [re-frame.core :refer [dispatch subscribe]]
             [orcpub.art-mark :as art-mark]
             [re-frame.db]
             [reagent.core :as r]
             [clojure.string :as s]
             [orcpub.dnd.e5.portrait-assets :as pa]
+            [orcpub.dnd.e5.portrait-random :as rnd]
+            [orcpub.dnd.e5.artist-profile :as artist-profile]
             [orcpub.dnd.e5.portrait-colorize :as colorize]
             [orcpub.dnd.e5.portrait-effects :as fx]
             [orcpub.dnd.e5.portrait-face :as face]
@@ -249,6 +241,10 @@
   (if-not @(subscribe [:orcpub.dnd.e5/dev-mode?])
     url
     (or (get @solid-urls url) (do (solid-promise url) url))))
+
+(defonce ^:private failed-link
+  ;; The image address whose preview in the drawer last failed to load, or nil.
+  (r/atom nil))
 
 (defonce ^:private loaded-images (atom {}))
 
@@ -681,11 +677,8 @@
 
 ;; ---------------- rasterization (for PDF export) ----------------
 ;;
-;; On screen a layer is a CSS mask -- shape from the asset's alpha, color from
-;; background-color. Neither PDFBox nor a canvas understands that, so an export
-;; has to bake it: for each layer draw the asset, switch to "source-in", and
-;; flood-fill the tint, which paints the color only where the asset is opaque.
-;; Compositing those in z-order reproduces exactly what the drawer shows.
+;; The export bakes the layers on a canvas with the same placement (layout/contain-rect)
+;; and tint (multiply, then the asset's alpha restored) as the drawer.
 
 (def ^:private raster-width 600)
 (def ^:private raster-height 750)   ;; 4:5, matching the on-screen frame
@@ -703,14 +696,10 @@
                  (set! (.-src img) src)))))))
 
 (defn- draw-credit!
-  "Burn the artist credit into the baked picture.
-
-   The sheet and the page can each carry a credit beside the portrait, but the
-   composed image is what gets passed around -- saved off a share card, lifted
-   out of a PDF -- and it arrives detached from both. A caption in the pixels
-   travels with it. Dark fill under a white outline, because a transparent PNG
-   may land on a white page or a dark chat client and one of the two always
-   reads."
+  "Draws the credit for artist `names` on canvas context `ctx` along the bottom of a `w`x`h`
+   frame, stroked then filled: the longest wording from pa/credit-variants that fits
+   (layout/fit-credit). The face must already be loaded. Why it is in the pixels:
+   PORTRAIT-COMPOSITOR.md, \"The baked credit and the site mark\"."
   [ctx names w h]
   (let [{:keys [halo center-x baseline outline fill]} (layout/credit-layout w h)
         font-at #(str "italic " % "px '" layout/credit-font-family "', Georgia, serif")
@@ -766,7 +755,7 @@
                   :when url]
               (-> (js/fetch url)
                   (.then #(.arrayBuffer %))
-                  (.then #(art-mark/mark-of (js/Uint8Array. %)))
+                  (.then #(art-mark/read-mark (js/Uint8Array. %)))
                   (.catch (constantly nil)))))))
 
 (defn- rasterize*
@@ -825,15 +814,8 @@
                                                     (.-naturalHeight img)
                                                     raster-width raster-height)]
                       (.drawImage tctx img x y dw dh))
-                    ;; Tint by MULTIPLY, not by masking. source-in reads the
-                    ;; asset's alpha and throws its RGB away, so line art came
-                    ;; out as one flat colour -- the same picture as its own
-                    ;; silhouette. Multiply keeps the lines: white fill takes
-                    ;; the colour, black lines stay black.
-                    ;;
-                    ;; :as-drawn skips it entirely. Teeth are white because
-                    ;; they were drawn white; tinting them through the mouth's
-                    ;; category colour is what made them red.
+                    ;; Tint by multiply so the lines survive (PORTRAIT-TINTING.md);
+                    ;; :as-drawn assets, such as the teeth, are not tinted at all.
                     (cond
                       (= :as-drawn (pa/render-mode layer-key asset)) nil
 
@@ -924,8 +906,7 @@
   [portrait]
   (-> (js/Promise.all #js [(rasterize* portrait) (piece-marks portrait)])
       (.then (fn [[b64 marks]]
-               (let [m (art-mark/composed (array-seq marks))]
-                 (if (and b64 m) (bytes->b64 (art-mark/with-mark (b64->bytes b64) m)) b64))))))
+               (when b64 (bytes->b64 (art-mark/carry-marks (b64->bytes b64) (array-seq marks))))))))
 
 ;; Portraits baked ahead of export, by value: {:promise p} while baking, then {:png b64-or-nil}.
 (defonce ^:private baked (atom {}))
@@ -1332,28 +1313,16 @@
   34)
 
 (defn- artist-ref
-  "An artist's name, as a link where they have one."
+  "An artist's name, as a link where they have one this site draws."
   [{:keys [:artist/name :artist/link]}]
-  (if link
-    [:a.pl-thumb-credit-link
-     {:href link :target "_blank" :rel "noopener"
-      :on-click #(.stopPropagation %)}
-     name]
+  (if-let [attrs (artist-profile/external-link link)]
+    [:a.pl-thumb-credit-link (assoc attrs :on-click #(.stopPropagation %)) name]
     [:span name]))
 
 (defn- linked-credit
-  "The credit under the character page's thumbnail, each name a link where
-   the artist has one.
-
-   The strip is 100px, so it can't hold many names. When the whole line fits
-   it's shown whole; when it doesn't, the artist who drew most of the picture
-   is named and everyone else collapses into a '+N' that opens the full list,
-   every name still a link. Before, the strip clipped after two lines and the
-   smallest contributors just vanished.
-
-   This is the one surface downstream of the builder that can send someone to
-   the artist -- a PNG, a PDF and a social unfurl can only carry the name as
-   text -- so nobody's link is allowed to drop off it."
+  "The credit under the character page's thumbnail, each name a link where the artist has
+   one. When the whole line overflows the 100px strip, the lead artist is named and the rest
+   collapse into a '+N' that opens the full list, every name still a link."
   [portrait]
   (r/with-let [open? (r/atom false)]
     (let [_ @(subscribe [:portrait/artist-overrides]) ; re-render when the credits arrive
@@ -1391,27 +1360,28 @@
 
 ;; ---------------- the artist credit ----------------
 ;;
-;; Settled after an exploration whose screenshots are stashed at
-;; docs/design/portrait-credit on agents/develop: a small label, then each
-;; artist's name on a broken rule, the words in one typeface and nothing else
-;; decorated but the rule and the link marks' own colours.
+;; A small label, then each name on a broken rule, decorated only by the rule and the
+;; link marks' colours. Design captures: docs/design/portrait-credit on agents/develop.
 
 (defn- credit-mark
   "One of an artist's links, as its service's mark in the link's own colour.
    The label is the accessible name: an icon alone is unreadable to a screen
    reader, and a link with no icon falls back to the label as text."
   [artist-name {:link/keys [label url icon color]}]
-  [:a.lk-mark {:href url :target "_blank" :rel "noopener"
-               :title (str artist-name " on " label)
-               :aria-label (str artist-name " on " label)
-               :style (when color {"--lk-mark-color" color})}
-   (if icon
-     [:span.lk-ico {:style {"--lk-icon" (str "url(/image/social/" icon ".svg)")}}]
-     [:span.lk-mark-text (s/lower-case label)])])
+  (when-let [attrs (artist-profile/external-link url)]
+    [:a.lk-mark (merge attrs
+                       {:title (str artist-name " on " label " (" (artist-profile/link-host url) ")")
+                        :aria-label (str artist-name " on " label)
+                        :style (when color {"--lk-mark-color" color})})
+     (if icon
+       [:span.lk-ico {:style {"--lk-icon" (str "url(/image/social/" icon ".svg)")}}]
+       [:span.lk-mark-text (s/lower-case label)])]))
 
-(defn- credit-name [{:keys [:artist/name :artist/link]}]
-  (if link
-    [:a.lk-name {:href link :target "_blank" :rel "noopener"} name]
+(defn- credit-name
+  "The artist's name in the credit, a link to where they chose when it is one this site draws."
+  [{:keys [:artist/name :artist/link]}]
+  (if-let [attrs (artist-profile/external-link link)]
+    [:a.lk-name attrs name]
     [:span.lk-name name]))
 
 (defn- rule [side] [:span.lk-rule {:class side :aria-hidden true}])
@@ -1429,13 +1399,9 @@
        [credit-name a]])))
 
 (defn- credit-lockup
-  "Small label, then the artists in credit order (pa/credit-order): whoever
-   drew most of the picture on the rule, with their link marks as its end caps
-   when those balance and centred below when not (pa/credit-mark-layout); then
-   everyone else on one line -- 'with A, B and C' -- each name its artist's
-   link. Height stays at three or four lines however many artists there are,
-   and the lead keeps the marks because the lead is who most people looking
-   at the picture want to find."
+  "The credit for `named` artists in credit order: an \"Art by\" label; the lead on the
+   rule with their marks placed by pa/credit-mark-layout; \"with A, B and C\" for the rest;
+   then the profile link. Three or four lines however many artists there are."
   [named]
   (let [[{:keys [:artist/name :artist/links] :as lead} & others] named
         {:keys [left right below]} (pa/credit-mark-layout links)]
@@ -1452,7 +1418,13 @@
         [:div.lk-marks
          (for [l below] ^{:key (:link/url l)} [credit-mark name l])])]
      (when (seq others)
-       [:div.lk-with "with " (name-list others)])]))
+       [:div.lk-with "with " (name-list others)])
+     ;; The way to the site's own page about them, kept apart from the name,
+     ;; which goes wherever the artist chose. A new tab, like every link in
+     ;; the credit, so an unsaved draft is not left behind.
+     (when-let [{:keys [href label]} (artist-profile/profile-link named)]
+       [:a.lk-about {:href href :target "_blank" :rel "noopener"}
+        label [:span.lk-about-arrow {:aria-hidden true} "\u203a"]])]))
 
 (defn credit-preview
   "One artist's credit exactly as the builder draws it, for the account page:
@@ -1470,8 +1442,9 @@
    rendering fault, and inventing something to put there is worse, so the
    whole strip says so plainly instead."
   [layers]
-  (let [_ @(subscribe [:portrait/artist-overrides]) ; re-render when the credits arrive
-        infos (pa/artists-for-layers layers)
+  (let [infos (pa/artists-for-layers layers)
+        ;; credits are fetched and watched only when there is someone to credit
+        _ (when (seq infos) @(subscribe [:portrait/artist-overrides]))
         named (filter :artist/name infos)]
     [:div.pl-attribution
      (cond
@@ -1499,15 +1472,16 @@
          [:div.pl-empty-hint {:style {"--pl-logo" (str "url(" branding/logo-path ")")}}
           "Pick a layer below, or hit " [:em "Randomize"] "."])]
       [iris-alternative-switch portrait]
-      ;; Directly under the art it describes. It used to sit in the footer
-      ;; beside Save Portrait, which put a credit in a row of actions and made
-      ;; the drawer disagree with the character summary, where it has always
-      ;; sat under the thumbnail.
+      ;; Directly under the art, as on the character summary; not among the actions.
       [attribution (:layers portrait)]
       [:div.pl-toolbar
        [:button.pl-btn.pl-btn-primary
         {:type "button" :on-click #(dispatch [:portrait/randomize])}
         "Randomize"]
+       [:label.pl-keep-colours
+        [:input {:type "checkbox" :checked (boolean @(subscribe [:portrait/keep-colours?]))
+                 :on-change #(dispatch [:portrait/toggle-keep-colours])}]
+        " Keep colours"]
        [:button.pl-btn.pl-btn-ghost
         {:type "button" :on-click #(dispatch [:portrait/reset]) :disabled (not any?)}
         "Reset"]
@@ -1521,18 +1495,13 @@
         [category-picker portrait layer-key open-layer])]]))
 
 (defn drawer
-  "Renders the compositor drawer when :portrait/drawer-open? is truthy.
-   Mount once at the character-builder root; it overlays.
-
-   The stylesheet is mounted unconditionally, not inside the open? branch --
-   it also styles the launcher button and the inline Portrait tab, both of
-   which are on screen precisely when the drawer is not.
-
-   The theme class goes on this component's own root rather than being
-   inherited: the drawer is mounted as a SIBLING of content-page, and .app --
-   which carries the theme -- is inside content-page, so .app.light-theme
-   cannot reach it."
-  []
+  "The compositor drawer, an overlay shown while :portrait/drawer-open?. Mount once at the
+   character-builder root. Its stylesheet mounts even when closed (it also styles the
+   launcher and the Portrait tab), and its root carries the theme class itself because it
+   sits outside .app. See PORTRAIT-COMPOSITOR.md, \"The drawer's chrome\". A switch at the top picks
+   building a portrait or an image from the web, tagging the one the character shows; both are kept,
+   and the footer switches which shows. `link-field` is the image address field."
+  [& [link-field]]
   (let [open? @(subscribe [:portrait/drawer-open?])
         theme @(subscribe [:theme])]
     [:div.pl-root {:class theme}
@@ -1540,73 +1509,153 @@
        (let [portrait   @(subscribe [:portrait/draft])
              seed       @(subscribe [:portrait/draft-seed])
              open-slot  @(subscribe [:portrait/open-slot])
-             open-layer @(subscribe [:portrait/open-layer])]
+             open-layer @(subscribe [:portrait/open-layer])
+             mode       @(subscribe [:portrait/mode])
+             image-url  @(subscribe [:portrait/link-draft])
+             shown      @(subscribe [:portrait/shown])
+             dirty?     @(subscribe [:portrait/dirty?])]
          [:div
           [:div.pl-backdrop {:on-click #(dispatch [:portrait/close])}]
           [:div.pl-drawer
            [:div.pl-drawer-head
             [:div.pl-drawer-title
-             [:span.pl-drawer-title-rune "\u00a7"] "Compose portrait"]
+             [:span.pl-drawer-title-rune "\u00a7"] "Character picture"]
             [:button.pl-drawer-close
              {:type "button"
               :on-click #(dispatch [:portrait/close])
               :aria-label "Close portrait compositor"}
              "\u2715"]]
-           [compositor-body portrait seed open-slot open-layer]
+           [:div.pl-mode
+            [segmented "" "Build a portrait or use an image from the web" mode
+             [[:compose [:span "Build a portrait" (when (= shown :portrait) [:span.share-pill.share-pill-shared.pl-active "Active"])]]
+              [:link [:span "Use an image from the web" (when (= shown :image) [:span.share-pill.share-pill-shared.pl-active "Active"])]]]
+             #(dispatch [:portrait/set-mode %])]]
+           (if (= mode :link)
+             [:div.pl-link-mode
+              [:div.pl-link-preview
+               (cond
+                 (s/blank? image-url)
+                 [:span.pl-empty-hint "Paste an image address, and the image shows here."]
+                 (= image-url @failed-link)
+                 [:span.pl-empty-hint
+                  "No image loaded from that address. Check that it opens on its own in a browser tab, and that it is the image itself, not a page holding it. "
+                  [:button.pl-mode-link {:type "button" :on-click #(reset! failed-link nil)} "Try again"]]
+                 :else
+                 [:img {:src image-url :alt "The character's picture"
+                        :on-load #(when (= image-url @failed-link) (reset! failed-link nil))
+                        :on-error #(reset! failed-link image-url)}])]
+              [:div.pl-link link-field]]
+             [compositor-body portrait seed open-slot open-layer])
            [:div.pl-drawer-foot
+            (cond
+              (and (= mode :link) (= shown :portrait))
+              [:div.pl-kept "Your built portrait is kept. You can switch back any time."]
+              (and (= mode :compose) (= shown :image))
+              [:div.pl-kept "Your image from the web is kept. You can switch back any time."])
             [:div.pl-drawer-actions
              [:button.pl-btn.pl-btn-ghost
               {:type "button" :on-click #(dispatch [:portrait/close])}
               "Cancel"]
-             [:button.pl-btn.pl-btn-primary
-              {:type "button" :on-click #(dispatch [:portrait/save])}
-              "Save portrait"]]]]]))]))
+             (when (and (= mode :link) (= shown :image))
+               [:button.pl-btn.pl-btn-ghost
+                {:type "button" :on-click #(dispatch [:portrait/remove-link])}
+                "Remove image"])
+             (if (= mode :link)
+               [:button.pl-btn.pl-btn-primary
+                {:type "button" :on-click #(dispatch [:portrait/use-link])
+                 :disabled (or (s/blank? image-url) (= image-url @failed-link))}
+                (if (= shown :portrait) "Switch to this image" "Use this image")]
+               [:button.pl-btn.pl-btn-primary
+                {:type "button"
+                 :disabled (and (empty? (:layers portrait)) (not dirty?))
+                 :on-click #(dispatch (if (or (not= shown :image) dirty?) [:portrait/save] [:portrait/show-portrait]))}
+                (cond (not= shown :image) "Save portrait"
+                      dirty? "Save and switch"
+                      :else "Switch to this portrait")])]]]]))]))
 
 (defn tab-panel
-  "The compositor rendered in place, as a builder tab.
-
-   Same body as the drawer, different chrome: there is nothing to cancel back
-   to, so instead of Cancel/Save it carries Save with a dirty marker and a way
-   to pop the focused overlay -- which is the nicer place to work on a phone,
-   where the two columns stack into a long scroll.
-
-   Needs its own .pl-root because the drawer stylesheet scopes the light theme
-   to that class; here it also happens to sit inside .app, but relying on that
-   would mean two different theme hooks for one stylesheet."
+  "The builder's Portrait tab: the portrait as it stands, its credit, Randomize, and the way into
+   the compositor drawer, which is the one place a portrait is picked layer by layer. Save shows
+   only while the draft has unsaved changes. Ensures a draft on mount. Has its own .pl-root, the stylesheet's one
+   theme hook. A character using a picture link shows it here instead, with a way into either mode."
   []
   (r/create-class
    {:display-name "portrait-tab-panel"
     :component-did-mount #(dispatch [:portrait/ensure-draft])
     :reagent-render
     (fn []
-      (let [portrait   @(subscribe [:portrait/draft])
-            seed       @(subscribe [:portrait/draft-seed])
-            open-slot  @(subscribe [:portrait/open-slot])
-            open-layer @(subscribe [:portrait/open-layer])
-            dirty?     @(subscribe [:portrait/dirty?])
-            theme      @(subscribe [:theme])]
-        [:div.pl-root.pl-inline {:class theme}
-         [compositor-body portrait seed open-slot open-layer]
+      (let [portrait @(subscribe [:portrait/draft])
+            image-url @(subscribe [:orcpub.dnd.e5.character/image-url])
+            dirty?   @(subscribe [:portrait/dirty?])
+            theme    @(subscribe [:theme])
+            any?     (boolean (seq (:layers portrait)))
+            link?    (= :image @(subscribe [:portrait/shown]))]
+        [:div.pl-root.pl-inline.pl-preview {:class theme}
+         [:div.pl-preview-body
+          [:div.pl-portrait-frame
+           (cond
+             link? [:img.pl-link-picture {:src image-url :alt "The character's picture"}]
+             any? [composite portrait]
+             :else [:div.pl-empty-hint {:style {"--pl-logo" (str "url(" branding/logo-path ")")}}
+                    "No portrait yet."])]
+          (when (and any? (not link?)) [attribution (:layers portrait)])
+          [:button.pl-mode-link {:type "button" :on-click #(dispatch [:portrait/open (if link? :compose :link)])}
+           (if link? "Build a portrait instead" "Use an image from the web instead")]]
          [:div.pl-drawer-foot
           [:div.pl-drawer-actions
-           [:button.pl-btn.pl-btn-ghost
-            {:type "button" :on-click #(dispatch [:portrait/open])}
-            "Full screen"]
+           (when dirty?
+             [:button.pl-btn.pl-btn-ghost
+              {:type "button" :on-click #(dispatch [:portrait/save true])}
+              "Save portrait"])
+           (when-not link?
+             [:button.pl-btn.pl-btn-ghost
+              {:type "button" :on-click #(dispatch [:portrait/randomize])}
+              "Randomize"])
            [:button.pl-btn.pl-btn-primary
-            {:type "button"
-             :disabled (not dirty?)
-             :on-click #(dispatch [:portrait/save true])}
-            (if dirty? "Save portrait" "Saved")]]]]))}))
+            {:type "button" :on-click #(dispatch [:portrait/open])}
+            (cond link? "Edit image" any? "Edit portrait" :else "Build a portrait")]]]]))}))
 
-(defn launcher-button
-  "The 'Compose portrait' button that slots next to the Image URL input in
-   the character-builder Description tab."
-  []
-  [:button.pl-launcher
-   {:type "button"
-    :on-click #(dispatch [:portrait/open])
-    :title "Compose portrait from layered art"}
-   "Compose portrait"])
+(defn roll
+  "A whole random portrait for `seed`: every layer, the colour of each slot, the eyes, the hair's
+   second colour and effects, and the light, each within ranges that still look like a person
+   (mostly round pupils, about half lit). With `keep-colours?` the colours of `current` are kept:
+   its slots, piece tweaks, second eye, blush and hair tips. Returns `current` with those replaced."
+  [seed current keep-colours?]
+  (let [r (rnd/mulberry32 (rnd/seed->int (str seed "/look")))
+        chance (fn [p] (< (r) p))
+        pick (fn [xs] (let [v (vec xs)] (nth v (int (Math/floor (* (r) (count v)))))))
+        between (fn [lo hi] (+ lo (* (r) (- hi lo))))
+        presets pa/color-presets
+        hair (pick (:hair presets))
+        colours {:hair hair :skin (pick (:skin presets)) :eyes (pick (:eyes presets))
+                 :shirt (pick (:shirt presets)) :lips (pick (:lips presets))
+                 :whites (pick (if (chance 0.85) (take 4 (:whites presets)) (:whites presets)))}
+        face {:pupil (cond (chance 0.8) :round (chance 0.5) :snake :else :goat)
+              :second-eye (when (chance 0.1) (pick (:eyes presets)))
+              :blush (if (chance 0.5) 0.0 (between 0.2 0.6))
+              :blush-colour (pick face/blush-colours)
+              :freckles (if (chance 0.6) 0.0 (between 0.2 0.7))
+              :freckle-place (r)
+              :freckle-strength (between 0.3 0.7)
+              :shade (between 0.0 0.5)}
+        ;; assoc, not a map literal: portrait_test reads a literal :style key as an inline style
+        light (when (chance 0.5)
+                (assoc {} :mood (pick (sort (keys light/moods))) :style (pick light/styles)
+                       :from (pick (sort (keys light/sides)))))
+        tip (when (chance 0.4) (pick (remove #{hair} (:hair presets))))
+        ombre (cond-> {:depth (between 0.1 0.5) :clumps (between 0.2 0.7)
+                       :shine (if (chance 0.5) 0.0 (between 0.2 0.6)) :split (chance 0.1)}
+                tip (assoc :tip tip :start (between 0.15 0.6) :falloff (between 0.3 0.9)))]
+    (if keep-colours?
+      (assoc current
+             :layers (pa/compose-for-seed seed)
+             :face (merge (dissoc face :second-eye :blush-colour)
+                          (select-keys (:face current) [:second-eye :blush-colour]))
+             :light light
+             :ombre (merge (dissoc ombre :tip) (select-keys (:ombre current) [:tip])))
+      (assoc current
+             :layers (pa/compose-for-seed seed)
+             :colors colours :tweaks {} :face face :light light :ombre ombre))))
 
 (defn edit-overlay
   "Pencil layered onto the character-summary thumbnail. stopPropagation
@@ -1628,7 +1677,8 @@
    A composed portrait carries its artists' names under it. This is the one
    surface a reader lands on, so it is where the credit does the most good."
   [portrait-data image-url editable?]
-  (let [_ @(subscribe [:portrait/artist-overrides])] ; re-render when the credits arrive
+  ;; only a composed portrait has a credit, so only then are the credits fetched and watched
+  (let [_ (when (pa/drawable? portrait-data) @(subscribe [:portrait/artist-overrides]))]
     (cond
       (pa/drawable? portrait-data)
       [:div.m-r-20.m-t-10.m-b-10

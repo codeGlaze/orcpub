@@ -1,7 +1,8 @@
 (ns orcpub.styles.core
-     (:require [garden.stylesheet :refer [at-media at-keyframes]]
+     (:require [garden.stylesheet :refer [at-media at-keyframes at-font-face]]
                [garden.units :refer [px]]
                [orcpub.constants :as const]
+               [orcpub.styles.weapons :as weapons]
                [garden.selectors :as s]
                [orcpub.styles.portrait :as portrait]))
 
@@ -24,11 +25,23 @@
 ;; card, 4.52:1 as a border on its own tint -- never run as text ON that tint, which only clears 4.52:1 (AA-scrape).
 ;; Ink/muted on the white auth card: 8.9:1 and 4.6:1 respectively (counterparts to muted-on-dark).
 (def text-color-light "#4b545e")
+(def auth-card-ink "#484848")        ; body text on the white auth card (the old text-color in views/auth)
+(def auth-banner-ground "#1a2532")   ; the logo band above the auth card's form
 (def muted-on-light "#6b7681")
 (def error-red "#d4351c")
 (def error-tint "#fdf5f6")
 (def warning-yellow "#ffd21a") ; attention severity: unresolved conflicts, missing fields
 (def broken-red "#e5637a")     ; broken severity: invalid / unexportable data
+(def light-text "#363636")     ; body text in the light theme
+(def slate-blue "#33658A")     ; the light theme's accent, where the dark theme uses orange
+(def button-ink "#15202e")     ; dark text on amber: buttons with dark text on, a checked box
+(def orange-hairline "rgba(240,161,0,0.16)") ; orange border on dark portrait panels
+
+;; Portrait surfaces: the artist pages here, the compositor drawer in portrait.cljs.
+(def portrait-panel "#131924")      ; card and tile ground, dark theme
+(def portrait-panel-text "#ebeef4") ; text on portrait-panel
+(def portrait-frame-glow "#202939") ; portrait frame gradient, centre
+(def portrait-frame-edge "#0f141c") ; portrait frame gradient, edge
 
 ;; Text on the amber buttons is small and low-contrast either way, so it gets a
 ;; faint edge in the opposite tone: dark under white text, light under dark.
@@ -157,8 +170,150 @@
     {:cursor :pointer
      :text-decoration "underline dotted"
      :text-underline-offset "3px"}]
+;; casting a spell from a charged item (views.cljs cast-panel; plan-charges-and-casting.md)
+   [:.cast-open {:margin "6px 0 0" :padding "4px 10px" :font-size "12px" :font-weight 600}]
+   [:.cast-row [:td {:padding "0 10px 10px"}]]
+   [:.cast-damage {:margin "8px 0" :font-size "13px"}]
+   [:.cast-damage-part {:display :flex :justify-content :space-between :gap "10px"}]
+   [:.cast-damage-total {:margin "4px 0" :font-size "15px"}]
+   [:.cast-panel {:box-sizing :border-box :padding "10px 12px" :font-size "13px" :font-weight :normal
+                  :border-radius "6px" :background "rgba(0,0,0,.22)" :border "1px solid rgba(255,255,255,.14)"}]
+   [:.cast-sheet [:.cast-panel {:background :none :border 0 :padding 0}]]
+   [:.cast-sheet {:position :fixed :left 0 :right 0 :bottom 0 :z-index 10001 :max-height "80vh" :overflow-y :auto
+                  :background-color "#2c3445" :color "#e6e9ee" :border-radius "14px 14px 0 0"
+                  :padding "10px 16px 22px" :box-shadow "0 -6px 24px rgba(0,0,0,.5)"}]
+   [:.cast-dim {:position :fixed :top 0 :left 0 :right 0 :bottom 0 :z-index 10000 :background "rgba(0,0,0,.35)"}]
+   [:.cast-handle {:width "40px" :height "4px" :border-radius "2px" :background "rgba(255,255,255,.35)" :margin "0 auto 10px"}]
+   [:.cast-x {:position :absolute :right "8px" :top "6px" :width "44px" :height "44px" :background :none :border 0
+              :color :inherit :font-size "18px" :cursor :pointer}]
+   [:.cast-head {:display :flex :flex-direction :column :gap "2px" :padding-right "36px"}]
+   [:.cast-head [:b {:font-size "15px"}] [:span {:opacity 0.7 :font-size "12px"}]]
+   [:.cast-spells {:display :flex :flex-wrap :wrap :gap "4px" :margin "10px 0 0"}]
+   [:.cast-spell-pick {:position :relative :min-height "30px" :padding "0 10px" :border-radius "15px" :font-size "12px"
+                       :border "1px solid rgba(230,233,238,.3)" :background :none :color :inherit :cursor :pointer}]
+   [:.cast-spell-pick [:span {:opacity 0.6}]]
+   [:.cast-spell-pick.on {:border-color "#f0a100" :color "#f0a100" :background-color "rgba(240,161,0,.16)"}]
+   [:.cast-levels {:display :grid :grid-template-columns "repeat(auto-fill, minmax(42px, 1fr))" :gap "4px" :margin "10px 0"}]
+   [:.cast-level {:height "40px" :border-radius "5px" :border "1px solid rgba(230,233,238,.3)" :background :none :color :inherit
+                  :display :flex :flex-direction :column :align-items :center :justify-content :center :line-height 1.15
+                  :font-size "11px" :cursor :pointer :padding 0}]
+   [:.cast-level [:b {:font-size "12.5px"}] [:span {:opacity 0.7 :font-size "10px"}]]
+   [:.cast-level.on {:background-color "rgba(240,161,0,.16)" :border-color "#f0a100" :color "#f0a100"}]
+   [:.cast-level.off {:opacity 0.35 :cursor :default}]
+   [:.cast-foot {:display :flex :align-items :center :gap "8px" :flex-wrap :wrap}]
+   [:.cast-note {:opacity 0.7 :font-size "12px" :flex 1 :min-width "140px"}]
+   [:.cast-go {:margin "0 0 0 auto" :min-height "36px" :padding "0 12px" :font-size "12px" :font-weight 600}]
+   [:.cast-go.unavailable {:opacity 0.5 :cursor :default}]
+   [:.cast-spell {:max-height "40vh" :overflow-y :auto :margin "8px 0" :font-size "13px"}]
+   ;; the spell table's Mod. roll button, no taller than the row's text
+   [:.spell-mod [:.roll-button {:min-width 0 :font-size "14px" :line-height "18px" :padding "0 8px" :margin 0 :vertical-align :middle}]
+                [:.tooltip {:border-bottom 0 :vertical-align :middle}]]
+   [".app.light-theme .cast-sheet" {:background-color :white :color "#222"}]
+   [".app.light-theme .cast-panel" {:background "rgba(255,255,255,.6)" :border-color "rgba(0,0,0,.14)"}]
+   [".app.light-theme .cast-level.on" ".app.light-theme .cast-spell-pick.on" {:color "#33658A" :border-color "#33658A"
+                                                                             :background-color "rgba(51,101,138,.12)"}]
+
+;; the floating Rest button and the box it opens (views/rest_controls.cljs rest-fab)
+   [:.rest-fab {:position :fixed :right "12px" :bottom "16px" :z-index 160 :width "56px" :height "56px"
+                :border-radius "28px" :border :none :color :white :cursor :pointer :font-size "20px"
+                :box-shadow "0 3px 10px rgba(0,0,0,.45)" :background-image "linear-gradient(to bottom,#f1a20f,#dbab50)"}]
+   [:.rest-fab-dim {:position :fixed :top 0 :left 0 :right 0 :bottom 0 :z-index 170 :background "rgba(0,0,0,.45)"}]
+   [:.rest-fab-dim.clear {:background :none}]
+   [:.rest-fab-sheet {:position :fixed :left 0 :right 0 :bottom 0 :z-index 180 :background-color "#2c3445"
+                      :border-radius "12px 12px 0 0" :box-shadow "0 -6px 20px rgba(0,0,0,.35)" :padding "8px 12px 16px"}]
+   [:.rest-fab-card {:position :fixed :right "16px" :bottom "84px" :z-index 180 :width "max-content" :min-width "330px" :max-width "calc(100% - 32px)"
+                     :box-sizing :border-box :background-color "#2c3445" :border "1px solid rgba(255,255,255,.14)"
+                     :border-radius "8px" :box-shadow "0 8px 24px rgba(0,0,0,.45)" :padding "8px 10px 10px"}]
+   [:.rest-fab-handle {:width "36px" :height "4px" :border-radius "2px" :background "rgba(255,255,255,.5)" :margin "0 auto 2px"}]
+   [".rest-fab-sheet .rest-box" ".rest-fab-card .rest-box" {:background :none :border 0 :padding 0 :margin 0}]
+   ["body:has(.rest-fab-slot) .import-log-button" {:bottom "84px"}]
+   ;; room under the footer, so the page's last line scrolls clear of the 72px the button takes
+   ["body:has(.rest-fab-slot) .content:has(> .site-footer)" {:padding-bottom "72px"}]
+   [".app.light-theme .rest-fab" {:background-image "linear-gradient(to bottom,#33658A,#33658A)"}]
+   [".app.light-theme .rest-fab-sheet" ".app.light-theme .rest-fab-card" {:background-color "#fff" :color "#363636"}]
+   [".app.light-theme .rest-fab-card" {:border-color "rgba(0,0,0,.14)"}]
+   [".app.light-theme .rest-fab-handle" {:background "rgba(0,0,0,.4)"}]
+;; the Rest box, first on the Features tab (views.cljs rest-box; handoff-rest-controls.md)
+   [:.rest-box {:background "rgba(0,0,0,.18)" :border "1px solid rgba(255,255,255,.14)" :border-radius "6px"
+                :padding "8px 10px 10px" :margin "8px 0 16px"}]
+   [:.rest-head {:display :flex :align-items :center :gap "8px" :min-height "44px"}]
+   [:.rest-bed {:color "#f0a100" :font-size "16px"}]
+   [:.rest-title {:font-size "16px" :font-weight 600}]
+   [:.rest-labels :.rest-link
+    {:position :relative :display :inline-flex :align-items :center :gap "4px" :background :none :border 0 :padding "0 4px"
+     :color "#f0a100" :text-decoration :underline :text-transform :uppercase :font-size "12px" :font-weight 700
+     :min-height "32px" :cursor :pointer}]
+   [:.rest-labels {:margin-left :auto}]
+   [".rest-labels::after" ".rest-link::after" {:content "\"\"" :position :absolute :inset "-6px 0"}]
+   [:.rest-link.right {:margin-left :auto}]
+   [:.rest-caption {:font-size "11px" :font-weight 700 :text-transform :uppercase :letter-spacing ".06em"
+                    :opacity 0.65 :margin "2px 0 4px"}]
+   [:.rest-row {:display :flex :gap "5px" :align-items :stretch}]
+   [:.rest-rests {:display :flex :gap "5px" :flex 1}]
+   [:.rest-segs {:display :flex :flex "none" :border "1px solid rgba(255,255,255,.32)" :border-radius "6px" :overflow :hidden}]
+   [:.rest-segs.wide {:width "100%" :margin-bottom "5px"}]
+   [:.rest-seg {:width "44px" :height "44px" :padding 0 :border :none
+                :background :none :color :inherit :font-size "13px" :font-weight 600 :display :flex
+                :align-items :center :justify-content :center :gap "5px" :cursor :pointer}]
+   [".rest-seg + .rest-seg" {:border-left "1px solid rgba(255,255,255,.32)"}]
+   [:.rest-segs.wide [:.rest-seg {:flex 1 :width :auto}]]
+   [:.rest-seg.on {:background-color "rgba(240,161,0,.16)" :color "#f0a100" :box-shadow "inset 0 -3px 0 #f0a100"}]
+   [:.rest-seg.none-on {:background-color "rgba(255,255,255,.14)"}]
+   [:.rest-btn {:height "44px" :margin 0 :padding "0 6px" :flex 1 :font-size "12px" :font-weight 600}]
+   [:.rest-row [:.rest-now {:flex "none" :width "48px" :margin-left "5px"}]]
+   [:.rest-row.labels [:.rest-now {:flex 1 :width :auto :margin-left 0}]]
+   [:.rest-now.unavailable {:background-color :transparent
+                            :background-image "linear-gradient(rgba(255,255,255,.1), rgba(255,255,255,.1))"
+                            :color "rgba(255,255,255,.42)" :text-shadow :none :cursor :default}]
+   [:.rest-line {:display :flex :flex-wrap :wrap :align-items :center :gap "6px" :font-size "13px" :margin-top "8px"}]
+   [:.rest-line.hint {:opacity 0.8}]
+   [:.rest-answers {:display :flex :flex-wrap :wrap :gap "8px" :width "100%"}]
+   [:.rest-close {:background :none :border 0 :color :inherit :font-size "18px" :min-width "32px" :min-height "32px" :cursor :pointer}]
+   [:.rest-recharged {:width "100%"}]
+   [:.rest-recharged-row {:display :flex :align-items :center :gap "8px" :font-size "12px" :margin-top "4px"}]
+   [:.rest-amount {:width "56px" :height "26px" :font-size "12px"}]
+   [:.rest-dice {:opacity 0.6}]
+   [".app.light-theme .rest-box" {:background "rgba(255,255,255,.6)" :border-color "rgba(0,0,0,.14)"}]
+   [".app.light-theme .rest-bed" ".app.light-theme .rest-seg.on" {:color "#33658A"}]
+   [".app.light-theme .rest-seg.on" {:background-color "rgba(51,101,138,.12)" :box-shadow "inset 0 -3px 0 #33658A"}]
+   [".app.light-theme .rest-seg.none-on" {:background-color "rgba(0,0,0,.12)"}]
+   [".app.light-theme .rest-segs" ".app.light-theme .rest-seg + .rest-seg" {:border-color "rgba(0,0,0,.28)"}]
+   [".app.light-theme .rest-labels" ".app.light-theme .rest-link" {:color "#363636"}]
+   [".app.light-theme .rest-now.unavailable" {:background-image "linear-gradient(rgba(0,0,0,.08), rgba(0,0,0,.08))"
+                                              :color "rgba(0,0,0,.38)"}]
+
+   ;; the item builder's Charges group (views/charges_builder.cljs)
+   [:.item-charges-field {:margin "0 10px 10px 0"}]
+   [:.item-charges-field.charges-count {:width "76px"}]
+   [:.item-charges-field.charges-regains {:width "96px"}]
+   [:.item-cast-row {:padding "8px 0" :border-bottom "1px solid rgba(255,255,255,.12)"}]
+   [:.item-cast-spell {:flex "1 1 200px" :margin-right "10px"}]
+   [:.item-cast-number {:width "86px" :margin-right "8px"}]
+   [:.item-cast-number.wide {:width "150px"}]
+   [:.item-cast-remove {:margin-bottom "8px"}]
+   [:.item-cast-hint {:font-size "12px" :opacity 0.8 :margin-top "2px"}]
+   [".app.light-theme .item-cast-row" {:border-bottom-color "rgba(0,0,0,.12)"}]
+   ;; an item's charges under its name (views.cljs item-charges)
+   [:.item-charges {:margin-top "4px" :font-weight :normal :font-size "12px"}]
+   [:.item-charges-line {:display :flex :align-items :center :gap "6px" :flex-wrap :wrap :min-height "22px"}]
+   [:.item-charges-n {:opacity 0.6 :min-width "10px"}]
+   [:.item-charges-pips {:display :flex :gap "3px"}]
+   [:.item-charge-pip
+    {:position :relative :width "12px" :height "12px" :padding 0 :border-radius "50%"
+     :border "1.5px solid #f0a100" :background-color "#f0a100" :cursor :pointer}]
+   [".item-charge-pip::after" {:content "\"\"" :position :absolute :inset "-10px -2px"}]
+   [:.item-charge-pip.used {:background-color :transparent :opacity 0.7}]
+   [:.item-charges-count {:font-variant-numeric "tabular-nums" :opacity 0.8}]
+   [:.item-charges-count.big {:font-size "13px" :font-weight :bold :opacity 1}]
+   [:.item-charges-step
+    {:position :relative :width "26px" :height "22px" :padding 0 :border-radius "4px" :font-weight :bold
+     :border "1px solid currentColor" :background :none :color :inherit :cursor :pointer}]
+   [".item-charges-step::after" {:content "\"\"" :position :absolute :inset "-11px -4px"}]
+   [:.item-charges-roll {:margin 0 :padding "2px 8px" :font-size "12px"}]
+   [:.item-charges-input {:width "64px" :height "24px" :font-size "12px"}]
    [:.srd-preview
     {:position :fixed
+     :box-sizing :border-box
      :z-index 10001
      :overflow-y :auto
      :padding "12px 14px"
@@ -571,6 +726,45 @@
                 :position "absolute"
                 :z-index "1"}]]
 
+   ;; The PDF options' groups, flowing down as many columns as the width holds (one on a phone),
+   ;; each group kept whole so a tall one leaves no gap beside the short ones. Columns run right to
+   ;; left, so the first group sits where the panel has always opened and wider screens add to its
+   ;; left; the text inside reads left to right.
+   [:.pdf-options-grid
+    {:column-width "280px"
+     :column-gap "32px"
+     :direction "rtl"}
+    [:>div {:break-inside "avoid"
+            :direction "ltr"}]]
+   ;; PDF Options, filling the window: a bar with its title and close, the options scrolling
+   ;; between, and a footer holding Create PDF. The surface of the app's other sheets (.rest-fab-sheet)
+   ;; in each theme, text from .main-text-color, so the options keep their theme colours.
+   ;; z-index above the cookie notice (9999), which otherwise lies over Create PDF
+   [:.pdf-sheet {:position :fixed :top 0 :left 0 :right 0 :bottom 0 :z-index 10000
+                 :display :flex :flex-direction :column :background-color "#2c3445"}]
+   [".app.light-theme .pdf-sheet" {:background-color "#fff"}]
+   [:.pdf-sheet-bar {:flex "none" :display :flex :align-items :center :justify-content :space-between
+                     :padding "4px 8px 4px 20px" :border-bottom "1px solid rgba(128,128,128,.35)"}]
+   [:.pdf-sheet-title {:font-size "20px" :font-weight :bold :margin 0}]
+   [:.pdf-sheet-close {:min-width "44px" :min-height "44px" :background :none :border :none
+                       :color :inherit :font-size "22px" :cursor :pointer}]
+   [:.pdf-sheet-body {:flex "1 1 auto" :overflow-y :auto :overscroll-behavior :contain
+                      :padding "16px 20px"}]
+   [:.pdf-sheet-foot {:flex "none" :display :flex :justify-content :flex-end :align-items :center
+                      :gap "12px" :padding "10px 20px"
+                      :padding-bottom "max(10px, env(safe-area-inset-bottom, 0px))"
+                      :border-top "1px solid rgba(128,128,128,.35)"}]
+   (at-media {:max-width "767px"}
+             [:.pdf-sheet-body {:padding "12px 16px"}]
+             [:.pdf-sheet-foot {:padding-left "16px" :padding-right "16px"}
+              [:button {:flex "1 1 0" :min-height "44px"}]])
+
+   ;; Options that only apply while the checkbox above them is ticked: a rule down their left edge,
+   ;; starting under that checkbox, so they read as its own and an unindented field after them
+   ;; reads as the group's again. Grey in both themes, so it needs no theme pair.
+   [:.option-nested {:margin "2px 0 10px 7px" :padding-left "12px"
+                     :border-left "2px solid rgba(128,128,128,.5)"}]
+
    ;; A group heading in the PDF options. Set apart from the field labels under
    ;; it -- a heading in the same weight as its own first label reads as one more
    ;; option rather than as the name of the set.
@@ -579,7 +773,7 @@
      :font-weight "bold"
      :letter-spacing "0.08em"
      :text-transform "uppercase"
-     :opacity "0.6"
+     :opacity "0.75"
      :padding-top "8px"
      :margin-bottom "6px"
      :border-top "1px solid currentColor"}]
@@ -598,7 +792,13 @@
      :font-size "10px"
      :font-weight "bold"
      :line-height "1"
-     :opacity "0.55"}]
+     :opacity "0.75"
+     ;; A <button>: no UA chrome, the text's own colour and font.
+     :background "none"
+     :color "inherit"
+     :font-family "inherit"
+     :padding "0"
+     :cursor "pointer"}]
    [:.option-help:hover
     {:opacity "1"}]
    [:.option-help-text
@@ -630,12 +830,17 @@
      {:color "var(--accent, #f0a100)"
       :text-decoration :underline}]]
 
-   ;; The spellbook's class emblems in PDF Options: black icons, inverted on the dark panel.
+   ;; The spellbook's class emblems in PDF Options: black icons, inverted on the dark theme's panel
+   ;; and left black on the light one.
    [:.emblem-icon
     {:width "22px"
      :height "22px"
      :filter "invert(1)"
      :opacity "0.85"}]
+   [".app.light-theme .emblem-icon" {:filter "none"}]
+   ;; The Change/Done toggle: a <button> that looks like the link it was.
+   [:.emblem-toggle
+    {:background "none" :border "none" :padding "0" :font-family "inherit"}]
    [:.emblem-choices
     {:display "grid"
      :grid-template-columns "repeat(auto-fill, minmax(34px, 1fr))"
@@ -701,6 +906,10 @@
    [:.field-notice.is-error {:color red-on-dark}]
    [:.field-notice.is-warning {:color amber-on-dark}]
    [:.field-notice.is-note {:color muted-on-dark}]
+   ;; the light theme's pair for each (style guide, section 2); the portrait drawer sits outside .app
+   [".app.light-theme .field-notice.is-error" ".pl-root.light-theme .field-notice.is-error" {:color red}]
+   [".app.light-theme .field-notice.is-warning" ".pl-root.light-theme .field-notice.is-warning" {:color "#8a5a00"}]
+   [".app.light-theme .field-notice.is-note" ".pl-root.light-theme .field-notice.is-note" {:color "#55637a"}]
 
    ;; The other ways in, behind the disclosure. Plain on purpose: controls, not a
    ;; second warning.
@@ -793,6 +1002,10 @@
      :background-clip :content-box
      :width "350px"
      :min-height "600px"}]
+   ;; Auto margins centre the card in its flex row; taller than the window, it starts at the top
+   ;; (align-items alone would push the overflow above the page, out of scroll reach).
+   [:.registration-content {:margin-top :auto :margin-bottom :auto}]
+
    ;; The auth card is white whatever theme the app is in, so anything inside it needs
    ;; the light-ground colours: .red otherwise resolves to red-on-dark (tuned for
    ;; near-black) and washes out to about 2.6:1 on white. .app.light-theme already
@@ -802,7 +1015,10 @@
     ;; its OWN font-size, not an inherited pixel value -- unset here, text renders
     ;; SOLID, descenders hitting the next line's ascenders. Set once on the card for
     ;; a readable default; boxes with tuned geometry pin their own below.
-    {:line-height "1.5"}
+    {:line-height "1.5"
+     :background-color :white
+     :border "1px solid white"
+     :color auth-card-ink}
     [:.red {:color red}
      [:a :a:visited {:color red}]]
 
@@ -1305,6 +1521,19 @@
     ["span:first-child" {:padding-right "20px"}]
     [".callout-detail + .callout-detail > span" {:border-top "1px solid rgba(255, 255, 255, 0.08)"}]
     [:.callout-aside {:color muted-on-dark}]]
+   ;; Small-capitals links, so a 14px line of text leads rather than its actions (kits handoff,
+   ;; plan-inventory-kits.md). The 44px tap area is the button's own height.
+   [:.link-button.quiet
+    {:display :inline-flex :align-items :center :min-height "44px" :padding "0 15px"
+     :font-size "11px" :letter-spacing ".05em" :font-weight 600 :text-transform :uppercase
+     :text-decoration :underline :white-space :nowrap :flex :none}
+    [:&.strong {:font-weight 700}]
+    [:&.muted {:color :inherit :opacity 0.7}]]
+   ;; A quiet callout: text 12px from the top and left whether or not its actions sit below it.
+   [:.callout-quiet {:padding "0 0 0 12px !important" :align-items "flex-start !important"}
+    [:.callout-text {:padding "12px 0" :min-width 0}]
+    [:.callout-text [:.f-w-b {:margin-bottom "2px"}]]]
+   [:.callout-actions {:flex-basis "100%" :display :flex :justify-content :flex-end :margin-top "-12px"}]
    ;; Even spacing above and below the line and the band, so the box opens like a shell.
    [:.callout-compact.flex-wrap {:row-gap "4px !important"}]
    ;; A Planned line is a button that reads as the italic link it replaces, with a 44px tap area
@@ -1384,8 +1613,9 @@
       :padding "1px"
       :pointer-events :none
       :background (str "linear-gradient(90deg, " orange ", rgba(255, 255, 255, 0.12) 30%, "
-                       "rgba(255, 255, 255, 0.12) 70%, " orange ")")
-      :-webkit-mask "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)"
+                       "rgba(255, 255, 255, 0.12) 70%, " orange ")")}
+     ;; Its own map, so the order holds: `mask` resets `mask-composite` (garden-declaration-order.md).
+     {:-webkit-mask "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)"
       :-webkit-mask-composite "xor"
       :mask "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)"
       :mask-composite "exclude"}]]
@@ -1412,6 +1642,19 @@
     {:display :flex
      :flex-wrap :wrap
      :gap "6px"}]
+   ;; A .chip that is a filter (views/inventory.cljs `inventory-combobox`'s Packs pill): a button with a
+   ;; 44px tap layer; .on takes .cast-level's amber selected look.
+   [:.chip-choice
+    {:position :relative :color :inherit :font-family :inherit :cursor :pointer}
+    [:&:after {:content "''" :position :absolute :inset "-12px -3px"}]
+    [:&.on {:color orange :border-color orange :background-color "rgba(240,161,0,.16)"}]]
+   ;; Keyboard focus for the chip and the Add a kit row: .share-action's ring (*:focus removes the browser's).
+   [".chip-choice:focus-visible, .kit-add:focus-visible" {:outline (str "2px solid " orange) :outline-offset "2px"}]
+   [".app.light-theme .chip-choice:focus-visible, .app.light-theme .kit-add:focus-visible" {:outline-color accent-on-light}]
+   [".app.light-theme .kit-add.on" {:color accent-on-light}]
+   [".app.light-theme .chip-choice"
+    {:background-color "rgba(0, 0, 0, 0.04)" :border-color "rgba(0, 0, 0, 0.2)"}
+    [:&.on {:color accent-on-light :border-color accent-on-light :background-color "rgba(51,101,138,.1)"}]]
 
    ;; Neutral counterpart to .bg-warning, for a callout that is telling you
    ;; something rather than warning you: same box, no severity colour, so an
@@ -1774,8 +2017,126 @@
      [:.details-column
       {:max-width "500px"}])])
 
+(def artist-pages
+  "The public artist pages (views/artist_page.cljs), inside .pl-root so the drawer's
+   --lk-* variables and credit classes apply. .ap-* is only what the drawer lacks."
+  (let [vollkorn "'Vollkorn', Georgia, serif"
+        open-sans "'Open Sans', system-ui, sans-serif"
+        light ".ap-root.light-theme"]
+    [[:.ap-root {:font-family open-sans :color portrait-panel-text :padding "24px 12px 40px"}]
+     [light {:color light-text}]
+     ;; .pl-root.light-theme sets --lk-dim on this same element and is emitted later, so match it
+     ;; with a third class; #5f6672 is 5.8:1 on white, #858c96 only 3.4:1
+     [(str ".pl-root" light) {:--lk-dim "#5f6672"}]
+     [:.ap-card
+      {:max-width "640px" :margin "0 auto" :padding "28px 28px 24px"
+       :background portrait-panel :border (str "1px solid " orange-hairline)
+       :border-radius "12px" :box-shadow "0 20px 50px -30px rgba(0,0,0,0.7)"
+       :display :flex :flex-direction :column :gap "30px"}]
+     [(str light " .ap-card")
+      {:background :white :border-color "rgba(0,0,0,0.10)"
+       :box-shadow "0 20px 50px -34px rgba(0,0,0,0.35)"}]
+     [:.ap-head {:display :flex :flex-direction :column :gap "12px" :text-align :center}]
+     [:.ap-name
+      {:margin 0 :font (str "italic 400 40px/1.1 " vollkorn)
+       :color "var(--lk-name)" :white-space :normal :text-wrap :balance}]
+     [".ap-head .lk-row" {:gap "16px"}]
+     [:.ap-lede {:margin 0 :font-size "13px" :line-height 1.5 :color "var(--lk-dim)"}]
+     [:.ap-links
+      {:display :flex :flex-wrap :wrap :justify-content :center :gap "8px" :margin-top "4px"}]
+     [:.ap-link
+      {:display :inline-flex :align-items :center :gap "8px"
+       :padding "9px 16px" :border-radius "5px"
+       :border "1px solid rgba(255,255,255,0.10)" :background "rgba(255,255,255,0.02)"
+       :color portrait-panel-text :text-decoration :none
+       :font (str "600 12px/1 " open-sans) :letter-spacing "0.04em"
+       :transition "border-color 160ms ease, background-color 160ms ease"}]
+     [".ap-link:hover, .ap-link:focus-visible"
+      {:border-color orange :background "rgba(240,161,0,0.06)" :outline :none}]
+     [".ap-link .lk-ico" {:width "14px" :height "14px"}]
+     [".ap-link .lk-ico" {:color "var(--lk-mark-color, currentColor)"}]
+     ;; the domain a link really opens, so a label cannot pass for another site
+     [:.ap-link-host {:font-weight 400 :letter-spacing 0 :color "var(--lk-dim)"}]
+     [:.ap-link:visited {:color portrait-panel-text}]
+     [:.ap-live {:display :inline-flex :align-items :center :gap "5px" :font-weight 700}]
+     [:.ap-live-dot {:display :inline-block :width "8px" :height "8px" :border-radius "50%"
+                     :background "#e91916"}]
+     [(str light " .ap-link")
+      {:border-color "rgba(0,0,0,0.14)" :background :white :color light-text}]
+     [(str light " .ap-link:visited") {:color light-text}]
+     [(str light " .ap-link:hover, " light " .ap-link:focus-visible")
+      {:border-color slate-blue :background "rgba(51,101,138,0.06)"}]
+     [:.ap-section {:display :flex :flex-direction :column :gap "14px"}]
+     [".ap-section > .lk-cap" {:margin 0}]
+     [:.ap-examples {:display :grid :grid-template-columns "repeat(3, 1fr)" :gap "14px"}]
+     [:.ap-example {:margin 0 :display :flex :flex-direction :column :gap "7px"}]
+     ;; Dark in both themes, like the drawer's frame: a light frame would swallow pale
+     ;; skin and blonde hair.
+     [:.ap-frame
+      {:width "100%" :aspect-ratio "4 / 5" :box-sizing :border-box
+       :position :relative :overflow :hidden :border-radius "10px"
+       :background (str "radial-gradient(circle at 50% 35%, " portrait-frame-glow ", "
+                        portrait-panel " 60%, " portrait-frame-edge ")")
+       :border (str "1px solid " orange-hairline)}]
+     [(str light " .ap-frame") {:border-color "rgba(0,0,0,0.12)"}]
+     [:.ap-example-img
+      {:display :block :width "100%" :height "100%" :object-fit :cover}]
+     [".ap-example figcaption"
+      {:font (str "italic 12px/1.4 " vollkorn) :color "var(--lk-dim)" :text-align :center}]
+     [:.ap-foot
+      {:margin 0 :padding-top "16px" :border-top "1px solid rgba(255,255,255,0.06)"
+       :font-size "12px" :line-height 1.55 :color "var(--lk-dim)" :text-align :center}]
+     [(str light " .ap-foot") {:border-top-color "rgba(0,0,0,0.08)"}]
+     [".ap-foot a, .ap-missing a"
+      {:color :inherit :text-decoration "underline dotted var(--lk-under)"
+       :text-underline-offset "3px"}]
+     [".ap-foot a:visited, .ap-missing a:visited" {:color :inherit}]
+     [".ap-foot a:hover, .ap-missing a:hover" {:color "var(--lk-under-lit)"}]
+     [:.ap-missing {:text-align :center :font-size "13px" :color "var(--lk-dim)"}]
+     [:.ap-index
+      {:display :grid :grid-template-columns "repeat(auto-fill, minmax(150px, 1fr))"
+       :gap "16px"}]
+     [:.ap-index-card
+      {:display :flex :flex-direction :column :gap "8px"
+       :text-decoration :none :text-align :center}]
+     [".ap-index-card .lk-name" {:font-size "18px" :white-space :normal}]
+     [".ap-index-card:hover .lk-name, .ap-index-card:focus-visible .lk-name"
+      {:color "var(--lk-under-lit)" :filter "var(--lk-halo)"}]
+     [".ap-index-card:focus-visible" {:outline :none}]
+     [:.ap-index-count {:font-size "11px" :color "var(--lk-dim)"}]
+     (at-media {:max-width "560px"}
+       [:.ap-card {:padding "22px 16px 18px" :gap "26px"}]
+       [:.ap-name {:font-size "32px"}]
+       [:.ap-examples {:gap "8px"}])]))
+
+(def open-sans-subsets
+  "Open Sans character sets as [subset unicode-range], one variable-weight woff2 file each under
+   resources/public/fonts/open-sans/ (OFL, see OFL.txt there). A browser downloads only the files
+   whose range a page's text uses."
+  [["cyrillic-ext" "U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F"]
+   ["cyrillic" "U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116"]
+   ["greek-ext" "U+1F00-1FFF"]
+   ["greek" "U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF"]
+   ["hebrew" "U+0307-0308, U+0590-05FF, U+200C-2010, U+20AA, U+25CC, U+FB1D-FB4F"]
+   ["math" "U+0302-0303, U+0305, U+0307-0308, U+0310, U+0312, U+0315, U+031A, U+0326-0327, U+032C, U+032F-0330, U+0332-0333, U+0338, U+033A, U+0346, U+034D, U+0391-03A1, U+03A3-03A9, U+03B1-03C9, U+03D1, U+03D5-03D6, U+03F0-03F1, U+03F4-03F5, U+2016-2017, U+2034-2038, U+203C, U+2040, U+2043, U+2047, U+2050, U+2057, U+205F, U+2070-2071, U+2074-209F, U+20D0-20DC, U+20E1, U+20E5-20EF, U+2100-2112, U+2114-2115, U+2117-2121, U+2123-214F, U+2190, U+2192, U+2194-21AE, U+21B0-21E5, U+21F1-21F2, U+21F4-2211, U+2213-2214, U+2216-22FF, U+2308-230B, U+2310, U+2319, U+231C-2321, U+2336-237A, U+237C, U+2395, U+239B-23B7, U+23D0, U+23DC-23E1, U+2474-2475, U+25AF, U+25B3, U+25B7, U+25BD, U+25C1, U+25CA, U+25CC, U+25FB, U+266D-266F, U+27C0-27FF, U+2900-2AFF, U+2B0E-2B11, U+2B30-2B4C, U+2BFE, U+3030, U+FF5B, U+FF5D, U+1D400-1D7FF, U+1EE00-1EEFF"]
+   ["symbols" "U+0001-000C, U+000E-001F, U+007F-009F, U+20DD-20E0, U+20E2-20E4, U+2150-218F, U+2190, U+2192, U+2194-2199, U+21AF, U+21E6-21F0, U+21F3, U+2218-2219, U+2299, U+22C4-22C6, U+2300-243F, U+2440-244A, U+2460-24FF, U+25A0-27BF, U+2800-28FF, U+2921-2922, U+2981, U+29BF, U+29EB, U+2B00-2BFF, U+4DC0-4DFF, U+FFF9-FFFB, U+10140-1018E, U+10190-1019C, U+101A0, U+101D0-101FD, U+102E0-102FB, U+10E60-10E7E, U+1D2C0-1D2D3, U+1D2E0-1D37F, U+1F000-1F0FF, U+1F100-1F1AE, U+1F1E6-1F1FF, U+1F30D-1F30F, U+1F315, U+1F31C, U+1F31E, U+1F320-1F32C, U+1F336, U+1F378, U+1F37D, U+1F382, U+1F393-1F39F, U+1F3A7-1F3A8, U+1F3AC-1F3AF, U+1F3C2, U+1F3C4-1F3C6, U+1F3CA-1F3CE, U+1F3D4-1F3E0, U+1F3ED, U+1F3F1-1F3F3, U+1F3F5-1F3F7, U+1F408, U+1F415, U+1F41F, U+1F426, U+1F43F, U+1F441-1F442, U+1F444, U+1F446-1F449, U+1F44C-1F44E, U+1F453, U+1F46A, U+1F47D, U+1F4A3, U+1F4B0, U+1F4B3, U+1F4B9, U+1F4BB, U+1F4BF, U+1F4C8-1F4CB, U+1F4D6, U+1F4DA, U+1F4DF, U+1F4E3-1F4E6, U+1F4EA-1F4ED, U+1F4F7, U+1F4F9-1F4FB, U+1F4FD-1F4FE, U+1F503, U+1F507-1F50B, U+1F50D, U+1F512-1F513, U+1F53E-1F54A, U+1F54F-1F5FA, U+1F610, U+1F650-1F67F, U+1F687, U+1F68D, U+1F691, U+1F694, U+1F698, U+1F6AD, U+1F6B2, U+1F6B9-1F6BA, U+1F6BC, U+1F6C6-1F6CF, U+1F6D3-1F6D7, U+1F6E0-1F6EA, U+1F6F0-1F6F3, U+1F6F7-1F6FC, U+1F700-1F80B, U+1F810-1F847, U+1F850-1F859, U+1F860-1F887, U+1F890-1F8AD, U+1F8B0-1F8BB, U+1F8C0-1F8C1, U+1F8D0-1F8D8, U+1F900-1F90B, U+1F93B, U+1F946, U+1F984, U+1F996, U+1F9E9, U+1FA00-1FA6F, U+1FA70-1FA7C, U+1FA80-1FAC6, U+1FAC8, U+1FACC-1FADD, U+1FADF-1FAEB, U+1FAEF-1FAFA, U+1FB00-1FBFF"]
+   ["vietnamese" "U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB"]
+   ["latin-ext" "U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF"]
+   ["latin" "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD"]])
+
+(def open-sans-faces
+  "@font-face rules serving Open Sans from this site, weights 400 to 700, one per character set."
+  (for [[subset unicode-range] open-sans-subsets]
+    (at-font-face {:font-family "Open Sans"
+                   :font-style "normal"
+                   :font-weight "400 700"
+                   :font-display "swap"
+                   :src (str "url(/fonts/open-sans/open-sans-" subset ".woff2) format(\"woff2\")")
+                   :unicode-range unicode-range})))
+
 (def app
   (concat
+   open-sans-faces
    [[:.character-builder-header
      {:margin-bottom "19px"}]
 
@@ -1810,7 +2171,7 @@
     ;; is 7.8:1. Dark theme only; the light theme's slate buttons pass in white.
     [".app.dark-button-text:not(.light-theme)"
      [:.form-button :.mc-btn :.roll-button
-      {:color "#15202e"
+      {:color button-ink
        :text-shadow text-lift-light}]
      ;; the ability buttons are short numbers: a stronger glow and a yellow rim to
      ;; hold them up. paint-order draws the rim behind the letters, not over them.
@@ -1835,11 +2196,14 @@
      {:text-shadow text-lift-dark}
      [:.title {:letter-spacing "-0.04em"}]]
     ;; The tabs are spaced by the row's gap, not their own margins; on a phone the
-    ;; row's padding is the 10px gutter.
+    ;; row's padding is the 10px gutter, and the tabs share the row with no side
+    ;; padding of their own, so all seven fit a 320px screen.
     [:.app-header-menu
      {:gap "4px"
       :padding "0 2px"}
-     [:&.phone-tabs {:padding "0 10px"}]]
+     [:&.phone-tabs {:padding "0 10px"}
+      [:.header-tab {:min-width 0}
+       [:>.p-10 {:padding-left 0 :padding-right 0}]]]]
 
     ;; The header bar's search and login boxes, and the desktop slot left of the
     ;; tabs that holds the supporter link.
@@ -1910,6 +2274,16 @@
     [:.item-list-item
      {:border-bottom "1px solid rgba(255,255,255,0.5)"}]
 
+    ;; A reference list row's name keeps to one line and ends in an ellipsis, so the source tag
+    ;; beside it never wraps; the full name shows when the row is opened.
+    [:.ref-row-main {:min-width 0 :flex "1 1 auto"}
+     [:>.flex {:min-width 0}
+      [:>div {:min-width 0 :overflow :hidden}
+       [:>:first-child {:display :block :white-space :nowrap :overflow :hidden
+                        :text-overflow :ellipsis}]]]]
+    [:.source-tag {:flex "none" :white-space :nowrap :align-self :flex-start
+                   :padding-top "29px" :margin "0 8px"}]
+
     ;; Thin, themed scrollbar for a flyout that fit-flyout! had to cap (My Content on
     ;; a short screen). The default is a light slab against a dark menu.
     [:.header-flyout
@@ -1977,6 +2351,47 @@
      [:tr
       [(s/& (s/nth-child :even))
        {:background-color "rgba(255, 255, 255, 0.1)"}]]]
+
+    ;; Kits on the Equipment step (plan-inventory-kits.md). Colours follow the text colour, so
+    ;; every theme draws them without its own rule.
+    ;; The kits as a grid of framed cards: one column on a phone, more as the column widens. An
+    ;; open kit (.kit-open) spans the row; Add a kit is the dashed card at the end.
+    [:.kit-grid {:display :grid :grid-template-columns "repeat(auto-fill, minmax(300px, 1fr))" :gap "8px"}
+     [:.kit-open {:grid-column "1 / -1"}]]
+    [:.kit-row {:display :flex :align-items :center :gap "10px" :min-height "48px" :padding "4px 0"}]
+    [:.kit-card {:border "1px solid color-mix(in srgb, currentColor 18%, transparent)"
+                 :border-radius "8px" :padding "6px 10px" :min-width 0}]
+    [:.kit-tile
+     {:flex "0 0 48px" :width "48px" :height "48px" :border-radius "8px"
+      :display :flex :align-items :center :justify-content :center
+      :border "1px solid color-mix(in srgb, currentColor 30%, transparent)"
+      :background-color "color-mix(in srgb, currentColor 6%, transparent)"}]
+    ;; The Add a kit row (views/inventory.cljs `kits-block`): an empty kit tile with a +, in the
+    ;; text colour and unfilled, so it sits under the kits; .on (the search is on Packs) turns it amber.
+    [:.kit-add {:background :none :border-style :dashed :font :inherit :font-size "14px" :color :inherit
+                :cursor :pointer :text-align :left}
+     [:.kit-tile {:background-color :transparent :font-size "16px"}]
+     [:&:hover [:.kit-tile {:background-color "color-mix(in srgb, currentColor 8%, transparent)"}]]
+     [:&.on {:color orange}
+      [:.kit-tile {:border-color :currentColor :background-color "color-mix(in srgb, currentColor 16%, transparent)"}]]]
+    [:.kit-text {:flex "1 1 auto" :min-width 0}]
+    [:.kit-name {:white-space :nowrap :overflow :hidden :text-overflow :ellipsis}]
+    [:.kit-indent {:padding-left "58px"}
+     [:.link-button.quiet {:padding-left 0}]]
+    [:.kit-summary
+     {:flex "1 1 auto" :min-width 0 :min-height "48px" :padding 0 :text-align :left
+      :background :none :border :none :color :inherit :font :inherit :cursor :pointer}]
+    [:.kit-name-line {:display :flex :align-items :center :min-width 0}]
+    [:.kit-contents
+     {:display :flex :flex-wrap :wrap :column-gap "12px" :font-size "13px"
+      :font-variant-numeric :tabular-nums}]
+    [:.kit-restock {:flex :none :white-space :nowrap}]
+    [:.kit-list
+     {:display :grid :grid-template-columns "1fr auto" :column-gap "16px" :max-width "300px"
+      :font-size "13px" :font-variant-numeric :tabular-nums :margin "4px 0"}]
+    [:.kit-remove {:display :flex :flex-direction :column :align-items :flex-start}
+     [:.link-button.quiet {:padding-left 0}]
+     [:div {:margin-top "-10px" :padding-bottom "6px"}]]
 
     [:.builder-option
      {:border-width (px 1)
@@ -2271,7 +2686,7 @@
     [:.mc-guard:hover {:background-color "rgba(154,3,30,0.45)" :color :white}]
     ;; the full button lifts OUT of the bar (absolute) — the row never reflows
     [:.mc-liftpop
-     {:position :absolute :right "0" :bottom "calc(100% + 9px)"
+     {:position :absolute :right "0" :bottom "calc(100% - -9px)"
       :display :flex :align-items :center :gap "10px"
       :background-color "#1a1013" :border "1px solid rgba(154,3,30,0.6)"
       :border-radius "7px" :padding "8px 10px" :white-space :nowrap
@@ -2314,8 +2729,8 @@
                   [:60% {:box-shadow "0 0 0 12px rgba(255,210,26,0)"}]
                   [:100% {:box-shadow "0 0 0 0 rgba(255,210,26,0)"}])
     [:.health-card
-     {:background-color "#171d27" :border-radius "6px" :overflow :hidden :margin-bottom "10px"
-      :position :relative}]
+     {:background-color "#171d27" :color :white :border-radius "6px" :overflow :hidden
+      :margin-bottom "10px" :position :relative}]
     ;; dismiss × (never on My Content) — a quiet control in the corner
     [:.health-x
      {:position :absolute :top "6px" :right "10px" :cursor :pointer
@@ -2422,20 +2837,56 @@
       :padding "11px 0"
       :align-items :center}]
 
+    ;; comps/checkbox: a rounded box that fills with the accent and shows a dark tick
+    ;; when checked (amber in the dark theme, slate blue in the light one). The tick is
+    ;; drawn (an L of two borders, turned 45deg), not a font glyph, so it sits dead
+    ;; centre: a glyph centres its text box, not its ink.
     [:.checkbox
-     {:width "16px"
+     {:display :inline-flex
+      :align-items :center
+      :justify-content :center
+      :box-sizing :border-box
+      :width "16px"
       :height "16px"
-      :box-shadow "0 1px 0 0 #f0a100"
-      :background-color :white
-      :cursor :pointer}
-
-     [:.fa-check
-      {:font-size "14px"
-       :margin "1px"}]]
-
-    [:.checkbox.checked.disabled
-     {:background-color "rgba(255, 255, 255, 0.37)"
-      :cursor :not-allowed}]
+      :flex-shrink 0
+      :border "1.5px solid rgba(255,255,255,0.55)"
+      :border-radius "4px"
+      ;; opaque, so a box on a white panel is still a dark box there, not a see-through tint
+      :background-color "#1b2130"
+      :color button-ink
+      :vertical-align :middle
+      :cursor :pointer
+      :transition "background-color 0.12s, border-color 0.12s"}
+     [:&:hover {:border-color orange}]
+     [:&.checked
+      {:background-color orange
+       :border-color orange}
+      [:&:after
+       {:content "\"\""
+        :width "28%"
+        :height "55%"
+        :border-style :solid
+        :border-color :currentColor
+        :border-width "0 2px 2px 0"
+        :transform "translateY(-15%) rotate(45deg)"}]]
+     [:&.disabled
+      {:opacity 0.5
+       :cursor :not-allowed}]]
+    ;; the keyboard's place: on the box, or on the box of a labelled row that is the control
+    [".checkbox:focus-visible, .checkbox-row:focus-visible .checkbox"
+     {:outline (str "2px solid " orange)
+      :outline-offset "2px"}]
+    [".app.light-theme .checkbox:focus-visible, .app.light-theme .checkbox-row:focus-visible .checkbox"
+     {:outline-color slate-blue}]
+    [:.checkbox-row:focus-visible {:outline :none}]
+    [".app.light-theme .checkbox"
+     {:border-color muted-on-light
+      :background-color :white}
+     [:&:hover {:border-color slate-blue}]
+     [:&.checked
+      {:background-color slate-blue
+       :border-color slate-blue
+       :color :white}]]
 
     [:.checkbox-text
      {:margin-left "5px"}]
@@ -2464,11 +2915,7 @@
       {:background-color "rgba(255,255,255,0.08)"}]
      [:.checkbox
       {:width "14px"
-       :height "14px"
-       :min-width "14px"
-       :flex-shrink 0}
-      [:.fa-check
-       {:font-size "12px"}]]
+       :height "14px"}]
      [:.flex.pointer
       {:align-items :center
        :gap "8px"}]]
@@ -2570,6 +3017,12 @@
 
      [:.orange
       {:color "rgba(0,0,0,0.8)"}]
+
+     [:.site-footer [:.legal-footer {:border-top-color "rgba(0,0,0,0.15)"}]]
+     ;; The footer's support links read as its other links do in this theme.
+     [:.support-pills-compact
+      [:.support-pill {:color "rgba(0,0,0,0.8)"}
+       [:&:hover {:color slate-blue}]]]
 
      [:.b-orange
       {:border-color "rgba(0,0,0,0.6)"}]
@@ -3056,9 +3509,12 @@
      {:flex "0 0 auto"
       :white-space :nowrap}]
 
-    ;; Pushed to the end of the row, and still together when the row wraps.
+    ;; Pushed to the end of the row; the buttons wrap among themselves on a narrow phone
+    ;; rather than running off the panel.
     [:.mc-source-actions
-     {:flex "0 0 auto"
+     {:flex "0 1 auto"
+      :flex-wrap :wrap
+      :gap "5px 0"
       :margin-left :auto}]
 
     ;;;; WHAT'S NEW PANEL
@@ -3074,6 +3530,34 @@
       :align-items :center
       :justify-content :center
       :padding "20px"}]
+
+    ;; The header's What's New link: a surface of its own, so it reads over the header art.
+
+    [:.whats-new-pill
+
+     {:display :inline-flex
+
+      :align-items :center
+
+      :gap "5px"
+
+      :padding "3px 10px"
+
+      :border-radius "999px"
+
+      :background "rgba(8, 10, 13, 0.62)"
+
+      :border "1px solid rgba(240, 161, 0, 0.45)"
+
+      :color "#f0a100"
+
+      :font-size "13px"
+
+      :line-height "18px"
+
+      :cursor :pointer}
+
+     [:&:hover {:background "rgba(8, 10, 13, 0.8)" :border-color "#f0a100"}]]
 
     [:.whats-new-panel
      {:background "#1a1e28"
@@ -3138,20 +3622,29 @@
     ;; A group heading separates the sections; inside one, the item borders do it.
     [:.whats-new-group-title
      {:color orange
-      :font-size "11px"
+      :font-size "19px"
       :font-weight :bold
-      :letter-spacing "1.2px"
-      :text-transform :uppercase
-      :padding "18px 0 2px"
-      :margin-top "6px"
-      :border-top "1px solid rgba(255,255,255,0.12)"}]
+      :padding "26px 0 8px"
+      :border-bottom "2px solid rgba(240,161,0,0.45)"}]
 
     [:.whats-new-group
      [:&:first-child
       [:.whats-new-group-title
-       {:border-top :none
-        :margin-top 0
-        :padding-top "12px"}]]]
+       {:padding-top "14px"}]]]
+
+    ;; The patron credits: the support pills' raised surface, set apart from the list.
+    [:.whats-new-patron-card
+     {:margin "26px 0 18px"
+      :padding "20px 20px 14px"
+      :border-radius "6px"
+      :text-align :center
+      :background "rgba(255,255,255,0.04)"
+      :box-shadow "0 2px 6px 0 rgba(0,0,0,0.5)"}
+     [:.whats-new-patrons {:text-align :left}]]
+    [:.whats-new-patron-heart
+     {:color orange :font-size "22px"}]
+    [:.whats-new-patron-title
+     {:font-size "17px" :font-weight :bold :color :white :margin-top "8px"}]
 
     [:.whats-new-item
      {:display :flex
@@ -3188,9 +3681,93 @@
       :align-items :center
       :justify-content :space-between}]
 
+    [:.whats-new-eyebrow-row
+     {:display :flex :align-items :baseline}]
+
     [:.whats-new-version
-     {:font-size "12px"
-      :color muted-on-dark}]
+     {:font-size "11px"
+      :color muted-on-dark
+      :margin-left "8px"}]
+
+    ;; Patron credits and the footer's support icons: quiet, the size of the text around them.
+    [:.whats-new-credits-link
+     {:background :none :border :none :padding 0 :margin-top "8px"
+      :color orange :font-size "12px" :cursor :pointer}]
+    [:.whats-new-credits-intro
+     {:font-size "14px" :color muted-on-dark :padding "8px 0 4px" :line-height 1.45}]
+    [:.whats-new-credits-tier
+     {:color muted-on-dark :font-size "11px" :font-weight :bold :letter-spacing "1px"
+      :text-transform :uppercase :padding-top "10px"}]
+    [:.whats-new-patrons
+     {:display :grid :grid-template-columns "repeat(auto-fill, minmax(130px, 1fr))"
+      :gap "6px 16px" :padding "8px 0 14px" :font-size "14px"}]
+    ;; Label over one row of icon-and-word links, all on the label's left edge.
+    [:.whats-new-support-label
+     {:font-size "11px" :line-height "14px" :color muted-on-dark :margin-bottom "5px"}]
+    [:.whats-new-support-links
+     {:display :flex :gap "16px"}]
+    [:.whats-new-support-link
+     {:display :flex :align-items :center :gap "6px"
+      :font-size "12px" :line-height "18px" :color muted-on-dark :text-decoration :none}
+     [:&:hover {:color :white}]
+     [:img {:width "18px" :height "18px" :border-radius "3px"}]]
+
+    ;; Support pills (views-shared/support-pills): the home tiles' raised surface, amber text, one icon.
+    [:.support-pills
+     {:display :flex :flex-wrap :wrap :justify-content :center :gap "10px" :margin "22px auto 8px"}]
+    [:.support-pill
+     {:display :inline-flex :align-items :center :justify-content :center :gap "8px"
+      :padding "8px 14px" :border-radius "5px" :font-size "13px" :font-weight 600
+      :color orange :text-decoration :none :cursor :pointer
+      :background "rgba(255,255,255,0.04)" :box-shadow "0 2px 6px 0 rgba(0,0,0,0.5)"}
+     [:&:hover {:color :white}]
+     [:i {:font-size "15px" :width "18px" :text-align :center}]
+     [:i.fa-patreon {:color "#ff424d"}]
+     [:img {:width "18px" :height "18px" :border-radius "3px"}]]
+    [:.support-pill:focus-visible {:outline (str "2px solid " orange) :outline-offset "2px"}]
+    ;; What's New ranks above the support links by shape: an amber cap holding the icon in dark ink.
+    [:.support-pill-whats-new
+     {:position :relative :overflow :hidden :padding-left "54px"
+      :border (str "1px solid " orange) :box-shadow "0 0 10px 1px rgba(240,161,0,0.45)"}
+     [:i {:position :absolute :left 0 :top 0 :bottom 0 :width "40px" :display :flex
+          :align-items :center :justify-content :center :background-color orange :color button-ink}]
+     [:&:hover {:box-shadow "0 0 14px 2px rgba(240,161,0,0.7)"}]]
+    ;; Site footer (views/footer.cljs): labelled rows of links; on wide screens one row spread edge to edge, then a muted band.
+    [:.site-footer {:padding "10px"}]
+    [:.site-footer-groups {:display :flex :flex-direction :column :gap "4px"}]
+    [:.site-footer-group
+     {:display :flex :flex-wrap :wrap :align-items :center :column-gap "14px" :row-gap "2px"}
+     [:a {:font-size "13px" :padding "4px 0" :margin 0 :text-decoration :underline}]
+     [:.support-pill {:font-size "13px" :padding "4px 0"}]
+     ;; The support links wrap one by one beside their label, not as one block under it.
+     [:.support-pills {:display :contents}]]
+    [:.site-footer-label
+     {:width "72px" :flex :none :font-size "11px" :font-weight 600 :text-transform :uppercase
+      :letter-spacing "0.06em" :opacity 0.6}]
+    [:.site-footer
+     [:.legal-footer
+      {:margin-top "18px" :padding-top "12px" :border-top "1px solid rgba(255,255,255,0.15)"
+       :font-size "11px" :opacity 0.75}
+      [:p {:margin "0 0 6px"}]]]
+    (at-media {:min-width "1100px"}
+     [:.site-footer-groups {:flex-direction :row :flex-wrap :wrap :column-gap "40px"
+                            :justify-content :space-between}]
+     [:.site-footer-label {:width :auto}])
+    ;; Compact pills (the site footer): plain icon-and-word links, one text line tall.
+    [:.support-pills.support-pills-compact
+     {:justify-content :flex-start :gap "12px" :margin "0"}
+     [:.support-pill
+      {:padding "0" :background :none :box-shadow :none :font-size "12px" :font-weight :normal
+       :gap "5px" :text-decoration :underline}
+      [:i {:font-size "12px" :width "14px"}]
+      [:img {:width "14px" :height "14px" :border-radius "2px"}]]]
+    ;; Stacked, every icon sits in one left column and the labels share a left edge.
+    (at-media {:max-width "480px"}
+     [".support-pills:not(.support-pills-compact)" {:flex-direction :column :align-items :stretch :max-width "280px"}]
+     [".support-pills:not(.support-pills-compact) .support-pill"
+      {:position :relative :justify-content :flex-start :padding-left "54px"}
+      [:i :img {:position :absolute :left "11px" :top "50%" :transform "translateY(-50%)"}]]
+     [".support-pills:not(.support-pills-compact) .support-pill-whats-new i" {:left 0 :top 0 :transform :none}])
 
     ;; A required builder field left empty when a save was attempted. Same amber
     ;; cue as the export modal's unfilled dropdowns, for consistency.
@@ -3290,7 +3867,7 @@
     [:.inv-picker-pop
      {:position :absolute
       :z-index 41
-      :top "calc(100% + 4px)"
+      :top "calc(100% - -4px)"
       :left 0
       :width "320px"
       :max-width "calc(100vw - 32px)"
@@ -3359,6 +3936,45 @@
     ;; none of that is implemented here. Anchor positioning pins it under its input, and
     ;; where unsupported the popover still opens (centred) rather than breaking.
     [:.inv-combo {:margin "6px 0 10px"}]
+    ;; The sheet's search while managing: it adds items, so it is ringed and labelled to differ from
+    ;; filtering (views/inventory.cljs `sheet-equipment`).
+    ;; The box and its filter pill (`inventory-combobox`): the pill sits inside the box's left edge,
+    ;; the input padded past it.
+    [:.inv-combo-field {:position :relative :max-width "340px"}
+     [:.inv-combo-token {:position :absolute :left "7px" :top "50%" :transform "translateY(-50%)" :z-index 1}]]
+    [:.inv-combo-scope {:color orange}]
+    ;; The fieldset's legend notches the ring (the auth .notch's type, no painted patch).
+    [:.inv-combo-adding {:margin "6px 0 10px" :padding 0 :min-width 0 :max-width "340px"
+                         :border "2px solid #f0a100" :border-radius "5px"}
+     [:legend {:margin-left "8px" :padding "0 4px" :line-height 1 :font-size "11px" :font-weight 600
+               :letter-spacing "0.08em" :text-transform :uppercase :color "#f0a100"}]
+     [:.inv-combo {:margin 0}]
+     [:.inv-combo-input {:border-color :transparent :max-width :none}]]
+    ;; Worn | Off for the backpack (views/inventory.cljs `sheet-equipment`): two options, drawn at
+    ;; the size of the kit links, with a 44px tap area.
+    ;; No overflow hidden: it would clip the buttons' :after tap area; the end buttons round instead.
+    [:.seg {:display :inline-flex :flex :none :border-radius "5px"
+            :border "1px solid color-mix(in srgb, currentColor 40%, transparent)"}
+     ["button:first-child" {:border-radius "4px 0 0 4px"}]
+     ["button:last-child" {:border-radius "0 4px 4px 0"}]
+     [:button {:position :relative :background :none :border :none :color :inherit :font :inherit
+               :font-size "11px" :letter-spacing ".05em" :text-transform :uppercase :padding "0 10px"
+               :min-height "24px" :opacity 0.7 :cursor :pointer}]
+     ["button + button" {:border-left "1px solid color-mix(in srgb, currentColor 40%, transparent)"}]
+     [:button.on {:opacity 1 :font-weight 700 :color "#f0a100"
+                  :background-color "rgba(240, 161, 0, 0.18)"}]
+     [:button:after {:content "''" :position :absolute :top "-10px" :bottom "-10px" :left 0 :right 0}]]
+    [".app.light-theme .seg button.on" {:color "#33658A" :background-color "rgba(51,101,138,.12)"}]
+    [:.backpack-line {:gap "10px" :min-height "44px"}
+     [:.backpack-status {:font-size "13px"}]]
+    ;; The backpack's contents while it is off: still listed and counted, greyed, under one label.
+    [:tr.packed {:opacity 0.5}]
+    [:.sheet-stepper {:display :flex :align-items :center :gap "6px" :white-space :nowrap
+                      :font-variant-numeric :tabular-nums}
+     [:button {:background :none :border :none :padding "4px" :min-width "32px" :min-height "32px"
+               :color :inherit :cursor :pointer :position :relative}]
+     [:button:after {:content "''" :position :absolute :top "-6px" :bottom "-6px" :left "-2px" :right "-2px"}]
+     [:span {:min-width "18px" :text-align :center}]]
 
     [:.inv-combo-input
      {:width "100%"
@@ -3478,13 +4094,6 @@
     [:.character-display
      {:padding "20px 5px"
       :background-color "rgba(0,0,0,0.15)"}]
-
-    [:.checkbox-border
-     {:margin-top "-3px"
-      :border-color "#f0a100"
-      :border-style :solid
-      :border-width "1px"
-      :border-bottom-width "3px"}]
 
     [:.close-btn-posn
      {:right "8px"
@@ -3646,7 +4255,7 @@
 
     [:.registration-header
      {:height "65px"
-      :background-color "#1a2532"
+      :background-color auth-banner-ground
       :border-right "1px solid white"}]
 
     [:.registration-left-col
@@ -3698,12 +4307,14 @@
     [:.z-200 {:z-index 200}]
 
 ];concat-bracket
+   artist-pages
    margin-lefts
    margin-tops
    min-widths
    widths
    font-sizes
    props
+   weapons/weapons
    media-queries
    ;; last: the portrait rules win ties with the rules above
    portrait/styles) ;concat

@@ -558,6 +558,33 @@
                           :font "italic 11px/1.4 'Open Sans', system-ui, sans-serif"
                           :text-align "center"}]
    ;; ---- foot ----
+   ;; Compose | Picture link at the top of the drawer, and the link mode's body
+   [".pl-mode" {:padding "10px 18px 0"}]
+   [".pl-link-mode" {:flex "1 1 auto" :overflow-y "auto" :padding "14px 18px" :display "flex"
+                     :flex-direction "column" :gap "12px"}]
+   ;; relative: .pl-empty-hint fills its positioned container, and without one it covered the drawer
+   [".pl-link-preview" {:position "relative" :display "flex" :align-items "center" :justify-content "center"
+                        :min-height "240px" :max-height "360px" :border "1px dashed rgba(128,128,128,.5)"
+                        :border-radius "8px" :overflow "hidden" :text-align "center" :padding "12px"}
+    [:img {:max-width "100%" :max-height "340px" :object-fit "contain"}]]
+   [".pl-kept" {:font-size "13px" :text-align "right"}]
+   ;; the picture the character shows: the site's status pill (.share-pill-shared), smaller in the switch;
+   ;; its light-theme tone is restated because the drawer sits outside .app
+   [".pl-active" {:margin-left "6px" :font-size "10px" :padding "1px 7px"}]
+   [".pl-root.light-theme .share-pill-shared" {:background-color "rgba(51,101,138,0.14)" :color "#2b567a"}]
+   ;; on the selected option the pill takes that option's own ink: dark on the amber, white on the
+   ;; light theme's blue, so open-and-active reads as one control rather than two colours fighting
+   [".pl-segmented button.on .pl-active" {:background-color "rgba(0,0,0,0.16)" :color "#241a00"}]
+   [".pl-root.light-theme .pl-segmented button.on .pl-active" {:background-color "rgba(255,255,255,0.22)"
+                                                               :color "#fff"}]
+   [".pl-link-picture" {:width "100%" :height "100%" :object-fit "contain"}]
+   [".pl-mode-link" {:background "none" :border "none" :padding "6px 0 0" :color "inherit"
+                     :text-decoration "underline" :cursor "pointer" :font-size "13px"}]
+   [".pl-link" {}]
+   ;; the drawer sits outside .app, so the light theme's input border has to be restated here
+   [".pl-root.light-theme .pl-link .input" {:border "1px solid #8a8f98" :background "#fff" :color "#363636"}]
+   [".pl-keep-colours" {:display "inline-flex" :align-items "center" :gap "4px" :font-size "13px"
+                        :cursor "pointer"}]
    [".pl-drawer-foot" {:padding "12px 18px 16px"
                        :border-top "1px solid rgba(255,255,255,0.06)"
                        :background "#0e131a"
@@ -611,10 +638,12 @@
    (at-keyframes "lk-prism"
      ["from" {:background-position "0% 50%"}]
      ["to" {:background-position "300% 50%"}])
-   [".lk-name" {:font "italic 14px/1 'Vollkorn', Georgia, serif"
+   [".lk-name" {:font "italic 16px/1 'Vollkorn', Georgia, serif"
                 :color "var(--lk-name)"
                 :text-decoration "none"
-                :white-space "nowrap"}]
+                :text-align "center"
+                :min-width "0"
+                :overflow-wrap "anywhere"}]
    ;; A name that links reads as one: a thin dotted underline at rest, drawn as
    ;; a text decoration rather than a border so it does not grow the box and
    ;; pull the name off the rule's centre line.
@@ -675,6 +704,21 @@
                :-webkit-mask-position "center"
                :mask-position "center"}]
    [".lk-mark-text" {:font "400 11px/1 'Open Sans', system-ui, sans-serif"}]
+   ;; the link to the artist pages, at the credit's foot: the ART BY label's size, tracking and dim
+   ;; colour, so it reads as the frame around the names rather than another name
+   [".lk-about" {:align-self "center"
+                 :margin-top "1px"
+                 :font "600 8.5px/1 'Open Sans', system-ui, sans-serif"
+                 :letter-spacing "0.16em"
+                 :text-transform "uppercase"
+                 :color "var(--lk-dim)"
+                 :text-decoration "none"
+                 :padding "3px 2px"}
+                {:transition "color 160ms ease"}]
+   [".lk-about:visited" {:color "var(--lk-dim)"}]
+   [".lk-about-arrow" {:padding-left "4px" :letter-spacing "0"}]
+   [".lk-about:hover, .lk-about:focus-visible" {:color "var(--lk-under-lit)" :outline "none"}]
+   [".lk-about:focus-visible" {:text-decoration "underline" :text-underline-offset "3px"}]
    [".pl-drawer-actions" {:display "flex"
                           :justify-content "space-between"
                           :align-items "center"
@@ -745,27 +789,6 @@
                                             :box-shadow "0 0 0 2px rgba(51,101,138,0.32)"}]
    [".pl-root.light-theme .pl-sw-none" {:background "repeating-linear-gradient(45deg, #eceef1 0 5px, transparent 5px 10px)"
                                         :color "#8a8a8a"}]
-   ;; The launcher lives in the Description tab, not in the drawer, so it hangs
-   ;; off .app rather than .pl-root -- scoping it to .pl-root left an amber
-   ;; button sitting in an otherwise blue light theme.
-   [".app.light-theme .pl-launcher" {:background "linear-gradient(to bottom, #33658A, #2b5677)"
-                                     :color "#fff"
-                                     :border-color "#24485f"
-                                     :box-shadow "0 6px 14px -8px rgba(51,101,138,0.5)"}]
-   ;; the launcher button that sits next to the Image URL input in the builder
-   [".pl-launcher" {:display "inline-flex"
-                    :align-items "center"
-                    :gap "7px"
-                    :padding "9px 14px"
-                    :border-radius "8px"
-                    :background "linear-gradient(to bottom, #f1a20f, #dbab50)"
-                    :color "#15202e"
-                    :font "700 13px/1 'Open Sans', system-ui, sans-serif"}
-                   {:border "1px solid #b57500"
-                    :box-shadow "0 6px 14px -8px rgba(240,161,0,0.32)"
-                    :cursor "pointer"
-                    :margin-top "5px"}]
-   [".pl-launcher:hover" {:filter "brightness(1.06)"}]
    ;; Second way in: a pencil over the summary thumbnail, for people who are
    ;; looking at the portrait rather than at the Description tab's URL field.
    ;; Only rendered in the builder, where there is a drawer to open.
@@ -817,7 +840,7 @@
                                     :outline-offset "1px"}]
    [".pl-thumb-more-list" {:position "absolute"
                            :left "0"
-                           :top "calc(100% + 4px)"
+                           :top "calc(100% - -4px)"
                            :z-index "20"
                            :min-width "150px"
                            :max-width "220px"
@@ -862,16 +885,19 @@
                   :font-family "'Open Sans', system-ui, sans-serif"
                   :color "#ebeef4"}
                  {:margin-bottom "20px"}]
-   [".pl-inline .pl-drawer-body" {:max-height "70vh"}]
+   [".pl-preview-body" {:display "flex"
+                        :flex-direction "column"
+                        :align-items "center"
+                        :gap "10px"
+                        :padding "20px 16px 8px"}]
+   [".pl-preview-body .pl-portrait-frame" {:align-self "center" :max-width "248px"}]
+   [".pl-preview .pl-drawer-actions" {:justify-content "center"}]
    [".pl-inline .pl-btn-primary:disabled" {:opacity "0.45"
                                            :cursor "default"
                                            :filter "none"}]
    [".pl-root.light-theme.pl-inline" {:background "#f7f7f5"
                                       :color "#363636"
-                                      :border-color "rgba(0,0,0,0.1)"}]
-   ;; on a phone the two columns already stack; let the page scroll, not the panel
-   (at-media {:max-width "700px"}
-     [".pl-inline .pl-drawer-body" {:max-height "none"}])])
+                                      :border-color "rgba(0,0,0,0.1)"}]])
 
 (def empty-slot
   "The empty frame and thumbnail: a shallow gradient with the site logo debossed in it. The logo
@@ -933,7 +959,9 @@
                               :mask-position "center"}]
    [".pl-thumb-box" {:position "relative" :width "100px" :height "125px" :flex-shrink "0"}]
    [".pl-thumb-box > .portrait-composite" {:position "absolute" :inset "0"}]
-   [".pl-thumb-box > img" {:width "100%" :height "100%"}]
+   ;; cover: a pasted picture of any shape fills the frame instead of stretching to it, cropped from
+   ;; the top, where a portrait keeps the face
+   [".pl-thumb-box > img" {:width "100%" :height "100%" :object-fit "cover" :object-position "center top"}]
    ;; last, so a swatch's own colour wins over its class's rules
    [".pl-fill" {:background "var(--pl-fill)"}]])
 

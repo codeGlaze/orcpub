@@ -35,7 +35,7 @@
     :max-dex-mod 2,
     :weight 20,
     :key :chain-shirt}
-   {:name "Scale mail" :cost {:num 50 :type :gp},
+   {:name "Scale Mail" :cost {:num 50 :type :gp},
     :type :medium,
     :base-ac 14,
     :max-dex-mod 2,
@@ -48,21 +48,21 @@
     :max-dex-mod 2,
     :weight 20,
     :key :breastplate}
-   {:name "Half plate" :cost {:num 750 :type :gp},
+   {:name "Half Plate" :cost {:num 750 :type :gp},
     :type :medium,
     :base-ac 15,
     :max-dex-mod 2,
     :stealth-disadvantage? true,
     :weight 40,
     :key :half-plate}
-   {:name "Ring mail" :cost {:num 30 :type :gp},
+   {:name "Ring Mail" :cost {:num 30 :type :gp},
     :type :heavy,
     :base-ac 14,
     :max-dex-mod 0,
     :stealth-disadvantage? true,
     :weight 40,
     :key :ring-mail}
-   {:name "Chain mail" :cost {:num 75 :type :gp},
+   {:name "Chain Mail" :cost {:num 75 :type :gp},
     :type :heavy,
     :base-ac 16,
     :max-dex-mod 0,

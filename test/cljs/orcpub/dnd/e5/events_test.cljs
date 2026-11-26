@@ -27,8 +27,12 @@
             [orcpub.dnd.e5 :as e5]
             [orcpub.entity :as entity]
             [orcpub.dnd.e5.character :as char5e]
+            [orcpub.dnd.e5.inventory :as inventory]
+            ;; the account events (:logout, :clear-login) are registered here
+            [orcpub.dnd.e5.events.auth]
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.spells :as spells]
+            [orcpub.dnd.e5.units :as units5e]
             [orcpub.dnd.e5.selections :as selections5e]
             [orcpub.dnd.e5.classes :as classes5e]
             [orcpub.dnd.e5.feats :as feats5e]
@@ -48,7 +52,10 @@
             [orcpub.dnd.e5.subs]
             [orcpub.dnd.e5.equipment-subs]
             ;; Side effect: registers all event handlers
-            [orcpub.dnd.e5.events :as events]))
+            [orcpub.dnd.e5.events :as events]
+            [orcpub.dnd.e5.event-utils :as event-utils]
+            [orcpub.dnd.e5.homebrew-check :as homebrew-check]
+            [orcpub.dnd.e5.coverage-pak :as coverage-pak]))
 
 ;; ---------------------------------------------------------------------------
 ;; Fixtures
@@ -323,26 +330,22 @@
       (is (= ["orcpub-EMERGENCY-backup.orcbrew" broken]
              (events/select-emergency-export broken nil))))))
 
-;; ---------------------------------------------------------------------------
-;; serialize-orcbrew (pure serialization, split from the saveAs side effect)
-;; ---------------------------------------------------------------------------
+;; serialize-orcbrew moved to orcpub.dnd.e5.orcbrew-format (shared with the JVM
+;; demo emitter); its round-trip tests live in orcbrew-format-test.
 
-(def ^:private sample-content
-  {:orcpub.dnd.e5/classes {:artificer {:name "Artificer" :option-pack "Pack"}}})
-
-(deftest serialize-orcbrew-compact-roundtrips
-  (testing "compact output is readable EDN that round-trips to the same data"
-    (let [s (events/serialize-orcbrew sample-content)]
-      (is (string? s))
-      (is (= sample-content (reader/read-string s))))))
-
-(deftest serialize-orcbrew-pretty-differs-but-same-data
-  (testing "pretty-print is multi-line and larger, but the same data round-trips"
-    (let [compact (events/serialize-orcbrew sample-content)
-          pretty  (events/serialize-orcbrew sample-content :pretty-print? true)]
-      (is (not= compact pretty))
-      (is (re-find #"\n" pretty) "pretty output spans multiple lines")
-      (is (= sample-content (reader/read-string pretty))))))
+(deftest raw-export-always-produces-text
+  (let [bad {"P" {:orcpub.dnd.e5/classes {:x {:name "X" :key :x :option-pack "P"
+                                               :starting-equipment-base :barbarian
+                                               :weapons true}}}}]
+    (testing "the ordinary export throws on a malformed class while collapsing it"
+      (is (thrown? js/Error (events/orcbrew-text bad))))
+    (testing "the escape hatch writes the data as it is instead"
+      (is (= bad (reader/read-string (events/orcbrew-text bad :raw? true)))))
+    (testing "good data still goes through collapse and stamp on the raw path"
+      (is (re-find #":orcbrew/format-version 2"
+                   (events/orcbrew-text {"P" {:orcpub.dnd.e5/feats
+                                              {:f {:ability-increases [[1 :any]]}}}}
+                                        :raw? true))))))
 
 ;; ---------------------------------------------------------------------------
 ;; spec-field-problems — nested-element diagnosability
@@ -1169,8 +1172,9 @@
         fx (autosave-fx/cache-template {:db {:plugins renamed-plugins :character character}}
                                        [::autosave-fx/cache-template small-template])]
     (is (= #{:race :half-elf-ua} (get-in fx [:db ::content-recon/offered-keys])))
-    (is (= [[:set-character character] [::e5/announce-heal]] (:dispatch-n fx))
-        "the waiting heal runs once the list exists, and announces itself: no route follows it")
+    (is (= [[:character-updated character] [::e5/announce-heal]] (:dispatch-n fx))
+        "the waiting heal runs once the list exists, as an update so the portrait draft stays,
+         and announces itself: no route follows it")
     (is (nil? (:dispatch-n (autosave-fx/cache-template {:db (:db fx)}
                                                        [::autosave-fx/cache-template small-template])))
         "and only on the first list")))
@@ -1432,7 +1436,7 @@
       (.removeItem js/localStorage "plugins"))))
 
 (deftest a-report-for-content-not-in-the-library-moves-nothing
-  (is (= [] (:moved (events/set-aside-broken-entries {"P" {::e5/races {}}} nil
+  (is (= [] (:moved (homebrew-check/set-aside-broken-entries {"P" {::e5/races {}}} nil
                                                      [{:content-type ::e5/races :key :gone :option-pack "P"}])))))
 
 (deftest reporting-a-character-problem-sends-the-auth-token
@@ -1683,6 +1687,29 @@
       (is (= #{hp} (get-in @app-db [::events/sheet-edited 222]))
           "but its changed key is recorded too, for re-applying after a refused save"))))
 
+(deftest someone-elses-character-is-edited-on-screen-only
+  (let [saves (atom [])]
+    (with-fx {::char5e/save-character-throttled #(swap! saves conj %)
+              ::events/builder-draft->local-store identity}
+      (fn []
+        (reset! app-db (assoc pristine-db ::char5e/character-map
+                              {111 {:db/id 111 ::entity/owner "alice" ::entity/values {hp 9}}}))
+        (rf/dispatch-sync [::char5e/set-current-hit-points "111" 7])
+        (is (= 7 (get-in @app-db [::char5e/character-map 111 ::entity/values hp]))
+            "a signed-out viewer sees the edit")
+        (is (= [] @saves) "but nothing is saved, so no leave prompt and no trip to sign-in")
+        (is (= #{111} (::events/viewer-edited @app-db)) "and the sheet can say so")
+        (is (true? @(rf/subscribe [::char5e/viewer-edited? "111"])) "so the not-saved line shows")
+        (swap! app-db assoc :user-data {:user-data {:username "bob"}})
+        (rf/dispatch-sync [::char5e/set-current-hit-points "111" 5])
+        (is (= [] @saves) "another signed-in user is a viewer too")
+        (is (true? @(rf/subscribe [::char5e/viewer-edited? "111"])) "and sees the line")
+        (swap! app-db assoc :user-data {:user-data {:username "alice"}})
+        (is (false? @(rf/subscribe [::char5e/viewer-edited? "111"]))
+            "signed in as the owner, the line goes: the character is no longer someone else's")
+        (rf/dispatch-sync [::char5e/set-current-hit-points "111" 4])
+        (is (= ["111"] @saves) "the owner's edit autosaves as before")))))
+
 (deftest an-autosave-reply-keeps-the-builders-unsaved-edits
   (let [dispatched (atom [])
         saved (atom nil)
@@ -1791,6 +1818,91 @@
     (swap! app-db assoc-in [::events/refused 111] true)
     (effects-of [::char5e/save-character "111"] [:http :dispatch-later ::autosave-fx/saved])
     (is (nil? (get-in @app-db [::events/refused 111])))))
+
+(def ^:private sheet-save-stubs
+  "The autosave effects a sheet edit asks for, stubbed out."
+  {::char5e/save-character-throttled identity ::events/builder-draft->local-store identity
+   :dispatch identity :dispatch-n identity})
+
+(defn- gear-keys
+  "The Equipment pick keys of saved character 111 in app-db."
+  []
+  (set (map ::entity/key (get-in @app-db [::char5e/character-map 111 ::entity/options :equipment]))))
+
+(deftest a-refused-autosave-reapplies-a-sheet-inventory-edit
+  (with-fx sheet-save-stubs
+    (fn []
+      (reset! app-db (assoc pristine-db ::char5e/character-map
+                            {111 {:db/id 111 ::entity/version 1 ::entity/values {char-name "Old" hp 4}}}))
+      (rf/dispatch-sync [::inventory/sheet-add-item "111" :torch])
+      (rf/dispatch-sync [::char5e/save-refused {:for-id 111} refused])
+      (is (= "Renamed elsewhere" (get-in @app-db [::char5e/character-map 111 ::entity/values char-name]))
+          "rebased on the stored character")
+      (is (contains? (gear-keys) :torch) "with the sheet's added torch put back on it"))))
+
+(deftest a-typed-quantity-on-the-sheet-edits-the-repaired-character
+  (with-fx sheet-save-stubs
+    (fn []
+      (reset! app-db (assoc pristine-db ::char5e/character-map
+                            {111 {:db/id 111 ::entity/options
+                                  {:equipment [{::entity/key :explorers-pack
+                                                ::entity/value {:orcpub.dnd.e5.character.equipment/quantity 1}}]}}}))
+      (rf/dispatch-sync [::inventory/set-quantity "111" :treasure :gp 5])
+      (is (= [:explorers-pack] (map ::entity/key (get-in @app-db [::char5e/character-map 111 ::entity/options :kits])))
+          "the pack saved before kits is saved as the kit the sheet shows"))))
+
+(deftest setting-down-the-backpack-of-a-pack-saved-before-kits
+  (with-fx sheet-save-stubs
+    (fn []
+      (reset! app-db (assoc pristine-db ::char5e/character-map
+                            {111 {:db/id 111 ::entity/options
+                                  {:equipment [{::entity/key :explorers-pack
+                                                ::entity/value {:orcpub.dnd.e5.character.equipment/quantity 1}}]}}}))
+      (rf/dispatch-sync [::inventory/set-backpack-worn "111" false])
+      (is (false? (inventory/backpack-worn? (get-in @app-db [::char5e/character-map 111])))
+          "the pack's Backpack, made by repair, is set down"))))
+
+(deftest sheet-undo-outlives-its-own-autosave
+  (with-fx sheet-save-stubs
+    (fn []
+      (let [saved-reply (fn []
+                          ;; The save's reply: the same character, ids on every entry, a new version.
+                          (let [c (get-in @app-db [::char5e/character-map 111])]
+                            (rf/dispatch-sync
+                             [::char5e/set-character 111
+                              (-> c
+                                  (assoc ::entity/version 2)
+                                  (update-in [::entity/options :equipment]
+                                             (fn [ps] (vec (map-indexed #(assoc %2 :db/id (+ 900 %1)) ps))))
+                                  (update-in [::entity/options :kits] (fn [ks] (mapv #(assoc % :db/id 999) ks))))])))
+            start! (fn []
+                     (reset! app-db (assoc pristine-db ::char5e/character-map
+                                           {111 {:db/id 111 ::entity/version 1 ::entity/values {char-name "Old"}}}))
+                     (rf/clear-subscription-cache!)
+                     (rf/dispatch-sync [::inventory/sheet-act "111" :add :explorers-pack]))]
+        (start!)
+        (saved-reply)
+        (is (some? @(rf/subscribe [::inventory/undo "111"])) "Undo is still offered after the save's reply")
+        (rf/dispatch-sync [::inventory/sheet-undo "111"])
+        (is (empty? (gear-keys)) "and still takes the kit off")
+        (start!)
+        (rf/dispatch-sync [::inventory/sheet-add-item "111" :abacus])
+        (is (nil? @(rf/subscribe [::inventory/undo "111"])) "a later edit to the same gear ends it")))))
+
+(deftest undo-on-the-sheet-keeps-the-builders-other-edits
+  (with-fx sheet-save-stubs
+    (fn []
+      (let [stored {:db/id 111 ::entity/version 1 ::entity/values {char-name "Old"}}]
+        (reset! app-db (assoc pristine-db
+                              :character (assoc-in (assoc stored :changed true) [::entity/values char-name] "Builder edit")
+                              ::char5e/character-map {111 stored}))
+        (rf/dispatch-sync [::inventory/sheet-act "111" :add :explorers-pack])
+        (is (contains? (gear-keys) :torch) "the kit was added")
+        (rf/dispatch-sync [::inventory/sheet-undo "111"])
+        (is (empty? (gear-keys)) "Undo takes it off the saved copy")
+        (is (= "Builder edit" (get-in @app-db [:character ::entity/values char-name]))
+            "and leaves the builder's unsaved edit alone")
+        (is (empty? (get-in @app-db [:character ::entity/options :equipment])) "while taking the kit off there too")))))
 
 (deftest a-refused-autosave-leaves-the-builders-unsaved-edits-alone
   (with-fx {:dispatch identity :dispatch-n identity}
@@ -2176,3 +2288,161 @@
                          [:orcpub.entity/options :background :orcpub.entity/key]))))
   (is (= :blue (get-in @app-db [::char5e/character-map 7 :orcpub.entity/options :background :orcpub.entity/key]))
       "nothing is written back"))
+
+(deftest finish-long-rest-keeps-dawn-and-shorter-periods
+  (reset! app-db {::char5e/character-map
+                  {7 {:orcpub.entity/values
+                      {::char5e/features-used {::units5e/long-rest #{"a"}
+                                               ::units5e/rest #{"b"}
+                                               ::units5e/dawn #{"Dagger of Venom"}
+                                               ::units5e/turn #{"c"}}}}}})
+  (effects-of [::char5e/finish-long-rest "7"] [::char5e/save-character-throttled])
+  (is (= {::units5e/turn #{"c"} ::units5e/dawn #{"Dagger of Venom"}}
+         (get-in @app-db [::char5e/character-map 7 :orcpub.entity/values ::char5e/features-used]))
+      "a long rest does not mean dawn passed"))
+
+(deftest charges-are-spent-and-given-back-per-wand
+  (let [wand (some #(when (= "Wand of Fireballs" (::mi/name %)) %) mi/magic-items)
+        entry #(get-in @app-db [::char5e/character-map 7 :orcpub.entity/options :other-magic-items 0 :orcpub.entity/value])
+        used (fn [] (into {} (map (juxt :orcpub.dnd.e5.character.equipment/charge-index
+                                        :orcpub.dnd.e5.character.equipment/charges-used))
+                          (:orcpub.dnd.e5.character.equipment/charges (entry))))]
+    (reset! app-db {::char5e/character-map
+                    {7 {:orcpub.entity/options
+                        {:other-magic-items [{:orcpub.entity/key :wand-of-fireballs :orcpub.entity/value 2}]}}}})
+    (effects-of [::char5e/change-item-charges "7" :other-magic-items :wand-of-fireballs wand 1 3] [::char5e/save-character-throttled])
+    (is (= {1 3} (used)) "the second wand spends 3; a bare quantity became a map")
+    (is (= 2 (:orcpub.dnd.e5.character.equipment/quantity (entry))) "and keeps its quantity")
+    (effects-of [::char5e/change-item-charges "7" :other-magic-items :wand-of-fireballs wand 1 5] [::char5e/save-character-throttled])
+    (is (= {1 3} (used)) "5 more than the 4 left changes nothing")
+    (effects-of [::char5e/change-item-charges "7" :other-magic-items :wand-of-fireballs wand 1 -2] [::char5e/save-character-throttled])
+    (is (= {1 1} (used)) "2 given back")))
+
+(deftest feat-checkbox-starts-a-set-from-anything-else
+  (doseq [start [[] nil #{}]]
+    (reset! app-db {::feats5e/builder-item {:name "F" :ability-increases start}})
+    (rf/dispatch-sync [::feats5e/toggle-feat-ability-increase :orcpub.dnd.e5.character/str])
+    (is (= #{:orcpub.dnd.e5.character/str} (get-in @app-db [::feats5e/builder-item :ability-increases]))
+        (str "from " (pr-str start)))))
+
+(deftest rest-events-ignore-a-missing-or-other-characters-result
+  (let [ch {:orcpub.entity/values {::char5e/features-used {::units5e/dawn #{"x"}}}}
+        kept #(get-in @app-db [::char5e/character-map 7])]
+    (reset! app-db {::char5e/character-map {7 ch}})
+    (effects-of [::char5e/undo-rest 7] [::char5e/save-character-throttled])
+    (is (= ch (kept)) "no stored result: Undo changes nothing")
+    (reset! app-db {::char5e/character-map {7 ch} ::char5e/rest-result {:id 8 :before {:orcpub.entity/values {}}}})
+    (effects-of [::char5e/undo-rest 7] [::char5e/save-character-throttled])
+    (is (= ch (kept)) "another character's result: nothing changes")))
+
+(deftest a-sheet-edit-closes-an-open-rest-result
+  (reset! app-db {::char5e/character-map {7 {:orcpub.entity/values {}}}
+                  ::char5e/rest-result {:id "7" :before {:orcpub.entity/values {}}}})
+  (effects-of [::char5e/toggle-feature-used "7" ::units5e/dawn "Javelin of Lightning"] [::char5e/save-character-throttled])
+  (is (nil? (::char5e/rest-result @app-db)) "so Undo cannot overwrite the edit"))
+
+(deftest a-resend-carries-the-turnstile-token
+  ;; The server refuses a resend with no token when Turnstile is on, so :re-verify must keep the
+  ;; challenge-request interceptor that copies the widget's token into the query.
+  (reset! app-db {:turnstile-token "tok-resend"})
+  (let [fx (effects-of [:re-verify {:email "a@b.com"}] [:http])]
+    (is (= "tok-resend" (get-in fx [:http :query-params :turnstile-token])))
+    (is (= "a@b.com" (get-in fx [:http :query-params :email])) "next to the address it was typed with")))
+
+(defn- downloads-of
+  "Run `event` through the app with js/saveAs captured: returns [[filename blob-type no-bom?] ...]."
+  [event]
+  (let [saved (atom [])
+        save-as (.-saveAs js/window)]
+    (set! (.-saveAs js/window) (fn [blob filename no-bom?] (swap! saved conj [filename (.-type blob) no-bom?])))
+    (try (run-through! event)
+         (finally (set! (.-saveAs js/window) save-as)))
+    @saved))
+
+(deftest export-as-markdown-goes-through-the-export-gate-and-downloads-markdown
+  (let [pak @coverage-pak/pak]
+    (testing "a valid source: a .md download of type text/markdown, no notice"
+      (reset! app-db {:plugins {"Coverage Pak" pak}})
+      (is (= [["Coverage Pak.md" "text/markdown;charset=utf-8" true]]
+             (downloads-of [::e5/export-plugin-markdown "Coverage Pak" pak])))
+      (is (nil? (:message @app-db))))
+    (testing "Export is still the orcbrew file"
+      (reset! app-db {:plugins {"Coverage Pak" pak}})
+      (is (= [["Coverage Pak.orcbrew" "text/plain;charset=utf-8" false]]
+             (downloads-of [::e5/export-plugin "Coverage Pak" pak]))))
+    (testing "a source with nothing the writer formats downloads, and the warning says classes and subclasses only"
+      (let [langs {:orcpub.dnd.e5/languages {:cant {:key :cant :name "Cant" :option-pack "Pak"}}}]
+        (reset! app-db {:plugins {"Pak" langs}})
+        (is (= [["Pak.md" "text/markdown;charset=utf-8" true]]
+               (downloads-of [::e5/export-plugin-markdown "Pak" langs])))
+        (is (= :warning (:message-type @app-db)))
+        (is (re-find #"classes and subclasses only" (str (:message @app-db))))))
+    (testing "a source with a class and other content: the warning names what the file leaves out"
+      (let [mixed (assoc pak :orcpub.dnd.e5/languages
+                         {:cant {:key :cant :name "Cant" :option-pack "Coverage Pak"}})]
+        (reset! app-db {:plugins {"Coverage Pak" mixed}})
+        (is (= [["Coverage Pak.md" "text/markdown;charset=utf-8" true]]
+               (downloads-of [::e5/export-plugin-markdown "Coverage Pak" mixed])))
+        (is (= :warning (:message-type @app-db)))
+        (is (re-find #"Not included: Languages \(1\)" (str (:message @app-db))))))
+    (testing "a source the gate stops writes no file"
+      (reset! app-db {:plugins {"Pak" {:orcpub.dnd.e5/feats {:a {:name nil}}}}})
+      (is (empty? (filter (fn [[f]] (re-find #"\.md$" f))
+                          (downloads-of [::e5/export-plugin-markdown "Pak" {:orcpub.dnd.e5/feats {:a {:name nil}}}])))))
+    (testing "the fill-in modal remembers the format, so its Export writes Markdown too"
+      (reset! app-db {:plugins {"Pak" {:orcpub.dnd.e5/feats {:a {:name nil}}}}})
+      (run-through! [::e5/export-plugin-markdown "Pak" {:orcpub.dnd.e5/feats {:a {:name nil}}}])
+      (is (= :markdown (get-in @app-db [:export-warning :format]))))))
+
+;; ---------------------------------------------------------------------------
+;; The loading spinner is a counter; an increment whose handler threw before
+;; its decrement held it up until a reload.
+;; ---------------------------------------------------------------------------
+
+(deftest a-page-change-clears-the-spinner
+  (reset! app-db {:route :some-existing-route :loading 2})
+  (rf/dispatch-sync [:route routes/dnd-e5-char-list-page-route {:skip-path? true}])
+  (is (= 0 (:loading @app-db)))
+  (testing "an unmatched route still changes nothing"
+    (reset! app-db {:route :some-existing-route :loading 1})
+    (rf/dispatch-sync [:route nil {:skip-path? true}])
+    (is (= 1 (:loading @app-db)))))
+
+(deftest a-failed-random-character-turns-the-spinner-off
+  (let [before {:loading 1 :character {:db/id 5}}
+        fx (with-redefs [events/random-character (fn [& _] (throw (js/Error. "boom")))]
+             (events/set-random-character {:db before} [:set-random-character nil nil nil]))]
+    (is (= 0 (get-in fx [:db :loading])))
+    (is (= {:db/id 5} (get-in fx [:db :character])) "the current character is kept")
+    (is (not (get-in fx [:db ::e5/replacing?])))
+    (is (= :show-error-message (first (:dispatch fx))))))
+
+(deftest a-request-from-the-last-page-cannot-touch-the-new-pages-spinner
+  (reset! app-db {:route :some-existing-route :loading 0})
+  (let [old-gen (event-utils/loading-gen @app-db)]
+    (rf/dispatch-sync [:set-loading true old-gen])
+    (rf/dispatch-sync [:route routes/dnd-e5-char-list-page-route {:skip-path? true}])
+    (let [new-gen (event-utils/loading-gen @app-db)]
+      (is (not= old-gen new-gen) "a page change starts a new generation")
+      (rf/dispatch-sync [:set-loading true new-gen])
+      (rf/dispatch-sync [:set-loading false old-gen])
+      (is (= 1 (:loading @app-db)) "the old page's request finishing leaves the new one's spinner on")
+      (rf/dispatch-sync [:set-loading true old-gen])
+      (is (= 1 (:loading @app-db)) "an old request starting late does not raise it either")
+      (rf/dispatch-sync [:set-loading false new-gen])
+      (is (= 0 (:loading @app-db)))
+      (testing "a change with no generation always counts"
+        (rf/dispatch-sync [:set-loading true])
+        (is (= 1 (:loading @app-db)))))))
+
+(deftest file-name-choices-reach-the-account-one-write-at-a-time
+  (reset! app-db {:user-data {:token "t" :pdf-file-name {}}})
+  (let [first-fx (effects-of [::char5e/set-file-name-option :class? true] [:http])
+        second-fx (effects-of [::char5e/set-file-name-option :level? true] [:http])]
+    (is (= {:class? true} (get-in first-fx [:http :transit-params :pdf-file-name])))
+    (is (nil? (:http second-fx)) "a choice made while a write is in flight waits for it")
+    (let [after (effects-of [::char5e/file-name-format-saved] [:http])]
+      (is (= {:class? true :level? true} (get-in after [:http :transit-params :pdf-file-name]))
+          "the latest choice is sent once the first write returns"))
+    (is (nil? (:http (effects-of [::char5e/file-name-format-saved] [:http])))
+        "nothing waiting: nothing more is sent")))

@@ -150,7 +150,7 @@
                                             {:name "Intimidating Presence"
                                              :level 10
                                              :page 49
-                                             :summary (str "Frighten (Wisdom save DC " (?spell-save-dc ::char5e/cha) ") a creature with 30 ft.")})]}
+                                             :summary (str "Frighten (Wisdom save DC " (?save-dc ::char5e/cha) ") a creature with 30 ft.")})]}
                            14 {:modifiers [(mod5e/reaction
                                             {:name "Retaliation"
                                              :page 49
@@ -296,7 +296,8 @@
     :modifiers [(mod5e/bonus-action
                  {:name "Bardic Inspiration"
                   :page 53
-                  :frequency (units5e/long-rests
+                  ;; Font of Inspiration (level 5): uses come back on a short rest too.
+                  :frequency ((if (>= (?class-level :bard) 5) units5e/rests units5e/long-rests)
                               (max 1 (?ability-bonuses ::char5e/cha)))
                   :summary (str "Inspire another creature with a 1d"
                                 (bardic-inspiration-die ?levels)
@@ -1254,11 +1255,9 @@
      :weapon-choices [{:name "Weapon"
                        :options {:shortsword 1
                                  :simple 1}}]
-     :modifiers [(mod/vec-mod ?weapon-ability-modifiers
+     :modifiers [(mod/vec-mod ?weapon-abilities
                               (fn [weapon finesse?]
-                                (if (monk-weapon? weapon)
-                                  (get ?ability-bonuses ::char5e/dex)
-                                  0)))
+                                (when (monk-weapon? weapon) ::char5e/dex)))
                  (mod/vec-mod ?unarmored-defense :monk)
                  (mod/cum-sum-mod ?unarmored-ac-bonus
                                   (?ability-bonuses ::char5e/wis)
@@ -1314,7 +1313,7 @@
                               {:name "Stunning Strike"
                                :page 79
                                :level 5
-                               :summary (str "when you hit a creature with melee attack, spend 1 ki point to stun the creature if it fails a DC " (?spell-save-dc ::char5e/wis) " CON save")})]}
+                               :summary (str "when you hit a creature with melee attack, spend 1 ki point to stun the creature if it fails a DC " (?save-dc ::char5e/wis) " CON save")})]}
               6 {:modifiers [(mod5e/unarmored-speed-bonus 5)]}
               7 {:modifiers [(mod5e/action
                               {:name "Stillness of Mind"
@@ -1368,7 +1367,7 @@
                    :modifiers [(mod5e/dependent-trait
                                 {:name "Open Hand Technique"
                                  :page 79
-                                 :summary (str "when you hit with Flurry of Blows, you impose one of the effects on the target: 1) must make a DC " (?spell-save-dc ::char5e/wis) " DEX save or be knocked prone. 2) make a DC " (?spell-save-dc ::char5e/wis) " STR save or be pushed 15 ft. 3) can't take reactions until end of your next turn")})]
+                                 :summary (str "when you hit with Flurry of Blows, you impose one of the effects on the target: 1) must make a DC " (?save-dc ::char5e/wis) " DEX save or be knocked prone. 2) make a DC " (?save-dc ::char5e/wis) " STR save or be pushed 15 ft. 3) can't take reactions until end of your next turn")})]
                    :levels {6 {:modifiers [(mod5e/action
                                             {:name "Wholeness of Body"
                                              :page 79
@@ -1379,12 +1378,12 @@
                                              {:name "Tranquility"
                                               :page 80
                                               :level 11
-                                              :summary (str "gain effects of sanctuary spell (save DC " (?spell-save-dc ::char5e/wis) ") between rests")})]}
+                                              :summary (str "gain effects of sanctuary spell (save DC " (?save-dc ::char5e/wis) ") between rests")})]}
                             17 {:modifiers [(mod5e/dependent-trait
                                              {:name "Quivering Palm"
                                               :level 17
                                               :page 80
-                                              :summary (str "when you hit a creature with unarmed strike, set up vibrations that last " (?class-level :monk) " days. Use an action to end the vibrations, reducing the target to 0 HPs on failed DC " (?spell-save-dc ::char5e/wis) " CON save. It takes 10d10 necrotic damage on successful save.")})]}}}
+                                              :summary (str "when you hit a creature with unarmed strike, set up vibrations that last " (?class-level :monk) " days. Use an action to end the vibrations, reducing the target to 0 HPs on failed DC " (?save-dc ::char5e/wis) " CON save. It takes 10d10 necrotic damage on successful save.")})]}}}
                   #_{:name "Way of Shadow"
                      :modifiers [(mod5e/spells-known 0 :minor-illusion ::char5e/wis "Monk (Way of Shadow)")
                                  (mod5e/action
@@ -2636,9 +2635,12 @@
 (defn pact-boon-options [plugin-boons spell-lists spells-map]
  (concat
    (map
-    (fn [{:keys [name description edit-event]}]
+    ;; offered under the stored :key, not one made from the name: a renamed or conflict-tagged
+    ;; boon kept its picks only by luck. Picks of the name's key heal (items-with-formers).
+    (fn [{:keys [name key description edit-event]}]
       (t/option-cfg
        {:name name
+        :key key
         :modifiers [(mod5e/trait-cfg
                      {:name (str "Pact Boon: " name)
                       :description description})]
@@ -2681,12 +2683,25 @@
                    :summary "you have a spellbook with 3 extra cantrips"})]})]))
 
 
+
+(def ^:private at-will-invocation
+  "How an at-will invocation's spell is cast: free, at will, never from a slot (SRD 5.1: \"at will,
+   without expending a spell slot\"). The `:casting` map of plan-spell-uses-by-source.md."
+  {:free {:at-will true} :slots :none})
+
+(def ^:private slot-once-per-long-rest
+  "How Mire the Mind's and Thief of Five Fates' spells are cast: \"once using a warlock spell
+   slot\", again after a long rest. The `:casting` map of plan-spell-uses-by-source.md."
+  {:slots units5e/long-rests-1})
+
 (defn eldritch-invocation-options [plugin-invocations spell-lists spells-map]
   (concat
    (map
-    (fn [{:keys [name description]}]
+    ;; under the stored :key, as boons are
+    (fn [{:keys [name key description]}]
       (t/option-cfg
        {:name name
+        :key key
         :modifiers [(mod5e/trait-cfg
                      {:name (str "Eldritch Invocation: " name)
                       :description description})]}))
@@ -2704,14 +2719,14 @@
                    {:name "Eldritch Invocation: Armor of Shadows"
                     :page 110
                     :summary "cast mage armor on yourself at will"})
-                  (mod5e/spells-known 1 :mage-armor ::char5e/cha "Warlock" 0 "at will")]})
+                  (mod5e/spells-known 1 :mage-armor ::char5e/cha "Warlock" 0 nil nil at-will-invocation)]})
     (t/option-cfg
      {:name "Ascendant Step"
       :modifiers [(mod5e/trait-cfg
                    {:name "Eldritch Invocation: Ascendant Step"
                     :page 110
                     :summary "cast levitate on yourself at will"})
-                  (mod5e/spells-known 2 :levitate ::char5e/cha "Warlock" 0 "at will")]
+                  (mod5e/spells-known 2 :levitate ::char5e/cha "Warlock" 0 nil nil at-will-invocation)]
       :prereqs [(opt5e/total-levels-option-prereq 9 :warlock)]})
     (t/option-cfg
      {:name "Beast Speech"
@@ -2719,7 +2734,7 @@
                    {:name "Eldritch Invocation: Beast Speech"
                     :page 110
                     :summary "can cast speak with animals at will"})
-                  (mod5e/spells-known 1 :speak-with-animals ::char5e/cha "Warlock" 0 "at will")]})
+                  (mod5e/spells-known 1 :speak-with-animals ::char5e/cha "Warlock" 0 nil nil at-will-invocation)]})
     (t/option-cfg
      {:name "Beguiling Influence"
       :modifiers [(mod5e/trait-cfg
@@ -2768,7 +2783,7 @@
                     :page 110
                     :frequency units5e/long-rests-1
                     :summary "cast hold monster at will on celestials, fiends, or elementals"})
-                  (mod5e/spells-known 5 :hold-monster ::char5e/cha "Warlock" 0 "at will")]
+                  (mod5e/spells-known 5 :hold-monster ::char5e/cha "Warlock" 0 nil nil at-will-invocation)]
       :prereqs [opt5e/pact-of-the-chain-prereq
                 (opt5e/total-levels-option-prereq 15 :warlock)]})
     (t/option-cfg
@@ -2794,7 +2809,7 @@
                    {:name "Eldritch Invocation: Eldritch Sight"
                     :page 110
                     :summary "cast detect magic at will"})
-                  (mod5e/spells-known 1 :detect-magic ::char5e/cha "Warlock" 0 "at will")]})
+                  (mod5e/spells-known 1 :detect-magic ::char5e/cha "Warlock" 0 nil nil at-will-invocation)]})
     (t/option-cfg
      {:name "Eldritch Spear"
       :modifiers [(mod5e/trait-cfg
@@ -2814,7 +2829,7 @@
                    {:name "Eldritch Invocation: Fiendish Vigor"
                     :page 111
                     :summary "cast false life at will"})
-                  (mod5e/spells-known 1 :false-life ::char5e/cha "Warlock" 0 "at will")]})
+                  (mod5e/spells-known 1 :false-life ::char5e/cha "Warlock" 0 nil nil at-will-invocation)]})
     (t/option-cfg
      {:name "Gaze of Two Minds"
       :modifiers [(mod5e/trait "Eldritch Invocation: Gaze of Two Minds"
@@ -2833,14 +2848,14 @@
                    {:name "Eldritch Invocation: Mask of Many Faces"
                     :page 111
                     :summary "cast disguise self at will"})
-                  (mod5e/spells-known 1 :disguise-self ::char5e/cha "Warlock" 0 "at will")]})
+                  (mod5e/spells-known 1 :disguise-self ::char5e/cha "Warlock" 0 nil nil at-will-invocation)]})
     (t/option-cfg
      {:name "Master of Myriad Forms"
       :modifiers [(mod5e/trait-cfg
                    {:name "Eldritch Invocation: Master of Myriad Forms"
                     :page 111
                     :summary "cast alter self at will"})
-                  (mod5e/spells-known 2 :alter-self ::char5e/cha "Warlock" 0 "at will")]
+                  (mod5e/spells-known 2 :alter-self ::char5e/cha "Warlock" 0 nil nil at-will-invocation)]
       :prereqs [(opt5e/total-levels-option-prereq 15 :warlock)]})
     (t/option-cfg
      {:name "Minions of Chaos"
@@ -2859,7 +2874,7 @@ long rest."})
                     :page 111
                     :frequency units5e/long-rests-1
                     :summary "cast slow using warlock spell slot"})
-                  (mod5e/spells-known 3 :slow ::char5e/cha "Warlock" 0 "at will")]
+                  (mod5e/spells-known 3 :slow ::char5e/cha "Warlock" 0 nil nil slot-once-per-long-rest)]
       :prereqs [(opt5e/total-levels-option-prereq 5 :warlock)]})
     (t/option-cfg
      {:name "Misty Visions"
@@ -2867,7 +2882,7 @@ long rest."})
                    {:name "Eldritch Invocation: Misty Visions"
                     :page 111
                     :summary "cast silent image at will"})
-                  (mod5e/spells-known 1 :silent-image ::char5e/cha "Warlock" 0 "at will")]})
+                  (mod5e/spells-known 1 :silent-image ::char5e/cha "Warlock" 0 nil nil at-will-invocation)]})
     (t/option-cfg
      {:name "One with Shadows"
       :modifiers [(mod5e/action
@@ -2881,7 +2896,7 @@ long rest."})
                    {:name "Eldritch Invocation: Otherworldly Leap"
                     :page 111
                     :summary "cast jump on yourself at will"})
-                  (mod5e/spells-known 1 :jump ::char5e/cha "Warlock" 0 "at will")]
+                  (mod5e/spells-known 1 :jump ::char5e/cha "Warlock" 0 nil nil at-will-invocation)]
       :prereqs [(opt5e/total-levels-option-prereq 9 :warlock)]})
     (t/option-cfg
      {:name "Repelling Blast"
@@ -2915,7 +2930,7 @@ long rest."})
                     :page 111
                     :frequency units5e/long-rests-1
                     :summary "cast bane warlock spell slot"})
-                  (mod5e/spells-known 1 :bane ::char5e/cha "Warlock" 0 "once per long rest")]})
+                  (mod5e/spells-known 1 :bane ::char5e/cha "Warlock" 0 nil nil slot-once-per-long-rest)]})
     (t/option-cfg
      {:name "Thirsting Blade"
       :modifiers [(mod5e/trait-cfg
@@ -2930,7 +2945,7 @@ long rest."})
                    {:name "Eldritch Invocation: Visions of Distant Realms"
                     :page 111
                     :summary "cast arcane eye at will"})
-                  (mod5e/spells-known 4 :arcane-eye ::char5e/cha "Warlock" 0 "at will")]
+                  (mod5e/spells-known 4 :arcane-eye ::char5e/cha "Warlock" 0 nil nil at-will-invocation)]
       :prereqs [(opt5e/total-levels-option-prereq 15 :warlock)]})
     (t/option-cfg
      {:name "Voice of the Chain Master"
@@ -2945,7 +2960,7 @@ long rest."})
                    {:name "Eldritch Invocation: Whispers of the Grave"
                     :page 111
                     :summary "cast speak with dead at will"})
-                  (mod5e/spells-known 3 :speak-with-dead ::char5e/cha "Warlock" 0 "at will")]
+                  (mod5e/spells-known 3 :speak-with-dead ::char5e/cha "Warlock" 0 nil nil at-will-invocation)]
       :prereqs [(opt5e/total-levels-option-prereq 9 :warlock)]})
     (t/option-cfg
      {:name "Witch Sight"
@@ -2989,7 +3004,8 @@ long rest."})
               ::char5e/cha
               "Warlock"
               false
-              "uses Mystic Arcanum")}))
+              "uses Mystic Arcanum"
+              {:free units5e/long-rests-1 :slots :none})}))
 
 (defn warlock-option [spell-lists spells-map plugin-subclasses-map language-map weapon-map invocations boons]
   (opt5e/class-option

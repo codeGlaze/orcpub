@@ -54,8 +54,14 @@ const cardSays = (page, re) => page.waitForFunction(src => {
 /** Waits up to 15s for the URL to leave the login page. */
 const leftLogin = page => page.waitForURL(u => !String(u).includes('login-page'), { timeout: 15000 }).catch(() => {});
 
-// The link in a captured mail, with quoted-printable soft breaks undone.
-const linkIn = (mail, re) => (mail.raw.replace(/=\r\n/g, '').match(re) || [])[0];
+// The link in a captured mail, with quoted-printable soft breaks undone, moved onto the server under
+// test: the mail names the site's own URL (APP_URL), which a fork sets to its live site.
+const linkIn = (mail, re) => {
+  const found = (mail.raw.replace(/=\r\n/g, '').match(re) || [])[0];
+  if (!found) return found;
+  const u = new URL(found);
+  return `${BASE}${u.pathname}${u.search}`;
+};
 
 async function registerAndVerify(page, sink, user, email, password) {
   // Clear FIRST. waitFor returns a matching message already held, so with mail
@@ -118,7 +124,8 @@ async function resetLinkFor(page, sink, email) {
   check((await heading(page)).toLowerCase().includes('registration is complete'),
         'a new account registers and verifies', await heading(page));
 
-  // The same address and name a second time must be refused, per field.
+  // The same name a second time is refused, per field. The address is NOT: sign-up never says an
+  // address is taken (it answers "check your email" and mails the owner instead).
   await page.goto(`${BASE}/pages/register-page`, { waitUntil: 'networkidle' });
   await page.waitForSelector('.auth-form input');
   let b = authInputs(page);
@@ -127,8 +134,8 @@ async function resetLinkFor(page, sink, email) {
   // GOTCHA: matches the server's messages; the page always shows "Already have an account?".
   await submit(page, () => press(page, 'JOIN'), /already taken by another user/);
   const taken = await cardText(page);
-  check(/already taken by another user/i.test(taken) && /already associated with another account/i.test(taken),
-        'a username and email already in use are refused',
+  check(/already taken by another user/i.test(taken) && !/already associated|already in use|taken/i.test(taken.replace(/already taken by another user/ig, '')),
+        'a username already in use is refused, and the email is not named as taken',
         taken.replace(/\n/g, ' | ').slice(0, 120));
 
   // Short password: the rules must say what is wrong, not just refuse.
@@ -322,6 +329,20 @@ async function resetLinkFor(page, sink, email) {
         'a throttled reset still answers the same way');
   check(sink.messages.length === 0, 'and sends no fourth mail in the hour',
         sink.messages.length ? `${sink.messages.length} sent` : '');
+
+  // ---- a card taller than the window starts at the top (desktop, password hints showing) ----
+  const tall = await ctx.newPage();
+  await tall.setViewportSize({ width: 1440, height: 800 });
+  await tall.goto(`${BASE}/pages/register-page`, { waitUntil: 'networkidle' });
+  await tall.waitForSelector('.registration-content .auth-form input');
+  const pw = tall.locator('.auth-form input[type=password]');
+  await pw.nth(0).fill('abc'); await pw.nth(0).blur(); await pw.nth(1).fill('abd'); await pw.nth(1).blur();
+  await settle(tall); await tall.evaluate(() => window.scrollTo(0, 0)); await settle(tall);
+  const cardTop = await tall.evaluate(() => Math.round(document.querySelector('.registration-content').getBoundingClientRect().top));
+  const tallH = await tall.evaluate(() => document.querySelector('.registration-content').getBoundingClientRect().height);
+  check(tallH > 800 && cardTop >= 0, 'with the hints showing, the register card starts on the page, not above it',
+        `top ${cardTop}, height ${Math.round(tallH)}`);
+  await tall.close();
 
   // ---- the card at phone width ----
   const phone = await ctx.newPage();

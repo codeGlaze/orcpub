@@ -11,7 +11,7 @@
             [orcpub.dnd.e5.common :as common5e]
             [orcpub.dnd.e5.db :refer [tab-path]]
             [orcpub.dnd.e5.event-utils :as event-utils :refer [url-for-route
-                                                                    show-generic-error mod-cfg
+                                                                    mod-cfg
                                                                     default-mod-set
                                                                     handle-api-response]]
             [orcpub.dnd.e5.character :as char5e]
@@ -19,6 +19,7 @@
             [orcpub.dnd.e5.char-decision-tree :as char-dec5e]
             [orcpub.dnd.e5.char-filter :as char-filter]
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
+            [orcpub.dnd.e5.inventory :as inventory]
             [orcpub.dnd.e5.party :as party5e]
             [orcpub.dnd.e5.folder :as folder5e]
             [orcpub.dnd.e5.monsters :as monsters5e]
@@ -48,6 +49,15 @@
  (fn [db _]
    db))
 
+;; Whether this viewer has edited character `id` on screen while it is someone else's; those edits
+;; are not saved. Signed in as its owner, it is not someone else's, and the next edit saves.
+(reg-sub
+ ::char5e/viewer-edited?
+ (fn [db [_ id]]
+   (let [int-id (js/parseInt id)]
+     (and (contains? (get db :orcpub.dnd.e5.events/viewer-edited) int-id)
+          (event-utils/others-character? db (get-in db [::char5e/character-map int-id]))))))
+
 (reg-sub
  :registration-form
  (fn [db [_]]
@@ -62,11 +72,6 @@
  :username-taken?
  (fn [db [_]]
    (get db :username-taken?)))
-
-(reg-sub
- :email-taken?
- (fn [db [_]]
-   (get db :email-taken?)))
 
 (reg-sub
  :srd-message-closed?
@@ -86,14 +91,13 @@
 (reg-sub
  :registration-validation
  :<- [:registration-form]
- :<- [:email-taken?]
  :<- [:username-taken?]
  :<- [:registration-server-errors]
- (fn [[form email-taken? username-taken? server] [_]]
+ (fn [[form username-taken? server] [_]]
    ;; Merged per field, so a server objection sits alongside anything the form
    ;; found rather than replacing it.
    (merge-with (comp vec distinct concat)
-               (registration/validate-registration form email-taken? username-taken?)
+               (registration/validate-registration form username-taken?)
                ;; :general is excluded: the submit button disables while this map has
                ;; anything in it, and a rate limit here would leave it stuck forever.
                ;; :password-common is excluded too -- it's the meter's verdict already,
@@ -232,6 +236,44 @@
  :character
  (fn [db _]
    (:character db)))
+
+;; The last kit action's Undo line for character `id` (nil: the builder's), {:message}, while that
+;; character is still what the action left (a saved one: in what the action changed, save ids aside,
+;; so its autosave keeps it); nil after another edit there.
+(reg-sub
+ ::inventory/undo
+ (fn [db [_ id]]
+   (let [{:keys [after] :as undo} (::inventory/undo db)
+         current (if id (get-in db [::char5e/character-map (js/parseInt id)]) (:character db))]
+     (when (and undo (= id (:id undo))
+                (if id (inventory/undo-applies? current undo) (= current after)))
+       (select-keys undo [:message])))))
+
+;; What a Kits block shows for character `id` (nil: the builder's): {:kits [{:pack :name :chest? :tracked
+;; :could-use-spare :holds :pack-count :bought}] :questions :fillable :shares {item-key shares}
+;; :contents #{item-key every kit holds when full} :backpack-worn?} (inventory.cljc).
+(reg-sub
+ ::inventory/panel
+ (fn [[_ id]] [(subscribe [::char5e/character id]) (subscribe [:built-template])])
+ (fn [[character template] _]
+   (let [active (inventory/active-kits character)]
+     {:kits (mapv (fn [kit]
+                    (let [pk (::entity/key kit)]
+                      {:pack pk
+                       :name (:name (inventory/pack pk))
+                       :chest? (contains? (:items (inventory/pack pk)) :chest)
+                       :tracked (inventory/tracked kit)
+                       :could-use-spare (inventory/restock-could-use-spare character pk)
+                       :holds (inventory/held-items character pk)
+                       :pack-count (inventory/kit-count kit)
+                       :bought (inventory/total character pk)}))
+                  active)
+      :questions (inventory/questions character (inventory/offered-packs template character))
+      :fillable (inventory/fillable character)
+      :backpack-worn? (inventory/backpack-worn? character)
+      :contents (into #{} (mapcat #(map first (inventory/targets %))) active)
+      :shares (into {} (for [k (distinct (mapcat #(map :key (inventory/tracked %)) active))]
+                         [k (inventory/shares character k)]))})))
 
 (reg-sub
  :entity-values
@@ -650,27 +692,12 @@
   :context    "fetch parties"})
 
 
-(defn user-sub-on-401
-  "The :user sub's 401 handler, after reg-api-sub has logged the user out: routes to login only
-   when the caller flagged the request as required."
-  [[_ required?]]
-  (when required? (dispatch [:route-to-login])))
-
-(defn user-sub-on-500
-  "Conditional 500 handler for the :user sub: bounces to the generic
-   error toast only when the caller flagged the request as required."
-  [[_ required?]]
-  (when required? (dispatch (show-generic-error))))
-
-(reg-api-sub
- {:sub-key    :user
-  :route      routes/user-route
-  :db-key     :user
-  ;; The response is not stored. db :user holds only the :following list that :follow-user and
-  ;; :unfollow-user build locally.
-  :on-401     user-sub-on-401
-  :on-500     user-sub-on-500
-  :context    "fetch user"})
+;; The account as GET /user last answered (:verify-user-session at start, :login-success), with
+;; :follow-user and :unfollow-user updating its :following. Read only: subscribing fetches nothing.
+(reg-sub
+ :user
+ (fn [db _]
+   (:user db)))
 
 (reg-sub
  :following-users
@@ -766,6 +793,13 @@
             (reset! memo [template character out])
             out))))))
 
+(defn shown-character
+  "What a saved character's page shows of the healed character `healed`: with `template` (else as
+   is) the picks that no longer apply left out by `settle` (a `page-settler`), then packs chosen
+   before kits existed made kits (inventory.cljc), so a held pack makes none. Returns the character."
+  [settle template healed]
+  (:character (inventory/repair (if (seq template) (settle template healed) healed))))
+
 ;; A saved character with its picks healed (heal-sites, content_reconciliation.cljs). Never stored.
 (reg-sub-raw
   ::char5e/character
@@ -773,33 +807,33 @@
     (let [int-id (when id (js/parseInt id))
           settle (page-settler)]
       (when (some? int-id)
-        (go (dispatch [:set-loading true])
-            (let [response (<! (http/get (url-for-route
-                                           routes/dnd-e5-char-route
-                                           :id int-id)))]
-              (dispatch [:set-loading false])
-              (handle-api-response response
-                #(let [body (:body response)]
-                   (if (http/decode-failed? body)
-                     ;; Unreadable even after self-heal: flag the load as failed so the page shows
-                     ;; a recovery panel (delete / go to list). Feeding the marker to from-strict
-                     ;; would silently build a blank default character.
-                     (dispatch [::char5e/set-character-load-error int-id body])
-                     (do (dispatch [::char5e/set-character-load-error int-id nil])
-                         ;; Before the character, so its first build already has them.
-                         (dispatch [::mi5e/set-character-custom-items int-id
-                                    (::char5e/custom-items body) (::se/owner body)])
-                         (dispatch [::char5e/set-character int-id (char5e/from-strict body)]))))
-                :context (str "fetch character " int-id)))))
+        (let [gen (event-utils/loading-gen @app-db)]
+          (go (dispatch [:set-loading true gen])
+              (let [response (<! (http/get (url-for-route
+                                             routes/dnd-e5-char-route
+                                             :id int-id)))]
+                (dispatch [:set-loading false gen])
+                (handle-api-response response
+                  #(let [body (:body response)]
+                     (if (http/decode-failed? body)
+                       ;; Unreadable even after self-heal: flag the load as failed so the page shows
+                       ;; a recovery panel (delete / go to list). Feeding the marker to from-strict
+                       ;; would silently build a blank default character.
+                       (dispatch [::char5e/set-character-load-error int-id body])
+                       (do (dispatch [::char5e/set-character-load-error int-id nil])
+                           ;; Before the character, so its first build already has them.
+                           (dispatch [::mi5e/set-character-custom-items int-id
+                                      (::char5e/custom-items body) (::se/owner body)])
+                           (dispatch [::char5e/set-character int-id (char5e/from-strict body)]))))
+                  :context (str "fetch character " int-id))))))
       (ra/make-reaction
        (fn []
          (if int-id
-           (let [healed (:character (content-recon/reconcile-former-keys
-                                     (get-in @app-db [::char5e/character-map int-id] {})
-                                     @(subscribe [::content-recon/former-key-indexes])))
-                 template (get @app-db :orcpub.dnd.e5.autosave-fx/cached-template)]
-             ;; Picks that no longer apply are left out of what the page shows (picks.cljc).
-             (if (seq template) (settle template healed) healed))
+           (shown-character settle
+                            (get @app-db :orcpub.dnd.e5.autosave-fx/cached-template)
+                            (:character (content-recon/reconcile-former-keys
+                                         (get-in @app-db [::char5e/character-map int-id] {})
+                                         @(subscribe [::content-recon/former-key-indexes]))))
            (get @app-db :character)))))))
 
 ;; Records that a character's server response could not be decoded even after self-heal; the
@@ -889,6 +923,16 @@
  :login-message-shown?
  (fn [db _]
    (:login-message-shown? db)))
+
+(reg-sub
+ :turnstile-blocked?
+ (fn [db _]
+   (boolean (:turnstile-blocked? db))))
+
+(reg-sub
+ :login-challenge?
+ (fn [db _]
+   (boolean (:login-challenge? db))))
 
 (reg-sub
  :message
@@ -1035,6 +1079,7 @@
    ::char5e/description char5e/description
    ::char5e/notes char5e/notes
    ::char5e/critical-hit-values char5e/critical-hit-values
+   ::char5e/weapon-masteries char5e/weapon-masteries
    ::char5e/crit-values-str char5e/crit-values-str
    ::char5e/number-of-attacks char5e/number-of-attacks
    ::char5e/has-weapon-prof char5e/has-weapon-prof
@@ -1042,6 +1087,8 @@
    ::char5e/weapon-damage-modifier-fn char5e/weapon-damage-modifier-fn
    ::char5e/best-weapon-attack-modifier-fn char5e/best-weapon-attack-modifier-fn
    ::char5e/best-weapon-damage-modifier-fn char5e/best-weapon-damage-modifier-fn
+   ::char5e/best-weapon-ability-modifier-fn char5e/best-weapon-ability-modifier-fn
+   ::char5e/weapon-save-dc-fn char5e/weapon-save-dc-fn
    ::char5e/total-levels char5e/total-levels
    ::char5e/class-level-fn char5e/class-level-fn
    ::char5e/dual-wield-weapon-fn char5e/dual-wield-weapon-fn
@@ -1056,6 +1103,19 @@
    ::char5e/worn-armor char5e/worn-armor
    ::char5e/wielded-shield char5e/wielded-shield
    ::char5e/attuned-magic-items char5e/attuned-magic-items})
+
+(reg-sub
+ :weapon-roll/chain
+ (fn [db _] (:weapon-roll/chain db)))
+
+(reg-sub
+ :weapon-roll/mode
+ (fn [db _] (:weapon-roll/mode db :normal)))
+
+(reg-sub
+ :orcpub.dnd.e5.weapons/mastery-definitions
+ ;; Empty here: the 2024 definitions come from the 5.5 line (edition-machinery-split.md).
+ (fn [_ _] {}))
 
 (doseq [[sub-key char-fn] character-subs]
   (reg-sub
@@ -1404,6 +1464,10 @@
             ::char5e/prepared-spells-by-class])))
 
 (reg-sub
+ ::char5e/rest-result
+ (fn [db _] (::char5e/rest-result db)))
+
+(reg-sub
  ::char5e/feature-used?
  (fn [[_ id units nm]]
    (subscribe [::char5e/features-used id]))
@@ -1424,10 +1488,41 @@
  (fn [db _]
    (get-in db [:user-data :theme])))
 
+;; Which picture the character shows: :portrait, :image or nil (char5e/shown-picture).
+(reg-sub
+ :portrait/shown
+ (fn [db _]
+   (char5e/shown-picture (get-in db [:character :orcpub.entity/values]))))
+
+;; The picture link being drafted in the portrait editor, applied only by "Use this picture".
+(reg-sub
+ :portrait/link-draft
+ (fn [db _]
+   (:portrait/link-draft db)))
+
+;; Whether the portrait editor shows the compositor (:compose) or the picture link (:link).
+(reg-sub
+ :portrait/mode
+ (fn [db _]
+   (or (:portrait/mode db) :compose)))
+
+;; Whether the portrait editor's Randomize keeps the current colours.
+(reg-sub
+ :portrait/keep-colours?
+ (fn [db _]
+   (boolean (:portrait/keep-colours? db))))
+
 (reg-sub
  :dark-button-text?
  (fn [db _]
    (boolean (get-in db [:user-data :dark-button-text?]))))
+
+;; The player's PDF file name choices as saved (this browser, and the account when signed in);
+;; pdf-spec/file-name-defaults fills what is missing.
+(reg-sub
+ ::char5e/file-name-format
+ (fn [db _]
+   (get-in db [:user-data :pdf-file-name] {})))
 
 (reg-sub
  ::show-class-source-suffix
@@ -1890,6 +1985,15 @@
  :<- [::content-recon/offered-by-type]
  (fn [[plugins offered] _]
    (library/dangling plugins offered)))
+
+;; The same for a share link's content, which My Content does not show: the share banner names
+;; these, as they are not offered.
+(reg-sub
+ :orcpub.dnd.e5/shared-dangling
+ :<- [:orcpub.dnd.e5/shared-plugins]
+ :<- [::content-recon/offered-by-type]
+ (fn [[shared offered] _]
+   (library/dangling shared offered)))
 
 (reg-sub
  ::content-recon/offered-keys

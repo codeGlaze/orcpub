@@ -51,6 +51,7 @@ const PARTIAL_PACK = '{:orcpub.dnd.e5/spells {:valid-spell {:option-pack "Header
   + ':invalid-spell "not an entry" :another-valid {:option-pack "Header Menus Probe" :name "Another Valid"}}}';
 
 const results = [];
+let desktopTabCount = null; // the first pass's menu count, which the phones must match
 const check = (name, ok, detail = '') => {
   results.push({ name, ok });
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? '  — ' + detail : ''}`);
@@ -73,6 +74,7 @@ const check = (name, ok, detail = '') => {
     const tabs = page.locator('.header-tab:has(.header-flyout)');
     const tabCount = await tabs.count();
     check(`${label}: the header has flyout menus to test`, tabCount > 0, `${tabCount} tabs`);
+    if (desktopTabCount === null) desktopTabCount = tabCount;
 
     for (let i = 0; i < tabCount; i++) {
       const tab = tabs.nth(i);
@@ -173,6 +175,39 @@ const check = (name, ok, detail = '') => {
       await shortPage.screenshot({ path: path.join(OUT, `4-menus-with-import-log-button.png`) });
     }
     await short.close();
+  }
+
+  // Phones: every tab, and each menu, sits inside the screen. Each menu is opened by focusing its
+  // tab, the state a tap leaves it in. A menu that did not open measures 0-0, so it has to have a
+  // width to count, and a phone must show as many menus as the desktop did.
+  const { devices } = require('playwright');
+  for (const device of ['iPhone SE', 'iPhone 13']) {
+    const phone = await browser.newContext({ ...devices[device] });
+    await suppressCookieBanner(phone);
+    const p = await phone.newPage();
+    await p.goto(`${BASE}/pages/dnd/5e/character-builder`, { waitUntil: 'domcontentloaded' });
+    await p.waitForSelector('#app-main', { timeout: 30000 });
+    await p.waitForTimeout(1500);
+    const width = p.viewportSize().width;
+    const off = await p.evaluate(() => [...document.querySelectorAll('.header-tab')]
+      .map((t, i) => [i + 1, t.getBoundingClientRect()])
+      .filter(([, r]) => r.left < 0 || r.right > innerWidth).map(([i, r]) => `tab ${i} ${Math.round(r.left)}-${Math.round(r.right)}`));
+    check(`${device} (${width}px): every header tab is on screen`, off.length === 0, off.join(', '));
+    const tabs = p.locator('.header-tab:has(.header-flyout)');
+    const n = await tabs.count();
+    check(`${device} (${width}px): the header has the desktop's ${desktopTabCount} menus`,
+          n > 0 && n === desktopTabCount, `${n} menus`);
+    for (let i = 0; i < n; i++) {
+      await tabs.nth(i).focus();
+      await p.waitForTimeout(200);
+      const r = await tabs.nth(i).locator('.header-flyout').evaluate(f => {
+        const b = f.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.right), b.width];
+      });
+      check(`${device} (${width}px): menu ${i + 1} opens on screen`, r[2] > 0 && r[0] >= 0 && r[1] <= width,
+            r[2] > 0 ? `${r[0]}-${r[1]}` : 'did not open');
+      await p.evaluate(() => document.activeElement.blur());
+    }
+    await phone.close();
   }
   await browser.close();
 

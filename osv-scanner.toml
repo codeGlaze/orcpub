@@ -1,0 +1,7 @@
+# Alerts scripts/security-scan.sh accepts, each with why. Every entry names the alert and expires,
+# so it is looked at again. Triage: docs/kb/dependency-alerts.md on agents/develop.
+
+[[IgnoredVulns]]
+id = "GHSA-22wj-vf5f-wrvj"
+ignoreUntil = 2027-02-18
+reason = "H2 web console password exposure (CVE-2022-45868). H2 comes with com.datomic/peer as the client of the transactor's H2 storage; neither starts the web console. Datomic chooses the H2 version. Dependabot alert #8 dismissed as not used."

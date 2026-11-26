@@ -48,6 +48,25 @@
     #?(:clj  (.toUpperCase ^String t java.util.Locale/ROOT)
        :cljs (.toUpperCase t))))
 
+(defn ascii-capitalize
+  "clojure.string/capitalize without the machine's locale. A Turkish JVM upper-cases the
+   \"i\" of \"illusion\" to the dotted \"\u0130\", which is outside WinAnsi, so the PDF fonts
+   substituted it and the school heading drew a different glyph."
+  [x]
+  (let [t (str x)]
+    (if (< (count t) 2)
+      (ascii-upper-case t)
+      (str (ascii-upper-case (subs t 0 1)) (ascii-lower-case (subs t 1))))))
+
+(defn decimal-str
+  "`x` to `places` decimals with a dot, whatever the machine's locale. A default locale
+   writes \"5,00\"; SVG path data and PDF operands are machine tokens, so a comma there
+   is not a different spelling but a second number. docs/kb/locale-safety.md."
+  [places x]
+  #?(:clj  (String/format java.util.Locale/ROOT (str "%." places "f")
+                          (object-array [(double x)]))
+     :cljs (.toFixed (double x) places)))
+
 (defn- name-to-kw-aux [name ns]
   (when (string? name)
     (as-> name $
@@ -294,11 +313,23 @@
     (name kw)
     (warn (str "non-keyword value passed to safe-name: " kw))))
 
+(defn usable
+  "`x` when `(ok? x)`, else `fallback`, with a warning naming `what` unless `x` is nil. For the
+   helpers every option, choice and modifier passes through: homebrew reaches them already made to
+   fit (homebrew-guard.md), so a value of the wrong shape here is a bug of ours, and costs
+   that field rather than the page."
+  [ok? x fallback what]
+  (cond
+    (ok? x) x
+    (nil? x) fallback
+    :else (do (warn (str "Skipped " what ", which is not the shape it should be: " (pr-str x)))
+              fallback)))
+
 (defn safe-capitalize [s]
   (when (string? s) (s/capitalize s)))
 
 (defn safe-capitalize-kw [kw]
-  (some-> kw
+  (some-> (usable #(or (keyword? %) (string? %)) kw nil "a name to capitalize")
           name
           safe-capitalize))
 

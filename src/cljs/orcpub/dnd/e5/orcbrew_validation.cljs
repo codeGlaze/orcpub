@@ -10,7 +10,9 @@
             ;; the rename history (:former-keys) is written here and read by the heal path
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
             [orcpub.dnd.e5.library-links :as links]
-            [orcpub.common :as common]))
+            [orcpub.dnd.e5.homebrew-shapes :as shapes]
+            [orcpub.common :as common]
+            [orcpub.dnd.e5.orcbrew-format :as orcbrew-format]))
 
 ;; Forward declarations for functions used before definition
 (declare is-multi-plugin?)
@@ -1321,18 +1323,39 @@
            (false? v)
            (and (coll? v) (empty? v)))))
 
+(def ^:private export-keep-false-prof-keys
+  "The :profs keys whose maps hold `false` as data (a class's \"proficient even when
+   multiclassing\"), so export keeps it. See docs/kb/class-proficiency-flags.md."
+  #{:armor :weapon :tool})
+
+(declare strip-export-blanks)
+
+(defn- strip-prof-blanks
+  "A :profs map `profs` cleaned for export as `strip-export-blanks` does, except that `false`
+   inside its :armor, :weapon and :tool maps is kept (only nil entries go). Returns the map."
+  [profs]
+  (reduce-kv (fn [m k v]
+               (let [v' (if (and (export-keep-false-prof-keys k) (map? v))
+                          (into {} (remove (comp nil? val)) v)
+                          (strip-export-blanks v))]
+                 (if (blank-for-export? k v')
+                   m
+                   (assoc m k v'))))
+             {}
+             profs))
+
 (defn strip-export-blanks
-  "Recursively drop meaningless blank MAP VALUES for export (nil, false, empty
-   collection), except keys where nil is meaningful (export-keep-nil-keys).
-   Vector/set elements are cleaned but never dropped positionally, so pairs like
-   `[prof-kw first-class?]` survive. Only removes blanks, never alters a real value
-   (round-trip safe — see export-strip tests). NORMAL exports only; raw/draft stay
-   byte-for-byte untouched."
+  "`data` with meaningless blank MAP VALUES (nil, false, empty collection) dropped, recursively,
+   for NORMAL exports (raw/draft stay untouched). Kept: nil under export-keep-nil-keys, `false`
+   proficiency flags under :profs (`strip-prof-blanks`), and vector/set elements (cleaned, never
+   dropped, so `[prof-kw first-class?]` pairs survive). Never alters a real value. Returns data."
   [data]
   (cond
     (map? data)
     (reduce-kv (fn [m k v]
-                 (let [v' (strip-export-blanks v)]
+                 (let [v' (if (and (= :profs k) (map? v))
+                            (strip-prof-blanks v)
+                            (strip-export-blanks v))]
                    (if (blank-for-export? k v')
                      m
                      (assoc m k v'))))
@@ -1804,8 +1827,22 @@
 ;; Main Validation Entry Point
 ;; ============================================================================
 
+(defn finding-description
+  "Import-log wording for one homebrew-shapes finding (homebrew-shapes/fix-library): a field fixed,
+   or one that cannot be read, whose entry is set aside for repair when the import is stored."
+  [{:keys [source content-type key path action found]}]
+  (let [entry (if (some? key)
+                (str (get content-type-singular content-type "Entry") " " key)
+                (str "the " (get content-type-names content-type (name content-type)) " section"))
+        in (when (seq source) (str " in \"" source "\""))
+        field (str/join " " (map #(if (keyword? %) (name %) (str %)) path))]
+    (if (= :fixed action)
+      (str "Fixed " (if (seq field) field "the value") " of " entry in " (it was " (pr-str found) ")")
+      (str entry in ": " (if (seq field) field "it") " could not be read, so it will be set aside for "
+           "repair in My Content"))))
+
 (defn repair-description
-  "Import-log wording for one e5/mend-import-data repair."
+  "Import-log wording for one homebrew-shapes/read-import repair."
   [{:keys [source section key field repair named dropped]}]
   (let [what (when section (str "the " (get content-type-names section (name section)) " section"))
         in (when source (str " in \"" source "\""))
@@ -1898,19 +1935,47 @@
                          after-commas)
                        edn-text)
         ;; Step 2: Parse EDN
-        parse-result (parse-edn cleaned-text)]
+        parse-result (parse-edn cleaned-text)
+        ;; Step 2.4: Format-version gate. A v2 envelope from a NEWER build than this
+        ;; one is refused with a clear message; a supported envelope is unwrapped so
+        ;; the rest validates the plugin map, not the wrapper; a plain v1 file passes
+        ;; through untouched.
+        compat (when (:success parse-result)
+                 (orcbrew-format/compat-check (:data parse-result)))
+        parse-result (if (and compat (:ok? compat))
+                       (update parse-result :data orcbrew-format/unwrap)
+                       parse-result)]
 
-    (if (:success parse-result)
+    (cond
+      (and compat (not (:ok? compat)))
+      {:success false
+       :parse-error false
+       :errors [(:message compat)]
+       :error (:message compat)
+       :changes @string-changes
+       :skipped-items []}
 
-        ;; Step 2.25: put damaged sections back in shape before anything walks them.
-        ;; A section stored as text or as a list still holds its data; left alone it
-        ;; imported as "successful" and failed later at export, and a whole file
-        ;; stored as text crashed the steps below.
-        (let [{mended :data repairs :repairs} (e5/mend-import-data (:data parse-result))
-              repair-changes (mapv (fn [r] {:type :repaired-section
-                                            :description (repair-description r)
-                                            :entry (when (:key r) [(:source r) (:section r) (:key r)])})
-                                   repairs)]
+      (:success parse-result)
+
+        ;; Step 2.25: damaged structure read back (a file, source or section kept as text or a list)
+        ;; before anything walks it, then the shape table's fixes, each listed. An entry it cannot
+        ;; read stays as written, and is set aside for repair when the import is stored.
+        (let [{read-data :data repairs :repairs} (shapes/read-import (:data parse-result))
+              library? (and (map? read-data) (every? string? (keys read-data)))
+              {fixed :library findings :findings} (when (and auto-clean (map? read-data))
+                                                    (shapes/fix-library (if library? read-data {"" read-data})))
+              mended (cond (or (not auto-clean) (not (map? read-data))) read-data
+                           library? fixed
+                           :else (get fixed ""))
+              repair-changes (into (mapv (fn [r] {:type :repaired-section
+                                                  :description (repair-description r)
+                                                  :entry (when (:key r) [(:source r) (:section r) (:key r)])})
+                                         repairs)
+                                   (map (fn [f] {:type :repaired-section
+                                                 :description (finding-description f)
+                                                 :entry (when (:key f)
+                                                          [(not-empty (:source f)) (:content-type f) (:key f)])}))
+                                   findings)]
           (if-not (map? mended)
             {:success false
              :errors ["This file doesn't contain homebrew content that can be read."]
@@ -1970,6 +2035,7 @@
                  :key-conflicts key-conflicts
                  :key-warnings key-warnings))))
 
+      :else
         ;; Parse failed - return detailed error
         {:success false
          :parse-error true

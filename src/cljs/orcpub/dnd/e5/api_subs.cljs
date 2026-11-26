@@ -37,23 +37,24 @@
   (reg-sub-raw sub-key
     (fn [app-db query-v]
       (when-let [token (event-utils/get-auth-token @app-db)]
-        (go (dispatch [:set-loading true])
-            (let [response (<! (http/get (event-utils/url-for-route route)
-                                         {:headers {"Authorization" (str "Token " token)}}))]
-              (dispatch [:set-loading false])
-              ;; A logout or account switch while this request was in flight must not land:
-              ;; the response is for whoever held `token`, not whoever is logged in now, so a
-              ;; stale response would either send the new token nowhere useful or cache the old
-              ;; account's data under the new one.
-              (when (= token (event-utils/get-auth-token @app-db))
-                (event-utils/handle-api-response response
-                  (cond
-                    on-success #(on-success response)
-                    set-event  #(dispatch [set-event (:body response)])
-                    :else      (fn []))
-                  :on-401 #(rejected-token! app-db token on-401 query-v)
-                  :on-500 (when on-500 #(on-500 query-v))
-                  :context (or context (str sub-key)))))))
+        (let [gen (event-utils/loading-gen @app-db)]
+          (go (dispatch [:set-loading true gen])
+              (let [response (<! (http/get (event-utils/url-for-route route)
+                                           {:headers {"Authorization" (str "Token " token)}}))]
+                (dispatch [:set-loading false gen])
+                ;; A logout or account switch while this request was in flight must not land:
+                ;; the response is for whoever held `token`, not whoever is logged in now, so a
+                ;; stale response would either send the new token nowhere useful or cache the old
+                ;; account's data under the new one.
+                (when (= token (event-utils/get-auth-token @app-db))
+                  (event-utils/handle-api-response response
+                    (cond
+                      on-success #(on-success response)
+                      set-event  #(dispatch [set-event (:body response)])
+                      :else      (fn []))
+                    :on-401 #(rejected-token! app-db token on-401 query-v)
+                    :on-500 (when on-500 #(on-500 query-v))
+                    :context (or context (str sub-key))))))))
       (ra/make-reaction
        (fn [] (if (vector? db-key)
                 (get-in @app-db db-key default)

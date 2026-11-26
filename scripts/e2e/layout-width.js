@@ -60,7 +60,7 @@ async function resize(page, width, height) {
 (async () => {
   const browser = await chromium.launch({ executablePath: findChrome() });
   console.log(`\nlayout width e2e -- ${BASE}\n`);
-  const PHONE = 'options,description,details', WIDE = 'options,description';
+  const PHONE = 'options,description,portrait,details', WIDE = 'options,description,portrait';
 
   // --- a desktop browser, resized ------------------------------------------
   {

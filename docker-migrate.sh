@@ -9,9 +9,8 @@
 # into Pro. Uses bind-mounted volumes so 20GB+ databases write directly to
 # the host filesystem without filling the container overlay.
 #
-# Note: Passwords in database URIs are passed as command-line arguments to
-# docker run, which makes them visible in process lists and docker inspect.
-# This is acceptable for self-hosted/dev environments.
+# Database URIs (which carry the password) reach the container as environment
+# variables, not command-line arguments. The shared functions are in scripts/backup-lib.sh.
 #
 # Usage:
 #   ./docker-migrate.sh backup     Back up the running (Free) database
@@ -57,6 +56,10 @@ warn()   { printf '%b[WARN]%b  %s\n' "$_yellow" "$_nc" "$*"; }
 error()  { printf '%b[ERROR]%b %s\n' "$_red" "$_nc" "$*" >&2; }
 header() { printf '\n%b=== %s ===%b\n\n' "$_cyan" "$*" "$_nc"; }
 
+# Datomic backup/restore functions shared with ./run --backup.
+# shellcheck source=scripts/backup-lib.sh
+. "${SCRIPT_DIR}/scripts/backup-lib.sh"
+
 usage() {
   cat <<'USAGE'
 Datomic Free → Pro Migration (Docker)
@@ -99,7 +102,8 @@ load_env() {
     # Read specific variables we need rather than exporting everything
     # tr -d '\r' handles Windows line endings in .env
     # shellcheck disable=SC1090
-    DATOMIC_PASSWORD="${DATOMIC_PASSWORD:-$(. <(tr -d '\r' < "$env_file") && echo "${DATOMIC_PASSWORD:-}")}"
+    # shellcheck source=scripts/load-env.sh
+    DATOMIC_PASSWORD="${DATOMIC_PASSWORD:-$(. "${SCRIPT_DIR}/scripts/load-env.sh" && load_env "$env_file" && echo "${DATOMIC_PASSWORD:-}")}"
   fi
 }
 
@@ -112,30 +116,17 @@ check_docker_compose() {
   fi
 }
 
-# Detect the Docker Compose network from the running datomic container.
-# Compose creates a default network that includes all services; we take the
-# first network which is that default in the common single-network case.
+# get_compose_network: prints the Compose network of the running datomic container
+# (shared with ./run --backup: scripts/backup-lib.sh). Exit 1 if it is not running.
 get_compose_network() {
-  local cid
-  cid=$(docker compose ps -q datomic 2>/dev/null || true)
-  if [[ -z "$cid" ]]; then
-    error "No running datomic container found. Is the stack running?"
-    exit 1
-  fi
-  docker inspect "$cid" \
-    -f '{{range $k,$v := .NetworkSettings.Networks}}{{println $k}}{{end}}' \
-    | head -1
+  bk_network || exit 1
 }
 
-# Detect the image of the running datomic container
+# get_datomic_image: prints the image of the running datomic container.
+# Exit 1 if it is not running.
 get_datomic_image() {
-  local cid
-  cid=$(docker compose ps -q datomic 2>/dev/null || true)
-  if [[ -z "$cid" ]]; then
-    error "No running datomic container found. Is the stack running?"
-    exit 1
-  fi
-  docker inspect "$cid" -f '{{.Config.Image}}'
+  bk_datomic_cid >/dev/null || { error "No running datomic container found. Is the stack running?"; exit 1; }
+  bk_image
 }
 
 # Detect DATOMIC_URL from the running orcpub container's environment.
@@ -187,53 +178,19 @@ wait_healthy() {
   exit 1
 }
 
-# Discover the latest restore point (t value) from the backup's roots/ directory.
-# Root filenames ARE the t values (e.g., roots/168103969 → t=168103969).
-#
-# This filesystem scan is more reliable than list-backups, which can fail on
-# some platforms due to a directory enumeration bug in Datomic's Java code.
-# Datomic's backup.clj parses every filename in roots/ with Long.parseLong()
-# without filtering non-numeric entries or handling platform quirks — crashes
-# on macOS .DS_Store (https://github.com/Datomic/mbrainz-sample/issues/10),
-# silently produces :restore/no-roots on Windows. Always passing the explicit
-# t value bypasses this fragile code path.
+# get_latest_t: prints the latest restore point of ${BACKUP_DIR}/orcpub (backup-lib.sh,
+# bk_latest_t, which also explains why it scans the folder). Exit 1 if there is none.
 get_latest_t() {
-  local roots_dir="${BACKUP_DIR}/orcpub/roots"
-  local latest_t=""
-
-  if [[ -d "$roots_dir" ]]; then
-    # Find the highest numeric filename — that's the latest restore point
-    latest_t=$(ls -1 "$roots_dir" 2>/dev/null \
-      | grep -E '^[0-9]+$' \
-      | sort -n \
-      | tail -1 || true)
-  fi
-
-  if [[ -n "$latest_t" ]]; then
-    echo "$latest_t"
-    return 0
-  fi
-
-  return 1
+  bk_latest_t "${BACKUP_DIR}/orcpub"
 }
 
-# Run bin/datomic CLI in a temporary container that shares the compose
-# network and bind-mounts the backup directory.
-#
-# Uses the datomic image (which has the full Datomic distribution at
-# WORKDIR=/datomic, so relative path bin/datomic resolves to /datomic/bin/datomic).
+# run_datomic_cli <image> <bin/datomic args...>: runs bin/datomic in a temporary container on
+# the Compose network with ${BACKUP_DIR} mounted at /backup (backup-lib.sh, bk_run_cli).
+# Exit: that of bin/datomic.
 run_datomic_cli() {
   local image="$1"
   shift
-
-  local network
-  network=$(get_compose_network)
-
-  docker run --rm \
-    --network="$network" \
-    -v "${BACKUP_DIR}:/backup" \
-    "$image" \
-    bin/datomic "$@"
+  bk_run_cli "$image" "$BACKUP_DIR" "$@"
 }
 
 # ---------------------------------------------------------------------------
@@ -372,28 +329,8 @@ do_verify() {
   run_datomic_cli "$datomic_image" list-backups "file:/backup/orcpub"
   echo ""
 
-  # Get the latest t for verification.
-  # Try list-backups first, fall back to filesystem scan if it fails
-  # (list-backups can fail on some platforms due to root directory enumeration bug)
-  local latest_t
-  latest_t=$(run_datomic_cli "$datomic_image" list-backups "file:/backup/orcpub" 2>&1 | tail -1 || true)
-
-  if [[ -z "$latest_t" ]]; then
-    warn "list-backups returned empty — trying filesystem scan..."
-    if latest_t=$(get_latest_t); then
-      info "Found restore point from filesystem: t=$latest_t"
-    else
-      error "Could not determine latest backup point."
-      exit 1
-    fi
-  fi
-
-  info "Verifying backup at t=$latest_t (reads every segment)..."
-
-  if ! run_datomic_cli "$datomic_image" verify-backup "file:/backup/orcpub" true "$latest_t"; then
-    error "Backup verification failed."
-    exit 1
-  fi
+  # The check itself is shared with ./run --verify-backup (backup-lib.sh, bk_verify).
+  bk_verify "$BACKUP_DIR" || exit 1
 
   echo ""
   info "Backup verification passed."

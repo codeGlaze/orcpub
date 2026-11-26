@@ -11,7 +11,9 @@
 ;;
 ;; Packs are kept under ~2.5 MB on purpose: localStorage caps at ~5 MB per origin, and a
 ;; pack that fails to persist silently measures a builder with no homebrew in it at all.
-(require '[clojure.edn :as edn])
+(ns spellcaster-pack
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]))
 
 (def orig (edn/read-string (slurp "test/fixtures/test-pak.orcbrew")))
 (defn- all-of [t] (mapcat (fn [[_ v]] (when (map? v) (vals (get v (keyword "orcpub.dnd.e5" t))))) orig))
@@ -60,6 +62,7 @@
                      :disabled? false}}
           p (str "dev-scratch/paks/spell-" n-casters ".orcbrew")
           s (pr-str pack)]
+      (io/make-parents p)
       (spit p s)
       (let [back (edn/read-string (slurp p))
             c (get back src)]

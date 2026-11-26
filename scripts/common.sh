@@ -22,14 +22,10 @@ REPO_ROOT="${REPO_ROOT:-$(cd "$COMMON_DIR/.." && pwd)}"
 # Environment Configuration
 # -----------------------------------------------------------------------------
 
-# Source .env if present (authoritative config)
-# tr -d '\r' strips Windows line endings so values don't silently include \r
-if [[ -f "$REPO_ROOT/.env" ]]; then
-    set -a
-    # shellcheck disable=SC1091
-    . <(tr -d '\r' < "$REPO_ROOT/.env")
-    set +a
-fi
+# Load .env if present (authoritative config). Read, never run: scripts/load-env.sh.
+# shellcheck source=scripts/load-env.sh
+. "$REPO_ROOT/scripts/load-env.sh"
+load_env "$REPO_ROOT/.env"
 
 # Configuration reporting and the DEV_MODE decision.
 #
@@ -267,7 +263,7 @@ confirm_dev_mode() {
 }
 
 # Defaults (used if not set in .env)
-DATOMIC_VERSION="${DATOMIC_VERSION:-1.0.7482}"
+DATOMIC_VERSION="${DATOMIC_VERSION:-1.0.7745}"
 DATOMIC_TYPE="${DATOMIC_TYPE:-pro}"
 JAVA_MIN_VERSION="${JAVA_MIN_VERSION:-11}"
 LOG_DIR="${LOG_DIR:-$REPO_ROOT/logs}"
@@ -503,7 +499,7 @@ find_pids_by_port() {
     fi
 
     if command -v lsof >/dev/null 2>&1; then
-        pids=$(lsof -t -i ":${port}" 2>/dev/null || true)
+        pids=$(lsof -t -iTCP:"${port}" -sTCP:LISTEN 2>/dev/null || true)
     elif command -v ss >/dev/null 2>&1; then
         # Cross-platform: use sed instead of grep -oP
         pids=$(ss -tlnp 2>/dev/null | grep ":${port}\b" | sed -n 's/.*pid=\([0-9]*\).*/\1/p' || true)
@@ -765,14 +761,16 @@ cleanup_stale_pid() {
     fi
 }
 
-# Find service PIDs using PID file first, then port/pattern fallback
+# Find a service's PIDs: the PID file's process plus whatever holds its port, since the PID file
+# names the launcher (lein wrapper) while its child JVM is what holds the port. Only when both
+# find nothing does the broader name-pattern match run, so another service's process is never
+# picked up by a loose pattern while this one is found by file or port.
 find_service_pids() {
     local name="$1"
     local port="$2"
     local pattern="$3"
     local pids=""
 
-    # 1. Check PID file first (most reliable)
     local pid_file="$LOG_DIR/${name}.pid"
     if [[ -f "$pid_file" ]]; then
         local file_pid
@@ -782,9 +780,10 @@ find_service_pids() {
         fi
     fi
 
-    # 2. Fall back to port scan + name pattern
+    pids=$(echo "$pids $(find_pids_by_port "$port")" | tr ' ' '\n' | sed '/^$/d' | sort -u | xargs)
+
     if [[ -z "$pids" ]]; then
-        pids=$(echo "$(find_pids_by_port "$port") $(find_pids_by_name "$pattern")" | tr ' ' '\n' | sort -u | xargs)
+        pids=$(find_pids_by_name "$pattern")
     fi
 
     echo "$pids"

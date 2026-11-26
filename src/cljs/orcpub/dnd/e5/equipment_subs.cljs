@@ -275,15 +275,16 @@
     (fn [app-db [_ id]]
       
       (when (event-utils/get-auth-token @app-db)
-        (go (dispatch [:set-loading true])
-            (let [response (<! (http/get (url-for-route
-                                           routes/dnd-e5-item-route
-                                           :id id)
-                                         {:headers (auth-headers @app-db)}))]
-              (dispatch [:set-loading false])
-              (handle-api-response response
-                #(dispatch [::mi5e/add-remote-item (:body response)])
-                :context "fetch item"))))
+        (let [gen (event-utils/loading-gen @app-db)]
+          (go (dispatch [:set-loading true gen])
+              (let [response (<! (http/get (url-for-route
+                                             routes/dnd-e5-item-route
+                                             :id id)
+                                           {:headers (auth-headers @app-db)}))]
+                (dispatch [:set-loading false gen])
+                (handle-api-response response
+                  #(dispatch [::mi5e/add-remote-item (:body response)])
+                  :context "fetch item")))))
       (ra/make-reaction
        (fn [] (get-in @app-db [::mi5e/remote-items id] {})))))
 

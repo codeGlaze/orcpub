@@ -68,7 +68,9 @@ const server = http.createServer((req, res) => {
   // open a websocket back to a figwheel server that is not running here. That
   // is noise, not a test failure; anything else on the page is reported.
   page.on('pageerror', e => { if (!/WebSocket|figwheel/i.test(e.message)) pageErrors.push(e.message); });
-  await page.goto(`http://localhost:${port}/`);
+  // The tests run while the page loads, so `load` waits for the whole suite and outgrew goto's
+  // 30s default. Return once navigation commits; the loop below waits for the summary.
+  await page.goto(`http://localhost:${port}/`, { waitUntil: 'commit' });
   // The first summary is orcpub.test-runner/-main's, over the namespaces the
   // project names, and its own failure and error counts decide the exit code.
   // figwheel's auto-testing sweep runs every test namespace under test/ as well,

@@ -360,8 +360,8 @@
 ;; Long form and tracing: character-heals.md.
 ;;
 ;; FIELD NOTE (heal-sites): every heal goes through reconcile-former-keys, from three places:
-;;   events/set-character          the builder's character, on every load
-;;   autosave-fx/cache-template    re-dispatches :set-character once, when the offered-key list
+;;   events/reconciled-character   the builder's character, on :set-character and :character-updated
+;;   autosave-fx/cache-template    re-dispatches :character-updated once, when the offered-key list
 ;;                                 first exists (before it, the indexes are empty)
 ;;   subs ::char5e/character       saved characters as pages read them; never stored
 ;; A pick healed in the builder but not on a page (or the reverse) means a path skips one of these.
@@ -378,9 +378,13 @@
 (def former-keys links/former-keys)
 (def record-former-key links/record-former-key)
 
+(def ^:private named-before
+  #{:orcpub.dnd.e5/backgrounds :orcpub.dnd.e5/boons :orcpub.dnd.e5/invocations
+    :orcpub.dnd.e5/subraces})
+
 (defn- items-with-formers
-  "[{:type :key :formers}] for every item in `plugins`. A background's name-derived key counts as
-   a former key."
+  "[{:type :key :formers}] for every item in `plugins`. The name-derived key of a background, boon,
+   invocation or subrace counts as a former key."
   [plugins]
   (for [[_ plugin] plugins
         :when (map? plugin)
@@ -388,11 +392,11 @@
         :when (map? content)
         [k item] content
         :when (map? item)]
-    ;; a background was offered under its name's key until the stored one was used
+    ;; these were offered under their name's key until the stored one was used
     {:type ct
      :key k
      :formers (cond-> (vec (former-keys item))
-                (and (= ct :orcpub.dnd.e5/backgrounds) (string? (:name item)))
+                (and (named-before ct) (string? (:name item)))
                 (conj (common/name-to-kw (:name item))))}))
 
 (defn- claimed-once

@@ -314,3 +314,12 @@
                                      conj {:orcpub.entity/key :no-such-spell}))
                    :no-such-spell)
         "a cantrip nothing offers is reported")))
+
+(deftest invocation-spells-say-how-they-are-cast
+  (let [built (entity/build warlock-entity test-template)]
+    (testing "Beast Speech: at will, never from a slot (SRD 5.1)"
+      (is (= {:free {:at-will true} :slots :none}
+             (:casting (has-spell? built 1 "Warlock" :speak-with-animals)))))
+    (testing "Mire the Mind: slow once using a warlock spell slot, back on a long rest (SRD 5.1)"
+      (is (= {:slots {:units :orcpub.dnd.e5.units/long-rest :amount 1}}
+             (:casting (has-spell? built 3 "Warlock" :slow)))))))

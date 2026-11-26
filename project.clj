@@ -20,11 +20,82 @@
                  ]
   :mirrors {"apache" {:url "https://repository.apache.org/snapshots/"}}
 
+  ;; Security pins: versions of libraries other dependencies bring in, raised past known flaws
+  ;; (docs/kb/dependency-alerts.md on agents/develop). They apply wherever the library appears.
+  :managed-dependencies [;; buddy-hashers' Bouncy Castle
+                         [org.bouncycastle/bcprov-jdk18on "1.87"]
+                         [org.bouncycastle/bcpkix-jdk18on "1.87"]
+                         [org.bouncycastle/bcutil-jdk18on "1.87"]
+                         ;; postal's mail library (account email)
+                         [com.sun.mail/jakarta.mail "1.6.8"]
+                         ;; Datomic peer's Netty (through ActiveMQ Artemis), every module at one version
+                         [io.netty/netty-buffer "4.1.141.Final"]
+                         [io.netty/netty-codec "4.1.141.Final"]
+                         [io.netty/netty-codec-http "4.1.141.Final"]
+                         [io.netty/netty-codec-socks "4.1.141.Final"]
+                         [io.netty/netty-common "4.1.141.Final"]
+                         [io.netty/netty-handler "4.1.141.Final"]
+                         [io.netty/netty-handler-proxy "4.1.141.Final"]
+                         [io.netty/netty-resolver "4.1.141.Final"]
+                         [io.netty/netty-transport "4.1.141.Final"]
+                         [io.netty/netty-transport-classes-epoll "4.1.141.Final"]
+                         [io.netty/netty-transport-classes-kqueue "4.1.141.Final"]
+                         [io.netty/netty-transport-native-unix-common "4.1.141.Final"]
+                         [io.netty/netty-transport-native-epoll "4.1.141.Final" :classifier "linux-x86_64"]
+                         [io.netty/netty-transport-native-kqueue "4.1.141.Final" :classifier "osx-x86_64"]
+                         ;; Pedestal's upload parser (the app takes no uploads) and garden's file utilities
+                         [org.apache.commons/commons-fileupload2-core "2.0.0-M4"]
+                         [org.codehaus.plexus/plexus-utils "4.0.3"]
+                         ;; Pedestal's tracing API
+                         [io.opentelemetry/opentelemetry-api "1.68.0"]
+                         [io.opentelemetry/opentelemetry-context "1.68.0"]
+                         ;; One Jetty 12 line for everything: Pedestal 0.8.3 brings 12.0.x and figwheel's Ring
+                         ;; (dev) 12.1.x, and a mix fails at start-up. lein ignores imported BOMs, hence the list.
+                         [org.eclipse.jetty.ee10/jetty-ee10-annotations "12.1.15"]
+                         [org.eclipse.jetty.ee10/jetty-ee10-plus "12.1.15"]
+                         [org.eclipse.jetty.ee10/jetty-ee10-servlet "12.1.15"]
+                         [org.eclipse.jetty.ee10/jetty-ee10-webapp "12.1.15"]
+                         [org.eclipse.jetty.ee10.websocket/jetty-ee10-websocket-jakarta-client "12.1.15"]
+                         [org.eclipse.jetty.ee10.websocket/jetty-ee10-websocket-jakarta-common "12.1.15"]
+                         [org.eclipse.jetty.ee10.websocket/jetty-ee10-websocket-jakarta-server "12.1.15"]
+                         [org.eclipse.jetty.ee10.websocket/jetty-ee10-websocket-servlet "12.1.15"]
+                         [org.eclipse.jetty.ee9/jetty-ee9-nested "12.1.15"]
+                         [org.eclipse.jetty.ee9/jetty-ee9-security "12.1.15"]
+                         [org.eclipse.jetty.ee9/jetty-ee9-servlet "12.1.15"]
+                         [org.eclipse.jetty.ee9/jetty-ee9-webapp "12.1.15"]
+                         [org.eclipse.jetty.ee9.websocket/jetty-ee9-websocket-jetty-api "12.1.15"]
+                         [org.eclipse.jetty.ee9.websocket/jetty-ee9-websocket-jetty-common "12.1.15"]
+                         [org.eclipse.jetty.ee9.websocket/jetty-ee9-websocket-jetty-server "12.1.15"]
+                         [org.eclipse.jetty.ee9.websocket/jetty-ee9-websocket-servlet "12.1.15"]
+                         [org.eclipse.jetty.ee/jetty-ee-webapp "12.1.15"]
+                         [org.eclipse.jetty.http2/jetty-http2-common "12.1.15"]
+                         [org.eclipse.jetty.http2/jetty-http2-hpack "12.1.15"]
+                         [org.eclipse.jetty.http2/jetty-http2-server "12.1.15"]
+                         [org.eclipse.jetty/jetty-alpn-client "12.1.15"]
+                         [org.eclipse.jetty/jetty-alpn-server "12.1.15"]
+                         [org.eclipse.jetty/jetty-client "12.1.15"]
+                         [org.eclipse.jetty/jetty-ee "12.1.15"]
+                         [org.eclipse.jetty/jetty-http "12.1.15"]
+                         [org.eclipse.jetty/jetty-io "12.1.15"]
+                         [org.eclipse.jetty/jetty-jndi "12.1.15"]
+                         [org.eclipse.jetty/jetty-plus "12.1.15"]
+                         [org.eclipse.jetty/jetty-security "12.1.15"]
+                         [org.eclipse.jetty/jetty-server "12.1.15"]
+                         [org.eclipse.jetty/jetty-session "12.1.15"]
+                         [org.eclipse.jetty/jetty-unixdomain-server "12.1.15"]
+                         [org.eclipse.jetty/jetty-util "12.1.15"]
+                         [org.eclipse.jetty/jetty-xml "12.1.15"]
+                         [org.eclipse.jetty.websocket/jetty-websocket-core-client "12.1.15"]
+                         [org.eclipse.jetty.websocket/jetty-websocket-core-common "12.1.15"]
+                         [org.eclipse.jetty.websocket/jetty-websocket-core-server "12.1.15"]]
+
   :dependencies [[org.clojure/clojure "1.12.4"]
                  [org.clojure/test.check "1.1.1"]
                  [org.clojure/clojurescript "1.12.134"]
                  [org.clojure/core.async "1.8.741"] 
-                 [org.postgresql/postgresql "42.7.3"]
+                 [org.postgresql/postgresql "42.7.14"]
+                 ;; Redis client, used only when REDIS_URL is set (orcpub.security.redis-store).
+                 [com.taoensso/carmine "3.7.0"]
                  ;; React 18 + Reagent 2.0 (Concurrent Mode)
                  [cljsjs/react "18.3.1-1"]
                  [cljsjs/react-dom "18.3.1-1"]
@@ -41,26 +112,30 @@
                  [reagent "2.0.1"]
                  [com.lambdaisland/garden "1.9.606"]
                  [org.apache.pdfbox/pdfbox "3.0.6"]
-                 ;; Pedestal 0.7.0 uses Jetty 11, which is compatible with figwheel-main's Ring adapter.
-                 ;; Pedestal 0.7.1+ and 0.8.x use Jetty 12, causing NoClassDefFoundError: ScopedHandler
-                 ;; (removed in Jetty 12). Upgrade blocked until figwheel-main supports Jetty 12.
-                 [io.pedestal/pedestal.service "0.7.0"]
-                 [io.pedestal/pedestal.route "0.7.0"]
-                 [io.pedestal/pedestal.jetty "0.7.0"]
-                 [io.pedestal/pedestal.error "0.7.0"]
+                 ;; Pedestal 0.8 runs on Jetty 12; every Jetty artifact is pinned below.
+                 [io.pedestal/pedestal.service "0.8.3"]
+                 [io.pedestal/pedestal.route "0.8.3"]
+                 [io.pedestal/pedestal.jetty "0.8.3"]
+                 [io.pedestal/pedestal.error "0.8.3"]
                  [org.clojure/data.json "2.5.0"]
-                 [org.slf4j/slf4j-simple "1.7.21"]
+                 [org.slf4j/slf4j-simple "2.0.17"]
                  [buddy/buddy-auth "3.0.323"]
+                 ;; Declared because the app calls buddy.sign.jwt directly; buddy-auth brings older ones.
+                 [buddy/buddy-sign "3.6.1-359"]
+                 [buddy/buddy-core "1.12.0-430"]
                  [buddy/buddy-hashers "2.0.167"]
                  [reloaded.repl "0.2.3"]
                  [bidi "2.1.6"]
 
                  [com.stuartsierra/component "1.2.0"]
-                 [com.google.guava/guava "32.1.2-jre"]
+                 [com.google.guava/guava "33.8.0-jre"]
 
-                 [com.fasterxml.jackson.core/jackson-databind "2.15.2"]
-                 [com.fasterxml.jackson.core/jackson-core "2.15.2"]
-                 [com.fasterxml.jackson.core/jackson-annotations "2.15.2"]
+                 [com.fasterxml.jackson.core/jackson-databind "2.18.12"]
+                 [com.fasterxml.jackson.core/jackson-core "2.18.12"]
+                 [com.fasterxml.jackson.core/jackson-annotations "2.18.12"]
+                 ;; The app's JSON library (page config, portrait overrides, artist and pack files).
+                 ;; Pedestal 0.8 brings the same version; declared because our code calls it.
+                 [com.cnuernber/charred "1.038"]
 
                  ;; Required for Pedestal 0.7.x ring-middlewares
                  [commons-io/commons-io "2.15.1"]
@@ -69,7 +144,6 @@
                  [com.draines/postal "2.0.5"]
                  [environ "1.2.0"]
 
-                 [pdfkit-clj "0.1.7"]
                  ;; datomock fork with Datomic Pro 1.0.6527+ compatibility (new transact signature)
                  ;; Original vvvvalvalval/datomock 0.2.0 causes AbstractMethodError with Datomic Pro
                  [org.clojars.favila/datomock "0.2.2-favila1"]
@@ -84,19 +158,16 @@
                  ;; TRANSACTOR BINARY that scripts/common.sh:257 and start.sh run --
                  ;; not for this jar.
                  ;; Latest version: https://docs.datomic.com/releases-pro.html
-                 [com.datomic/peer "1.0.7482" :exclusions [org.slf4j/slf4j-nop]]
+                 [com.datomic/peer "1.0.7745" :exclusions [org.slf4j/slf4j-nop]]
                  ;; cuerdas 026.415: Latest release on Clojars... does not match GH release versioning.
                  [funcool/cuerdas "2026.415"]
                  [camel-snake-kebab "0.4.0"]
                  [org.webjars/font-awesome "5.13.1"]
                  ;; See docs/UPGRADE_DEPENDENCIES.md for why this is needed on Java 9+/21
                  [javax.servlet/javax.servlet-api "4.0.1"]
-                 ;; figwheel-main for hot-reload dev (compatible with Pedestal 0.7.0's Jetty 11)
-                 [com.bhauman/figwheel-main "0.2.20"]
-                 [com.bhauman/rebel-readline-cljs "0.1.4"]
               ]
-  ;; NOTE: lein-cljsbuild is fully removed. Prod CLJS builds use figwheel-main
-  ;; (fig:prod alias / prod.cljs.edn). lein-cljsbuild is abandoned (last release:
+  ;; NOTE: lein-cljsbuild is fully removed. Prod CLJS builds use the plain
+  ;; ClojureScript compiler (cljs:prod alias / prod.cljs.edn); figwheel is dev-only. lein-cljsbuild is abandoned (last release:
   ;; 1.1.8, April 2020) and its hooks cause a JVM hang in Docker/CI — it always
   ;; spawns a subprocess via eval-in-project whose I/O pump hangs in no-TTY.
   ;; See docs/LEIN-UBERJAR-HANG.md
@@ -137,7 +208,7 @@
   ;; CSS is compiled via: ./menu start garden, lein garden once, or automatically in uberjar build.
   ;; The compiled CSS is checked into resources/public/css/compiled/styles.css
 
-  ;; CLJS production builds use figwheel-main (prod.cljs.edn / fig:prod alias).
+  ;; CLJS production builds use cljs.main (prod.cljs.edn / cljs:prod alias).
   ;; lein-cljsbuild has been fully removed — see docs/LEIN-UBERJAR-HANG.md
 
   :figwheel {;; :http-server-root "public" ;; default and assumes "resources"
@@ -192,10 +263,20 @@
   :aliases {"fig:dev" ["trampoline" "run" "-m" "figwheel.main" "--" "--build" "dev" "--repl"]
             "fig:watch" ["run" "-m" "figwheel.main" "--" "--build" "dev"]
             "fig:build" ["run" "-m" "figwheel.main" "--" "--build-once" "dev"]
-            "fig:prod" ["run" "-m" "figwheel.main" "--" "--build-once" "prod"]
+            ;; The production bundle, built by the ClojureScript compiler alone: figwheel is
+            ;; a :dev dependency and must never reach the jar (docs/kb/figwheel-jetty12.md).
+            "cljs:prod" ["with-profile" "-dev,+cljs-prod" "run" "-m" "cljs.main" "-co" "prod.cljs.edn"
+                         "-d" "target/cljs-prod-out" "-c" "orcpub.core"]
+            ;; The name scripts and docs use for the production bundle.
+            "fig:prod" ["cljs:prod"]
             "fig:test" ["run" "-m" "figwheel.main" "--" "--build-once" "test"]
-            ;; The character data page's own script (ledger.cljs.edn), separate from the app.
-            "fig:ledger" ["run" "-m" "figwheel.main" "--" "--build-once" "ledger"]
+            ;; only the junk-pack test, for test/e2e/junk-pack-audit.js
+            "fig:junk" ["run" "-m" "figwheel.main" "--" "--build-once" "junk-audit"]
+            ;; The character data page's own script (ledger.cljs.edn), separate from the app, built
+            ;; like cljs:prod so figwheel stays out of the jar.
+            "cljs:ledger" ["with-profile" "-dev,+cljs-prod" "run" "-m" "cljs.main" "-co" "ledger.cljs.edn"
+                           "-d" "target/cljs-ledger-out" "-c" "orcpub.ledger"]
+            "fig:ledger" ["cljs:ledger"]
             ;; Preview the character-load report email (no send) — email endpoint dev tool
             "report-preview" ["with-profile" "+tools" "run" "-m" "orcpub.dev.report-preview"]
             ;; Single-command production build: clean → CLJS → uberjar.
@@ -203,7 +284,7 @@
             ;; resources/public/js/compiled (the CLJS output dir).
             ;; The :uberjar profile itself never cleans — CLJS is compiled
             ;; BEFORE the uberjar step and must not be deleted.
-            "build" ["do" "clean," "fig:prod," "fig:ledger," ["with-profile" "uberjar" "uberjar"]]
+            "build" ["do" "clean," "cljs:prod," "cljs:ledger," ["with-profile" "uberjar" "uberjar"]]
             "figwheel-native" ["with-profile" "native-dev" "run" "-m" "user" "--figwheel"]
             "externs" ["do" "clean"
                        ["run" "-m" "externs"]]
@@ -221,18 +302,22 @@
             ;; trampoline re-execs in a fresh JVM so System/exit propagates
             ;; (without it, lein suppresses the exit code).
             ;; native/ is excluded — directory only exists for React Native builds.
-            "lint" ["trampoline" "with-profile" "lint" "run" "-m" "clj-kondo.main" "--lint" "src" "test" "web" "--fail-level" "error"]
+            ;; dev/ is linted too. Every dev script has its own ns form: without one, kondo
+            ;; lints them all as one shared namespace and reports each script's requires
+            ;; and defs as duplicates of the others'. Warnings are held by the CI ratchet
+            ;; (scripts/lint-ratchet.py, test/lint-baseline.txt), not by this alias.
+            ;; Added because this refactor shipped an unbalanced paren in 5 dev scripts
+            ;; across 2 commits, unseen: kondo calls it an error, and dev/ was unlinted.
+            "lint" ["trampoline" "with-profile" "lint" "run" "-m" "clj-kondo.main" "--lint" "src" "test" "web" "dev" "--fail-level" "error"]
             "prod-build" ^{:doc "Recompile code with prod profile."}
-            ["externs"
-             ["run" "-m" "figwheel.main" "--" "--build-once" "prod"]
-             ["run" "-m" "figwheel.main" "--" "--build-once" "ledger"]]}
+            ["externs" "cljs:prod" "cljs:ledger"]}
   :profiles {;; Minimal profile to run dev/ command-line tools (e.g. report-preview)
              ;; with base runtime deps but WITHOUT the heavy cljs/devtools :dev-config.
              :tools {:source-paths ["dev"]}
              ;; In-memory Datomic for local/e2e runs — the full stack boots with no
              ;; transactor and no external DB. Used by the `e2e-server` alias; environ
              ;; feeds :datomic-url to orcpub.config/get-datomic-uri.
-             :e2e {:env {:datomic-url "datomic:mem://orcpub"}}
+             :e2e {:env {:datomic-url "datomic:mem://orcpub" :email-required "false"}}
              ;; An export queue small enough to reach on one machine, for seeing
              ;; the busy page. Stacks on :e2e -- see the e2e-server-busy alias.
              ;; The wait is 1ms because the slot queue is fair: with 250ms an export
@@ -243,7 +328,7 @@
                                  :orcpub-pdf-max-retries "2"}}
              ;; Legacy cljsbuild build configs — retained for lein figwheel (legacy
              ;; dev server) and reference. lein-cljsbuild PLUGIN has been removed;
-             ;; prod CLJS builds now use figwheel-main (prod.cljs.edn / fig:prod).
+             ;; prod CLJS builds use cljs.main (prod.cljs.edn / cljs:prod).
              ;; The :cljsbuild map is inert data without the plugin loaded.
              :cljsbuild-config
                            {:cljsbuild
@@ -271,11 +356,23 @@
                                               :pretty-print  false}}}}}
              ;; Dev-only deps, source paths, and compiler overlays (devtools, re-frame-10x).
              :dev-config   {:dependencies [[binaryage/devtools "1.0.7"]
+                                           ;; Dev only: hot reload and the fig:* builds. Never in the
+                                           ;; main :dependencies, or its server ships in the jar.
+                                           ;; figwheel's unreleased main branch (SSE reload, Jetty 12),
+                                           ;; vendored in lib/ (docs/kb/figwheel-jetty12.md).
+                                           [com.bhauman/figwheel-main "0.2.21-orcpub1"]
+                                           [com.bhauman/rebel-readline-cljs "0.1.11"]
+                                           ;; rebel-readline brings jline 3.30.0; 3.30.15 fixes
+                                           ;; CVE-2026-77420 (dev REPL only).
+                                           [org.jline/jline-reader "3.30.15"]
+                                           [org.jline/jline-terminal "3.30.15"]
+                                           [org.jline/jline-terminal-jni "3.30.15"]
+                                           [org.jline/jline-terminal-ffm "3.30.15"]
                                            [nrepl "1.3.0"]
                                            [cider/piggieback "0.5.3"]
                                            [day8.re-frame/re-frame-10x "1.11.0" :exclusions [zprint rewrite-clj]]
                                            ;; comment_discipline_test parses source with it
-                                           [rewrite-clj "0.5.2"]]
+                                           [rewrite-clj "1.1.48"]]
                             :env       {:dev-mode  "true"
                                         :signature "dev-secret-do-not-use-in-production"}
                             ;; need to add dev source path here to get user.clj loaded
@@ -301,6 +398,8 @@
              ;; loopback for everyone else. Activate per-command, e.g.
              ;;   lein with-profile +wsl fig:dev
              ;;   lein with-profile +wsl fig:build
+             ;; Source paths for cljs:prod, which runs without :dev (web/cljs is otherwise dev-only).
+             :cljs-prod    {:source-paths ["web/cljs" "src/cljc" "src/cljs"]}
              :wsl          {:env {:orcpub-http-host "0.0.0.0"}}
              ;; NOTE: :native-dev was for React Native builds (legacy, may be unused)
              :native-dev   {:dependencies [[cider/piggieback "0.5.3"]]
@@ -324,13 +423,13 @@
                                                                     :parallel-build     true
                                                                     :optimize-constants true
                                                                     :optimizations      :advanced}}]}}
-             ;; CLJS compilation is separate (fig:prod locally, figwheel-main in Docker).
-             ;; Cannot add figwheel to prep-tasks — `run` as a prep-task triggers
+             ;; CLJS compilation is separate (cljs:prod, locally and in Docker).
+             ;; Cannot add it to prep-tasks — `run` as a prep-task triggers
              ;; the uberjar profile's own prep-tasks again, causing infinite recursion.
              ;; Use `lein build` (alias above) for single-command CLJS+uberjar.
              ;;
              ;; IMPORTANT: no "clean" here and :auto-clean false. CLJS is compiled
-             ;; BEFORE the uberjar step (fig:prod in build alias, figwheel-main in
+             ;; BEFORE the uberjar step (cljs:prod in the build alias and in
              ;; Docker). If clean ran here it would delete resources/public/js/compiled/
              ;; (the CLJS output), causing orcpub.js to be missing from the jar → 404.
              ;; The build alias and Docker both handle clean explicitly/implicitly.
@@ -342,13 +441,15 @@
                             :env         {:production true}
                             :aot         :all
                             :omit-source true}
-             ;; Docker build: CLJS is compiled separately via figwheel-main.
+             ;; Docker build: CLJS is compiled separately via cljs:prod.
              ;; uberjar-package removes "compile" from prep-tasks and keeps
              ;; auto-clean false. AOT compile is done in a prior Docker step;
              ;; this profile just packages existing .class files into the jar.
              :uberjar-package {:prep-tasks ^:replace [["garden" "once"]]}
              ;; All lint config lives in .clj-kondo/config.edn so IDE and CLI agree.
-             :lint         {:dependencies [[clj-kondo "2026.01.19"]]}
+             ;; ^:replace: clj-kondo reads source and needs none of the app's libraries, whose pins
+             ;; (Jackson) would otherwise override its own.
+             :lint         {:dependencies ^:replace [[clj-kondo "2026.01.19"]]}
              ;; Minimal profile for init-db and dev CLI - no ClojureScript, no Garden
              ;; Use: lein with-profile init-db run -m user <command>
              ;; dev/ is included so user.clj is on the classpath.

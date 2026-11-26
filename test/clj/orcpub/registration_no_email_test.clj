@@ -22,17 +22,19 @@
    [orcpub.email :as email]
    [orcpub.errors :as errors]
    [orcpub.routes :as routes]
+   [orcpub.routes.auth :as auth]
    [orcpub.security :as security]
    [orcpub.db.schema :as schema])
   (:import [java.util UUID]))
 
 (use-fixtures :each
-  ;; registration-allowed? counts sign-ups per address in memory for the whole JVM, and these
-  ;; tests all register from a nil address; this file tests mail-less registration, not the throttle.
+  ;; Sign-ups are counted per connection in memory for the whole JVM, and these tests all register
+  ;; from a nil address; this file tests mail-less registration, not the throttle.
   (fn [f]
-    (with-redefs [security/registration-allowed? (constantly true)]
-      (binding [errors/*error-prefix* "TEST_ERROR:"]
-        (f)))))
+    (reset! @#'security/sightings {})
+    (binding [errors/*error-prefix* "TEST_ERROR:"]
+      (f))
+    (reset! @#'security/sightings {})))
 
 (defn- fresh-conn []
   (let [uri (str "datomic:mem:rne-" (UUID/randomUUID))]
@@ -52,6 +54,11 @@
                  :password "hunter2hunter2"
                  :send-updates? false}})
 
+(defn- queued-emails
+  "How many emails are queued in `db`."
+  [db]
+  (or (d/q '[:find (count ?e) . :where [?e :orcpub.outbox/id]] db) 0))
+
 (defn- find-user [db]
   (when-let [e (d/q '[:find ?e . :where [?e :orcpub.user/username "newcomer"]] db)]
     (d/pull db '[*] e)))
@@ -60,13 +67,10 @@
   (let [conn (fresh-conn)]
     (testing "registration succeeds and the account is already verified"
       (with-redefs [email/configured? (constantly false)
-                    email/unverified-registration-allowed? (constantly true)
-                    ;; If this is ever called the test should fail loudly: the
-                    ;; whole point is that no send is attempted.
-                    routes/send-verification-email
-                    (fn [& _] (throw (AssertionError. "tried to send mail with no SMTP configured")))]
-        (let [resp (routes/register (register-request conn))
+                    email/unverified-registration-allowed? (constantly true)]
+        (let [resp (auth/register (register-request conn))
               user (find-user (d/db conn))]
+          (is (zero? (queued-emails (d/db conn))) "no email is queued with no mail server to send it")
           (is (= 200 (:status resp)))
           (is (true? (get-in resp [:body :verified?]))
               "the client branches on this to show \"you can log in\" instead of \"check your email\"")
@@ -79,11 +83,10 @@
   ;; before this change a mail-less instance produced accounts nobody could use.
   (let [conn (fresh-conn)]
     (with-redefs [email/configured? (constantly false)
-                    email/unverified-registration-allowed? (constantly true)
-                  routes/send-verification-email (fn [& _] nil)]
-      (routes/register (register-request conn)))
+                    email/unverified-registration-allowed? (constantly true)]
+      (auth/register (register-request conn)))
     (testing "the account registered without SMTP can sign in"
-      (let [resp (routes/login-response
+      (let [resp (auth/login-response
                   {:conn conn
                    :db (d/db conn)
                    :remote-addr "127.0.0.1"
@@ -93,20 +96,18 @@
                  "instance. Got: " (pr-str (select-keys resp [:status :body]))))))))
 
 (deftest with-smtp-configured-nothing-changes
-  (let [conn (fresh-conn)
-        sent (atom 0)]
-    (testing "the normal flow still creates an unverified account and mails a link"
+  (let [conn (fresh-conn)]
+    (testing "the normal flow still creates an unverified account and queues a link"
       (with-redefs [email/configured? (constantly true)
-                    email/unverified-registration-allowed? (constantly false)
-                    routes/send-verification-email (fn [& _] (swap! sent inc) nil)]
-        (let [resp (routes/register (register-request conn))
+                    email/unverified-registration-allowed? (constantly false)]
+        (let [resp (auth/register (register-request conn))
               user (find-user (d/db conn))]
           (is (= 200 (:status resp)))
           (is (nil? (get-in resp [:body :verified?]))
               "no :verified? flag, so the client shows \"check your email\"")
           (is (false? (:orcpub.user/verified? user)))
           (is (some? (:orcpub.user/verification-key user)))
-          (is (= 1 @sent) "exactly one verification email"))))))
+          (is (= 1 (queued-emails (d/db conn))) "exactly one verification email"))))))
 
 (deftest losing-smtp-config-fails-closed
   ;; The security case. Auto-verify keyed on "no SMTP" ALONE fails open: a
@@ -121,10 +122,9 @@
   (let [conn (fresh-conn)]
     (testing "no SMTP and no explicit opt-in refuses to register anyone"
       (with-redefs [email/configured? (constantly false)
-                    email/unverified-registration-allowed? (constantly false)
-                    routes/send-verification-email
-                    (fn [& _] (throw (AssertionError. "must not attempt a send")))]
-        (let [resp (routes/register (register-request conn))]
+                    email/unverified-registration-allowed? (constantly false)]
+        (let [resp (auth/register (register-request conn))]
+          (is (zero? (queued-emails (d/db conn))) "no email is queued")
           (is (= 503 (:status resp))
               "registration must be REFUSED when email config is missing and nothing opted out")
           ;; A response rather than a throw: a throw reached the client as a bare
@@ -133,3 +133,21 @@
               (str "expected a specific, actionable error. Got: " (pr-str resp)))
           (is (nil? (find-user (d/db conn)))
               "and no account may be created, verified or otherwise"))))))
+
+(deftest a-taken-address-gets-a-plain-refusal-when-there-is-no-mail-server
+  ;; Nobody can be mailed, so the sign-up cannot be answered like a new one. The refusal is
+  ;; general: it must not be a field error that names the address as taken.
+  (doseq [unverified-allowed? [true false]]
+    (let [conn (fresh-conn)]
+      (with-redefs [email/configured? (constantly false)
+                    email/unverified-registration-allowed? (constantly true)]
+        (auth/register (register-request conn)))
+      (with-redefs [email/configured? (constantly false)
+                    email/unverified-registration-allowed? (constantly unverified-allowed?)]
+        (let [resp (auth/register (assoc-in (register-request conn) [:json-params :username] "second"))]
+          (is (= 400 (:status resp)))
+          (is (= {:general ["This email can't be used. Check it and try again, or sign in."]}
+                 (:body resp))
+              "a general error, with no :email key")
+          (is (= 1 (d/q '[:find (count ?e) . :where [?e :orcpub.user/email]] (d/db conn)))
+              "and no second account"))))))

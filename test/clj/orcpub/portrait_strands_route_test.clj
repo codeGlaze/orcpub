@@ -4,8 +4,8 @@
             [orcpub.routes :as routes]
             [orcpub.portrait-pack.strands :as strands]
             [orcpub.system :as system]
-            [io.pedestal.http :as http]
-            [io.pedestal.test :refer [response-for]])
+            [io.pedestal.http.jetty :as jetty]
+            [io.pedestal.connector.test :refer [response-for]])
   (:import [javax.imageio ImageIO]
            [java.io ByteArrayInputStream]))
 
@@ -37,8 +37,9 @@
 
 (def ^:private service
   ;; the server's own chain: static files, the guard, then the routes
-  (delay (::http/service-fn (http/create-servlet (system/with-portrait-guard
-                                                   (http/default-interceptors system/prod-service-map))))))
+  (delay (jetty/create-connector (system/with-portrait-guard
+                                   (system/default-interceptors system/prod-service-map))
+                                 {})))
 
 (defn- served [uri] (response-for @service :get uri))
 

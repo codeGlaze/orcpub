@@ -7,7 +7,7 @@
 # ── Shared: download Datomic Pro distribution ─────────────────
 FROM alpine:3.22 AS datomic-dist
 
-ENV DATOMIC_VERSION=1.0.7482
+ENV DATOMIC_VERSION=1.0.7745
 
 RUN apk add --no-cache curl unzip
 
@@ -89,10 +89,11 @@ ENV TZ=${TZ}
 # re-merge. Lein just packages the existing .class files without spawning
 # a new compile subprocess. See docs/LEIN-UBERJAR-HANG.md
 
-# Step 1: CLJS via figwheel-main (exits cleanly, no hang)
-RUN lein run -m figwheel.main -- --build-once prod && \
+# Step 1: CLJS via the ClojureScript compiler (cljs.main; exits cleanly, no hang).
+# figwheel is dev-only and never reaches the jar. The character data page has its own script.
+RUN lein cljs:prod && \
     test -f resources/public/js/compiled/orcpub.js && \
-    lein run -m figwheel.main -- --build-once ledger && \
+    lein cljs:ledger && \
     test -f resources/public/js/compiled/ledger.js
 
 # Step 1b: strand fields for any hair art without one, written beside the art so
@@ -114,16 +115,19 @@ ARG TZ=America/Chicago
 ENV TZ=${TZ}
 
 # PDFBox requires fontconfig, fonts, and lcms2 for PDF character sheet generation
-RUN apk add --no-cache fontconfig ttf-dejavu freetype lcms2 tzdata
+RUN apk add --no-cache fontconfig ttf-dejavu freetype lcms2 tzdata su-exec
 
 COPY --from=app-builder /orcpub/target/orcpub.jar /orcpub.jar
 
-# Run as non-root. App only writes to /tmp (world-writable by default).
+# The app runs as `app`, never root (see app-start.sh below).
 RUN addgroup -S app && adduser -S -G app app
 # A home for kept portrait drawings (PORTRAIT_STORE_DIR), owned by the app's user, so a volume
 # mounted here inherits that ownership and the app can write to it.
-RUN mkdir -p /var/lib/orcpub/portraits && chown -R app:app /var/lib/orcpub
-USER app
-
-ENTRYPOINT ["java", "-jar"]
+RUN mkdir -p /var/lib/orcpub/portraits /var/lib/orcpub/state/alerts /var/lib/orcpub/state/crash \
+ && chown -R app:app /var/lib/orcpub
+# No USER here: app-start.sh starts as root only to hand the mounted state folder to `app`, then
+# runs Java as `app` with su-exec (the transactor's pattern, deploy/start.sh).
+COPY deploy/app-start.sh /usr/local/bin/app-start.sh
+RUN chmod +x /usr/local/bin/app-start.sh
+ENTRYPOINT ["/usr/local/bin/app-start.sh"]
 CMD ["/orcpub.jar"]

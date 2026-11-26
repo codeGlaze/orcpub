@@ -37,6 +37,14 @@
                         (str (get-in spell [:components :material-component])))]
     (str (second m) "gp")))
 
+(defn attack-roll?
+  "Whether `spell` makes a spell attack: its :attack-roll? flag (set on the attack cantrips and by
+   the homebrew spell form), or a description that says \"spell attack\", which every SRD attack
+   spell does. Returns true or false."
+  [spell]
+  (boolean (or (:attack-roll? spell)
+               (re-find #"(?i)spell attack" (str (:description spell))))))
+
 (defn annotation
   "What to print beside `spell`, or nil when there is nothing to say.
 

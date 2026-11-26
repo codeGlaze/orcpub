@@ -58,7 +58,7 @@
              (s/blank? branding/report-recipient) "  <-- EMPTY: reports blocked (:no-recipient) — set APP_SUPPORT_EMAIL or EMAIL_ERRORS_TO"
              (not= branding/report-recipient branding/support-email) "  (falling back to EMAIL_ERRORS_TO)"
              :else "  (from APP_SUPPORT_EMAIL)"))
-  (println "  email-configured?:   " branding/email-configured?)
+  (println "  email-configured?:   " email/email-configured?)
   (doseq [{:keys [label report]} scenarios]
     (println "\n---------------------------------------------------------------")
     (println "scenario:" label)

@@ -1,13 +1,8 @@
 # Pedestal 0.5.1 → 0.7.0
 
-## Version Pin
+## Version
 
-Pedestal is pinned to **0.7.0** in `project.clj`. This is intentional:
-
-- **0.7.0** uses Jetty 11, which is compatible with figwheel-main's Ring adapter
-- **0.7.1+** and **0.8.x** use Jetty 12, which removes `ScopedHandler` — causing `NoClassDefFoundError` at startup when figwheel-main is running
-
-This pin stays until figwheel-main supports Jetty 12.
+This page describes the 0.5.1 to 0.7.0 move. Pedestal 0.8.3 on Jetty 12.1.15 is current; see [pedestal-0.8.md](pedestal-0.8.md).
 
 ## Breaking Changes
 

@@ -1,7 +1,8 @@
 (ns orcpub.dnd.e5.spell-annotations-test
   ;; explicit :refer to avoid namespace pollution from :refer :all
   (:require [clojure.test :refer [deftest is testing]]
-            [orcpub.dnd.e5.spell-annotations :as ann]))
+            [orcpub.dnd.e5.spell-annotations :as ann]
+            [orcpub.dnd.e5.spells :as spells]))
 
 (deftest concentration-is-read-from-the-duration
   ;; 5e gives concentration no field of its own; it is the first word of the
@@ -54,3 +55,16 @@
                             :components {:material-component "a diamond worth 300 gp"}}))))
   (testing "only what applies"
     (is (= {:concentration? true} (ann/annotation {:duration "Concentration, up to 1 minute"})))))
+
+(deftest only-spells-that-make-a-spell-attack-get-a-roll
+  (testing "every SRD spell that makes a spell attack, and no other"
+    (is (= #{"Acid Arrow" "Arcane Hand" "Arcane Sword" "Chill Touch" "Contagion"
+             "Dispel Evil and Good" "Eldritch Blast" "Fire Bolt" "Flame Blade" "Guiding Bolt"
+             "Inflict Wounds" "Plane Shift" "Produce Flame" "Ray of Enfeeblement" "Ray of Frost"
+             "Scorching Ray" "Shocking Grasp" "Spiritual Weapon" "Vampiric Touch"}
+           (set (map :name (filter ann/attack-roll? spells/spells))))))
+  (testing "a homebrew spell: the form's flag, or its own wording"
+    (is (true? (ann/attack-roll? {:attack-roll? true :description "A bolt."})))
+    (is (true? (ann/attack-roll? {:description "Make a ranged spell attack against the target."})))
+    (is (false? (ann/attack-roll? {:description "Each creature must make a Dexterity saving throw."})))
+    (is (false? (ann/attack-roll? {})))))

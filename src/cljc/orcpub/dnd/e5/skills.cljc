@@ -99,5 +99,11 @@ check. The GM might also call for a Dexterity (Sleight of Hand) check to determi
 
 (def skills-map (common/map-by-key skills))
 
+(defn skill-name
+  "The name of the skill `kw` keys, capitalized; a key that names no skill shows as its own text."
+  [kw]
+  (or (:name (skills-map kw))
+      (common/safe-capitalize-kw (common/usable keyword? kw nil "a skill key that names no skill"))))
+
 (def skill-abilities
   (into {} (map (juxt :key :ability)) skills))

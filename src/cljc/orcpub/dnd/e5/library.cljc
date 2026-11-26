@@ -214,6 +214,18 @@
               (into {} (map (fn [[path t]] [t (offered-at template path)])) pick-homes)
               built-in-keys))
 
+(def parent-links
+  "The links whose target an entry is built inside, so with a target missing it is not offered:
+   a subclass's class, a subrace's race. Any other link to nothing leaves the entry offered."
+  #{:subclass->class :subrace->race})
+
+(defn orphans
+  "The [source type key] of each item in `dangling` (from `dangling`) whose parent is missing."
+  [dangling]
+  (set (for [[address missing] dangling
+             :when (some #(contains? parent-links (:link %)) missing)]
+         address)))
+
 (defn dangling
   "{[source type key] [{:link :target}]} for every item in `plugins` with a link to nothing:
    neither `offered` (from `offered-by-type`) nor a library item of the link's type holds the

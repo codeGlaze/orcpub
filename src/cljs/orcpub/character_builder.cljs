@@ -36,10 +36,13 @@
             [orcpub.dnd.e5.display :as disp5e]
             [orcpub.dnd.e5.portrait :as portrait5e]
             [orcpub.dnd.e5.equipment :as equip5e]
+            [orcpub.dnd.e5.views.inventory :as inventory-views]
             [orcpub.dnd.e5.skills :as skill5e]
             [orcpub.dnd.e5.events :as events5e]
             [orcpub.dnd.e5.db :as db]
             [orcpub.dnd.e5.views :as views5e]
+            [orcpub.dnd.e5.views.pdf-options :as pdf-options]
+            [orcpub.dnd.e5.views.builder-fields :as builder-fields]
             [orcpub.dnd.e5.subs :as subs5e]
             [orcpub.route-map :as routes]
             [orcpub.pdf-spec :as pdf-spec]
@@ -51,7 +54,7 @@
 
             [reagent.core :as r]
             [orcpub.fork.branding :as branding]
-            [orcpub.fork.integrations :as integrations]
+            [orcpub.dnd.e5.views.share :as share-view]
             [re-frame.core :refer [subscribe dispatch dispatch-sync]]))
 ;console-print
 (def print-disabled? true)
@@ -101,17 +104,6 @@
        (s/split help #"\n")))
      help)])
 
-(defn expand-button [expand-text collapse-text expanded?]
-  [:span.flex.pointer.align-items-c.justify-cont-end
-   {:on-click (fn [e]
-                (swap! expanded? not)
-                (stop-propagation e))}
-   [:span.underline.orange.p-0.m-r-2 (if @expanded? expand-text collapse-text)]
-   [:i.fa.orange
-    {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]])
-
-(defn show-info-button [expanded?]
-  [:div.f-w-n.m-l-5 [expand-button "hide info" "show info" expanded?]])
 
 (defn multiselection? [{:keys [::t/multiselect? ::t/min ::t/max]}]
   (or multiselect?
@@ -315,7 +307,22 @@
                       [::char5e/make-starting-class key options-map]))}
        "1st"])))
 
-(defn class-level-selector []
+(defn class-not-applied-line
+  "Under the class row for picked class `key`: says the class is not in the built character, and
+  why when the loaded content has no such class (`template-option` nil). Returns hiccup."
+  [key template-option]
+  [:div.class-not-applied.f-s-12.m-t-5 {:role "status"}
+   (if template-option
+     (str (::t/name template-option) " isn't applied to the character right now. Change its level, or choose another class.")
+     (str (common/kw-to-name key true) " isn't in your loaded content, so it isn't applied. Choose another class, or turn its source back on in My Content."))])
+
+(defn class-level-selector
+  "One picked class's row in Class / Level, the `i`th: its class drop-down (this class and the
+  unpicked ones in `unselected-classes-set`, from `options`), level drop-down, remove button,
+  held-picks line and help. `selected-class` is its built entry, or {:not-applied? true}
+  when the build left it out; the drop-down then still shows `key`, with a line saying so.
+  `first-option`, given when there are several classes, puts the 1st badge on the row."
+  []
   (let [expanded? (r/atom false)]
     (fn [i key selected-class options unselected-classes-set built-char & [first-option]]
       (let [options-map (make-options-map options)
@@ -331,6 +338,9 @@
           [:select.builder-option.builder-option-dropdown.flex-grow-1.m-t-0
            {:value key
             :on-change (set-class i options-map)}
+           ;; a picked class the content lacks stays chosen, so the row keeps its drop-down
+           (when-not class-template-option
+             [:option.builder-dropdown-item {:value key} (str (common/kw-to-name key true) " (not in your content)")])
            (doall
             (map
              (fn [{:keys [::t/key ::t/name ::t/plugin-source] :as option}]
@@ -347,7 +357,7 @@
                (filter-classes key unselected-classes-set)
                options))))]
           (when (::t/help class-template-option)
-            [show-info-button expanded?])
+            [comps/show-info-button expanded?])
           (let [levels-selection (some levels-selection (::t/selections class-template-option))
                 available-levels (::t/options levels-selection)
                 last-level-key (str "level-" (:class-level selected-class))]
@@ -365,6 +375,8 @@
                available-levels))])
           [:i.fa.fa-minus-circle.orange.f-s-16.m-l-5.pointer
            {:on-click (delete-class key i options-map)}]]
+         (when (:not-applied? selected-class)
+           [class-not-applied-line key class-template-option])
          [class-planned-line key]
          (when @expanded?
            [:div.m-t-5.m-b-10 (views-aux/realize-help (::t/help class-template-option))])]))))
@@ -394,13 +406,29 @@
 ;; DO NOT MEMOIZE -- keyed on a seq of class options. See set-class-fn.
 (def add-class add-class-fn)
 
-(defn class-levels-selector [{:keys [selection]}]
+(defn class-rows
+  "The Class / Level rows, in pick order: [class-key entry] for each class in `picked` (the stored
+  :class picks, maps of ::entity/key and ::entity/options), where entry is that class's entry in
+  `built-levels` (the built character's levels), or {:class-level n :not-applied? true} when the
+  build left it out. Rows come from the picks so a class the build drops keeps its drop-down."
+  [picked built-levels]
+  (vec (for [{k ::entity/key opts ::entity/options} picked
+             :when k]
+         [k (or (get built-levels k)
+                {:class-level (max 1 (count (:levels opts))) :not-applied? true})])))
+
+(defn class-levels-selector
+  "The Class / Level section for the builder's `selection` (the template's :class selection): the
+  homebrew-source switch, one row per picked class (class-rows), and Add Levels in Another Class.
+  Returns hiccup."
+  [{:keys [selection]}]
   (let [options (::t/options selection)
         built-char @(subscribe [:built-character])
-        selected-classes @(subscribe [::char5e/levels])
+        selected-classes (class-rows (get-in @(subscribe [:character]) [::entity/options :class])
+                                     @(subscribe [::char5e/levels]))
         show-suffix? @(subscribe [::subs5e/show-class-source-suffix])
         unselected-classes (remove
-                            (set (keys selected-classes))
+                            (set (map first selected-classes))
                             (map ::t/key options))
         unselected-classes-set (set unselected-classes)
         remaining-classes (filter
@@ -412,7 +440,7 @@
     [:div
      [:div.m-b-5
       {:on-click #(dispatch [::events5e/toggle-class-source-suffix])}
-      [views5e/labeled-checkbox "Show homebrew source on class names" show-suffix?]]
+      [builder-fields/labeled-checkbox "Show homebrew source on class names" show-suffix?]]
      [:div
       (doall
        (map-indexed
@@ -430,400 +458,6 @@
           (add-class remaining-classes)}
          "Add Levels in Another Class"]])]))
 
-(defn set-custom-item-name-fn [selection-key i]
-  #(dispatch [::char5e/set-custom-item-name selection-key i %]))
-
-(def set-custom-item-name (memoize set-custom-item-name-fn))
-
-(defn inventory-item []
-  (let [expanded? (r/atom false)]
-    (fn [{:keys [selection-key
-                 item-key
-                 item-name
-                 item-qty
-                 item-description
-                 equipped?
-                 user-created?
-                 i
-                 qty-input-width
-                 check-fn
-                 qty-change-fn
-                 remove-fn]}]
-      [:div.p-5
-       [:div.f-w-b.flex.align-items-c
-        [:div.pointer.m-l-5.m-r-5
-         {:on-click check-fn}
-         (comps/checkbox equipped? false)]
-        (if user-created?
-          [comps/input-field
-           :input
-           item-name
-           (set-custom-item-name selection-key i)
-           {:class "input m-t-0"}]
-          [:div.flex-grow-1 item-name])
-        (when item-description [:div.w-60 [show-info-button expanded?]])
-        [comps/int-field
-         item-qty
-         qty-change-fn
-         {:class (str "input m-l-5 m-t-0 w-" (or qty-input-width 60))}]
-        [:i.fa.fa-minus-circle.orange.f-s-16.m-l-5.pointer
-         {:on-click remove-fn}]]
-       (when @expanded? [:div.m-t-5 item-description])])))
-
-(defn add-inventory-item-fn [key]
-  (fn [e]
-     (let [value (.. e -target -value)
-           item-key (keyword value)]
-       (dispatch [:add-inventory-item key item-key]))))
-
-(def add-inventory-item (memoize add-inventory-item-fn))
-
-(defn inventory-option-selected-fn [selected-keys]
-  #(or (selected-keys (::t/key %))
-       (selected-keys (:db/id %))))
-
-(def inventory-option-selected? (memoize inventory-option-selected-fn))
-
-(defn name-and-key [{:keys [:db/id ::t/name ::t/key]}]
-  {:name name
-   :key (or key id)})
-
-;;; selection creator for character builder
-#_ ;; DEPRECATED 2026-09-06 -- superseded by inventory-combobox, which gets the top layer,
-   ;; light dismiss, Escape and focus from popover="auto" instead of the backdrop and
-   ;; keydown listener below. Unreferenced; remove once the combobox ships cleanly.
-(defn inventory-picker
-  "Compact 'Add item' control: a button that opens a small search overlay, lists up to 12
-   matches, and closes on pick. Nothing renders until it is opened.
-   Open state is a local r/atom, not app-db: transient UI state that nothing else reads."
-  []
-  (let [open? (r/atom false)
-        query (r/atom "")]
-    (fn [key options selected-keys]
-      (let [items   (common/aloof-sort-by
-                     :name
-                     (sequence (comp (remove (inventory-option-selected? selected-keys))
-                                     (map name-and-key))
-                               options))
-            q       (s/lower-case (s/trim @query))
-            matches (if (s/blank? q)
-                      items
-                      (filterv #(s/includes? (s/lower-case (str (:name %))) q) items))
-            ;; Only ever build a screenful. Search is the way to reach the rest.
-            shown   (take 12 matches)
-            close!  (fn [] (reset! open? false) (reset! query ""))]
-        [:div.inv-picker
-         [:button.inv-picker-btn
-          {:on-click #(swap! open? not)}
-          [:i.fa.fa-plus.m-r-5]
-          (str "Add" (when (seq items) (str " (" (count items) ")")))]
-         (when @open?
-           [:div
-            ;; backdrop closes on any outside click without a document-level listener
-            [:div.inv-picker-backdrop {:on-click close!}]
-            [:div.inv-picker-pop
-             [:input.inv-picker-search
-              {:auto-focus true
-               :value @query
-               :placeholder "Search…"
-               :on-change #(reset! query (.. % -target -value))
-               :on-key-down #(when (= 27 (.-keyCode %)) (close!))}]
-             (if (empty? matches)
-               [:div.inv-picker-empty (str "Nothing matches “" @query "”")]
-               [:div.inv-picker-list
-                (doall
-                 (for [{item-key :key item-name :name} shown]
-                   ^{:key item-key}
-                   [:div.inv-picker-row
-                    {:on-click (fn []
-                                 (dispatch [:add-inventory-item key item-key])
-                                 (close!))}
-                    item-name]))])
-             (when (> (count matches) (count shown))
-               [:div.inv-picker-more
-                (str (count matches) " matches — keep typing to narrow")])]])]))))
-
-(defn inventory-datalist
-  "Native filtering dropdown: a text input whose suggestions come from a <datalist>.
-   The browser filters and paints the list, so the <option>s are a data source, never laid
-   out. GOTCHA: the input is themed; the dropdown is drawn by the browser and not styleable."
-  []
-  (let [value (r/atom "")]
-    (fn [key options selected-keys]
-      (let [items    (common/aloof-sort-by
-                      :name
-                      (sequence (comp (remove (inventory-option-selected? selected-keys))
-                                      (map name-and-key))
-                                options))
-            by-name  (into {} (map (juxt :name :key)) items)
-            list-id  (str "inv-list-" (clojure.core/name key))]
-        [:div.inv-datalist
-         [:input.inv-datalist-input
-          {:list list-id
-           :value @value
-           :placeholder (str "Add an item… (" (count items) ")")
-           :on-change (fn [e]
-                        (let [v (.. e -target -value)]
-                          ;; A pick from the list arrives as a complete, exact name; typing
-                          ;; arrives partial. Only dispatch on an exact hit, then clear.
-                          (if-let [item-key (by-name v)]
-                            (do (dispatch [:add-inventory-item key item-key])
-                                (reset! value ""))
-                            (reset! value v))))}]
-         [:datalist {:id list-id}
-          (doall
-           (for [{item-name :name item-key :key} items]
-             ^{:key item-key}
-             [:option {:value item-name}]))]]))))
-
-(defn- show-popover! [id]
-  ;; showPopover throws if it is already open, and the attribute is unsupported on old
-  ;; engines -- both are non-fatal, so the control degrades to a plain filtered list.
-  (when-let [el (.getElementById js/document id)]
-    (try (when-not (.matches el ":popover-open") (.showPopover el))
-         (catch :default _ nil))))
-
-(defn- hide-popover! [id]
-  (when-let [el (.getElementById js/document id)]
-    (try (when (.matches el ":popover-open") (.hidePopover el))
-         (catch :default _ nil))))
-
-(defn highlight-match
-  "Bold the part of the name the query matched. Standard combobox affordance: it shows WHY a
-   row is in the list, which matters when a substring match lands mid-word.
-
-   `q` must already be lower-cased -- the caller lower-cases once per render rather than once
-   per row. Plain substring search, not a regex, so `+1` and `(` are literals. Returns the
-   name unchanged when there is no match, so callers can render the result directly."
-  [item-name q]
-  (let [nm (str item-name)
-        i  (when-not (s/blank? q) (s/index-of (s/lower-case nm) q))]
-    (if-not i
-      item-name
-      (let [end (+ i (count q))]
-        [:span
-         (subs nm 0 i)
-         [:span.inv-combo-hit (subs nm i end)]
-         (subs nm end)]))))
-
-(defn- scroll-active-into-view! [pop-id]
-  ;; Runs after the re-render that moved the highlight, hence the rAF.
-  (js/requestAnimationFrame
-   (fn []
-     (some-> (.getElementById js/document pop-id)
-             (.querySelector ".inv-combo-row.active")
-             (.scrollIntoView #js {:block "nearest"})))))
-
-(defn inventory-combobox
-  "Filter-and-pick dropdown on the native Popover API: the list is a `popover=\"auto\"`
-   element, so the top layer, light dismiss and Escape come from the browser. CSS anchor
-   positioning pins it under its input (centred where unsupported). Every match renders, so
-   the list can be browsed by scrolling or arrow keys. Rows mount only while open; the open
-   handlers set open state, and a `beforetoggle` listener catches the browser's own closes."
-  []
-  (let [query     (r/atom "")
-        active    (r/atom -1)
-        open?     (r/atom false)
-        on-toggle (fn [e] (reset! open? (= "open" (.-newState e))))
-        el*       (atom nil)
-        ;; Defined once per instance, not per render: a fresh closure each render would make
-        ;; React tear down and re-attach, adding a listener every time.
-        ref-fn    (fn [el]
-                    (when-let [old @el*] (.removeEventListener old "beforetoggle" on-toggle))
-                    (reset! el* el)
-                    (when el (.addEventListener el "beforetoggle" on-toggle)))]
-    (fn [key options selected-keys]
-      (let [items    (vec (common/aloof-sort-by
-                           :name
-                           (sequence (comp (remove (inventory-option-selected? selected-keys))
-                                           (map name-and-key))
-                                     options)))
-            kname    (clojure.core/name key)
-            pop-id   (str "inv-pop-" kname)
-            anchor   (str "--inv-anchor-" kname)
-            q        (s/lower-case (s/trim @query))
-            matches  (if (s/blank? q)
-                       items
-                       (filterv #(s/includes? (s/lower-case (str (:name %))) q) items))
-            n        (count matches)
-            pick!    (fn [item-key]
-                       (dispatch [:add-inventory-item key item-key])
-                       (reset! query "")
-                       (reset! active -1)
-                       (reset! open? false)
-                       (hide-popover! pop-id))
-            open!    (fn [] (reset! open? true) (show-popover! pop-id))
-            move!    (fn [e delta]
-                       (.preventDefault e)
-                       (open!)
-                       (swap! active #(-> (+ % delta) (max 0) (min (dec n))))
-                       (scroll-active-into-view! pop-id))]
-        [:div.inv-combo
-         [:input.inv-combo-input
-          {:style {:anchor-name anchor}
-           :value @query
-           :placeholder (str "Filter or browse… (" (count items) ")")
-           ;; on-click, not on-focus: focus fires on mousedown, and light dismiss then treats
-           ;; that same pointer sequence as an outside click and shuts the popover again.
-           ;; Measured -- opening on focus left popoverOpen=0 after a click.
-           :on-click #(open!)
-           :on-key-down (fn [e]
-                          (case (.-key e)
-                            "ArrowDown" (move! e 1)
-                            "ArrowUp"   (move! e -1)
-                            "Enter"     (when-let [it (nth matches @active nil)]
-                                          (.preventDefault e)
-                                          (pick! (:key it)))
-                            nil))
-           :on-change (fn [e]
-                        (reset! query (.. e -target -value))
-                        ;; The old highlight points into the old result list.
-                        (reset! active -1)
-                        (open!))}]
-         [:div.inv-combo-pop
-          {:id pop-id
-           :popover "auto"
-           :ref ref-fn
-           :style {:position-anchor anchor}}
-          (cond
-            (not @open?) nil
-            (zero? n)    [:div.inv-combo-empty (str "Nothing matches \u201c" @query "\u201d")]
-            :else
-            [:div.inv-combo-list
-             (doall
-              (map-indexed
-               (fn [i {item-name :name item-key :key}]
-                 ^{:key item-key}
-                 [:div.inv-combo-row
-                  {:class (when (= i @active) "active")
-                   :on-click #(pick! item-key)}
-                  (highlight-match item-name q)])
-               matches))])
-          (when (pos? n)
-            [:div.inv-combo-hint
-             [:span (str n (if (= 1 n) " item" " items"))]
-             [:span.inv-combo-keys "\u2191\u2193 browse \u00b7 \u21b5 add \u00b7 esc close"]])]]))))
-
-(defn inventory-adder [key options selected-keys]
-  ;; Switch by changing this line. inventory-datalist is kept live: it hands the dropdown to
-  ;; the OS, which is the better control on mobile if the Popover API ever proves a problem.
-  ;; inventory-picker above is deprecated, not an alternative.
-  [inventory-combobox key options selected-keys])
-
-(defn inventory-check-fn [key i]
-  #(dispatch [:toggle-inventory-item-equipped key i]))
-
-(def inventory-check (memoize inventory-check-fn))
-
-(defn inventory-qty-change-fn [key i]
-  #(dispatch [:change-inventory-item-quantity key i %]))
-
-(def inventory-qty-change (memoize inventory-qty-change-fn))
-
-(defn remove-inventory-item-fn [key item-key]
-  (fn [_]
-    (dispatch [:remove-inventory-item key item-key])))
-
-(def remove-inventory-item (memoize remove-inventory-item-fn))
-
-(defn toggle-custom-inventory-item-equipped-fn [custom-equipment-key i]
-  (fn [_]
-    (dispatch [:toggle-custom-inventory-item-equipped custom-equipment-key i])))
-
-(def toggle-custom-inventory-item-equipped (memoize toggle-custom-inventory-item-equipped-fn))
-
-(defn change-custom-inventory-item-quantity-fn [custom-equipment-key i]
-  (fn [qty]
-    (dispatch [:change-custom-inventory-item-quantity custom-equipment-key i qty])))
-
-(def change-custom-inventory-item-quantity (memoize change-custom-inventory-item-quantity-fn))
-
-(defn remove-custom-inventory-item-fn [custom-equipment-key name]
-  (fn [_]
-    (dispatch [:remove-custom-inventory-item custom-equipment-key name])))
-
-(def remove-custom-inventory-item (memoize remove-custom-inventory-item-fn))
-
-(defn new-custom-item-fn [custom-equipment-key]
-  #(dispatch [::char5e/new-custom-item custom-equipment-key]))
-
-(def new-custom-item (memoize new-custom-item-fn))
-
-(defn make-inventory-item-fn [key item-map qty-input-width]
-  (fn [i {item-key ::entity/key
-          {item-qty ::char-equip5e/quantity
-           equipped? ::char-equip5e/equipped?
-           item-name ::char-equip5e/name} ::entity/value}]
-    (let [item (item-map item-key)
-          final-name (or item-name (:name item) (::mi5e/name item))
-          item-description (:description item)]
-      ^{:key item-key}
-      [inventory-item {:selection-key key
-                       :item-key item-key
-                       :item-name final-name
-                       :item-qty item-qty
-                       :item-description item-description
-                       :equipped? equipped?
-                       :i i
-                       :qty-input-width qty-input-width
-                       :check-fn (inventory-check key i)
-                       :qty-change-fn (inventory-qty-change key i)
-                       :remove-fn (remove-inventory-item key item-key)}])))
-
-(def make-inventory-item (memoize make-inventory-item-fn))
-
-(defn make-custom-inventory-item [custom-equipment-key qty-input-width]
-  (fn [i {:keys [::char-equip5e/name
-                 ::char-equip5e/quantity
-                 ::char-equip5e/equipped?
-                 ::char-equip5e/background-starting-equipment?
-                 ::char-equip5e/class-starting-equipment?] :as item}]
-    (let [item-key (common/name-to-kw name)]
-      ^{:key i}
-      [inventory-item {:selection-key custom-equipment-key
-                       :item-key item-key
-                       :item-name name
-                       :item-qty quantity
-                       :equipped? equipped?
-                       :user-created? (not (or background-starting-equipment?
-                                               class-starting-equipment?))
-                       :i i
-                       :qty-input-width qty-input-width
-                       :check-fn (toggle-custom-inventory-item-equipped custom-equipment-key i)
-                       :qty-change-fn (change-custom-inventory-item-quantity custom-equipment-key i)
-                       :remove-fn (remove-custom-inventory-item custom-equipment-key name)}])))
-
-(defn inventory-selector [item-map-sub qty-input-width {:keys [selection]} & [custom-equipment-key]]
-  (let [{:keys [::t/key]} selection
-        selected-items @(subscribe [:entity-option key])
-        item-map @(subscribe item-map-sub)
-        selected-keys (set (map ::entity/key selected-items))
-        options (entity/selection-options selection)
-        magic-weapons (= key :magic-weapons)]
-    [:div
-     [inventory-adder key options selected-keys]
-     (when (seq selected-items)
-       [:div.flex.f-s-12.opacity-5.m-t-10.justify-cont-s-b
-        [:div.m-r-10 "Carried?"]
-        [:div.m-r-30 "Quantity"]])
-     [:div
-      (doall
-       (map-indexed
-        (make-inventory-item key item-map qty-input-width)
-        selected-items))]
-     (when custom-equipment-key
-       [:div
-        [:div
-         (doall
-          (map-indexed
-           (make-custom-inventory-item custom-equipment-key qty-input-width)
-           @(subscribe [:entity-value custom-equipment-key])))]
-        [:div.flex.justify-cont-end
-         [:div.orange.pointer.m-t-5.m-r-5
-          {:on-click (new-custom-item custom-equipment-key)}
-          [:span.underline "Add Custom Item"]
-          [:i.fa.fa-plus-circle.m-l-5.f-s-16]]]])]))
-
 (defn option-selector-base []
   (let [expanded? (r/atom false)]
     (fn [{:keys [name key help selected? selectable? option-path select-fn content explanation-text icon classes multiselect? disable-checkbox? edit-event]}]
@@ -838,7 +472,7 @@
         [:div.flex-grow-1
          [:div.flex.align-items-c
           (when multiselect?
-            [:span.m-r-5 (comps/checkbox selected? disable-checkbox?)])
+            [:span.m-r-5 (comps/checkbox selected? (or disable-checkbox? (not selectable?)) name)])
           (when icon [:div.m-r-5 (views5e/svg-icon icon 24)])
           [:span.f-w-b.f-s-1.flex-grow-1 name]
           (when edit-event
@@ -846,7 +480,7 @@
              {:on-click (apply views5e/make-stop-prop-event-handler edit-event)}
              "edit"])
           (when help
-            [show-info-button expanded?])]
+            [comps/show-info-button expanded?])]
          (when (and help @expanded?)
            [help-section (views-aux/realize-help help)])
          (when (and content selected?)
@@ -971,7 +605,7 @@
             (when parent-title
               (selection-section-parent-title parent-title)))
           (when (and path help)
-            [show-info-button expanded?])
+            [comps/show-info-button expanded?])
           (when (not hide-lock?)
             [tooltip
              (if locked?
@@ -991,7 +625,9 @@
               (views5e/svg-icon "beer-stein" 18)]])]
          (when (and help path @expanded?)
            [help-section help])
-         (when (int? min)
+         (when (and (int? min)
+                    (not (and @(subscribe [:orcpub.dnd.e5/quiet-pick-counts?])
+                              (planned-text/count-says-nothing? min max held))))
            [:div.p-5.f-s-16
             [:div.flex.align-items-c.justify-cont-s-b
              ;; The Planned marker sits after "select N" and wraps under it only when the row cannot
@@ -1184,13 +820,69 @@
 (defn ability-value [v]
   [:div.f-s-18.f-w-b v])
 
+(defn ability-bag-assigner
+  "Renders one :ability-increases spread, carried on the selection's ::t/spread as
+   {:idx :amount :pool :fixed?} increments. A single-stat increment is a label (\"Strength +2\"), the
+   rest pick from their own pool. Every increment lands on a DISTINCT ability, so a stat taken by
+   one is left out of the other pickers. Picks are the slot's asi-<idx>-<ability> option keys, set
+   with :increase/:decrease-ability-value, so storage and the build are unchanged."
+  [built-template selection _ability-keys]
+  (let [character @(subscribe [:character])
+        incs (::t/spread selection)
+        path (::entity/path selection)
+        increases-path (entity/get-entity-path built-template character path)
+        chosen-keys (set (map ::entity/key (get-in character increases-path)))
+        slot-key (fn [idx k] (keyword (str "asi-" idx "-" (cljs.core/name k))))
+        ability-name (fn [k] (:name (opt5e/abilities-map k)))
+        slot-pick (fn [{:keys [idx pool]}]
+                    (some (fn [k] (when (chosen-keys (slot-key idx k)) k)) pool))
+        floating (remove :fixed? incs)
+        ;; one ability per spread: leave out stats taken by fixed increments and other picks
+        used (set (concat (map (comp first :pool) (filter :fixed? incs))
+                          (keep slot-pick floating)))
+        ancestors-title (views-aux/ancestor-names-string built-template path)
+        num-remaining (- (count floating) (count (keep slot-pick floating)))
+        pick! (fn [idx current new-k]
+                (when (not= new-k current)
+                  (when current
+                    (dispatch [:decrease-ability-value increases-path (slot-key idx current)]))
+                  (when new-k
+                    (dispatch [:increase-ability-value increases-path (slot-key idx new-k)]))))]
+    [:div
+     [:div.flex.justify-cont-s-b.m-t-10.align-items-c
+      [:div.m-l-5.i (str "Improvement: " ancestors-title)]
+      (remaining-component 2 num-remaining)]
+     (doall
+      (map
+       (fn [{:keys [idx amount pool fixed?] :as increment}]
+         ^{:key idx}
+         [:div.flex.align-items-c.m-t-5.m-l-5
+          [:div.w-40.f-w-b (common/bonus-str amount)]
+          (if fixed?
+            [:div.m-l-5 (ability-name (first pool))]
+            (let [current (slot-pick increment)
+                  opts (filter (fn [k] (or (= k current) (not (used k)))) pool)]
+              [:div.flex-grow-1
+               [builder-fields/dropdown
+                {:typed? true
+                 :value current
+                 :items (cons {:title "— choose —" :value nil}
+                              (map (fn [k] {:title (ability-name k) :value k}) opts))
+                 :on-change #(pick! idx current %)}]]))])
+       incs))]))
+
 (defn ability-increases-component [built-template asi-selections ability-keys]
   (let [total-abilities @(subscribe [::char5e/abilities])
         character @(subscribe [:character])]
     [:div
      (doall
       (map-indexed
-       (fn [i {:keys [::t/name ::t/key ::t/min ::t/max ::t/options ::t/different? ::entity/path] :as selection}]
+       (fn [i {:keys [::t/name ::t/key ::t/min ::t/max ::t/options ::t/different? ::t/spread
+                      ::entity/path] :as selection}]
+         ;; a spread (it carries ::t/spread) renders through the bag assigner; every other
+         ;; ability-increase selection (built-in races, class ASI) keeps the +/- UI below.
+         (if spread
+           ^{:key i} [ability-bag-assigner built-template selection ability-keys]
          (let [increases-path (entity/get-entity-path built-template character path)
                selected-options (get-in character increases-path)
                ability-increases (frequencies (map ::entity/key selected-options))
@@ -1242,7 +934,7 @@
                                   (fn []
                                     (when (not increase-disabled?)
                                       (dispatch [:increase-ability-value increases-path k]))))}]]]))
-               ability-keys))]]))
+               ability-keys))]])))
        asi-selections))]))
 
 (defn race-abilities-component [ability-keys]
@@ -1894,26 +1586,26 @@
     :ui-fns (letfn [(select-selection [v] (select-keys v [:selection]))]
               [{:key :weapons
                 :hide-homebrew? true
-                :ui-fn (fn [v] [inventory-selector [::equip5e/weapons-map] 70 (select-selection v)])}
+                :ui-fn (fn [v] [inventory-views/inventory-selector [::equip5e/weapons-map] 70 (select-selection v)])}
                {:key :magic-weapons
                 :hide-homebrew? true
-                :ui-fn (fn [v] [inventory-selector [::mi5e/magic-weapon-map] 70 (select-selection v)])}
+                :ui-fn (fn [v] [inventory-views/inventory-selector [::mi5e/magic-weapon-map] 70 (select-selection v)])}
                {:key :armor
                 :hide-homebrew? true
-                :ui-fn (fn [v] [inventory-selector [::equip5e/armor-map] 70 (select-selection v)])}
+                :ui-fn (fn [v] [inventory-views/inventory-selector [::equip5e/armor-map] 70 (select-selection v)])}
                {:key :magic-armor
                 :hide-homebrew? true
-                :ui-fn (fn [v] [inventory-selector [::mi5e/magic-armor-map] 70 (select-selection v)])}
+                :ui-fn (fn [v] [inventory-views/inventory-selector [::mi5e/magic-armor-map] 70 (select-selection v)])}
                {:key :equipment
                 :hide-homebrew? true
                 :ui-fn (fn [v]
-                         [inventory-selector [::equip5e/equipment-map] 70 (select-selection v) ::char5e/custom-equipment])}
+                         [inventory-views/inventory-selector [::equip5e/equipment-map] 70 (select-selection v) ::char5e/custom-equipment])}
                {:key :other-magic-items
                 :hide-homebrew? true
-                :ui-fn (fn [v] [inventory-selector [::mi5e/other-magic-items-map] 70 (select-selection v)])}
+                :ui-fn (fn [v] [inventory-views/inventory-selector [::mi5e/other-magic-items-map] 70 (select-selection v)])}
                {:key :treasure
                 :hide-homebrew? true
-                :ui-fn (fn [v] [inventory-selector [::equip5e/treasure-map] 100 (select-selection v) ::char5e/custom-treasure])}])}])
+                :ui-fn (fn [v] [inventory-views/inventory-selector [::equip5e/treasure-map] 100 (select-selection v) ::char5e/custom-treasure])}])}])
 
 (defn picks-notice
   "Picks that came back on their own, when they are not where the player is looking (another tab)
@@ -2012,7 +1704,7 @@
        [:div.flex.align-items-c
         (views5e/svg-icon "bookshelf" 36)
         (selection-section-title "Option Sources")
-        [expand-button "collapse" "select sources" expanded?]]
+        [comps/expand-button "collapse" "select sources" expanded?]]
        (if @expanded?
          [:div
           [option-selector-base {:name "5e SRD"
@@ -2205,8 +1897,12 @@
   [built-char]
   (dispatch [::char5e/set-random-name built-char]))
 
-(defn set-image-url [v]
-  (dispatch [:set-image-url v]))
+(defn set-image-url
+  "Sets the character's picture link to `v`; a non-blank link replaces a composed portrait, so the
+   portrait editor's unsaved draft is dropped with it."
+  [v]
+  (dispatch [:set-image-url v])
+  (when-not (s/blank? v) (dispatch [:portrait/discard-draft])))
 
 (defn set-faction-image-url [v]
   (dispatch [:set-faction-image-url v]))
@@ -2383,11 +2079,25 @@
 
           :else nil)))))
 
+(defn image-link-field
+  "The portrait editor's picture-link field under `label`: the input (pasting an image works too)
+   and the notice that checks the link. It edits the editor's draft (:portrait/link-draft); the
+   character's link changes only with Use this picture (:portrait/use-link). Returns hiccup."
+  [label]
+  (let [url @(subscribe [:portrait/link-draft])
+        image-bytes @(subscribe [::char5e/image-bytes])
+        server-reach @(subscribe [::char5e/image-server-reach])
+        set-draft #(dispatch [:portrait/set-link-draft %])]
+    [:div {:on-paste (image-paste url)}
+     [:span.personality-label.f-s-18 label]
+     [:input.input {:type "url" :value (or url "") :placeholder "https://"
+                    :on-change #(set-draft (.. % -target -value))}]
+     [image-field-notice url false (get image-bytes url) (get server-reach url) set-draft]]))
+
 (defn description-fields []
   (let [entity-values @(subscribe [:entity-values])
         built-char @(subscribe [:built-character])
         image-url @(subscribe [::char5e/image-url])
-        image-url-failed @(subscribe [::char5e/image-url-failed])
         faction-image-url @(subscribe [::char5e/faction-image-url])
         faction-image-url-failed @(subscribe [::char5e/faction-image-url-failed])
         image-bytes @(subscribe [::char5e/image-bytes])
@@ -2445,21 +2155,17 @@
      [:div.field
       [:span.personality-label.f-s-18 "Flaws"]
       [character-textarea entity-values ::char5e/flaws]]
-     [:div.flex.align-items-c.w-100-p.m-t-30
-      (when image-url
-        [:img.m-r-10.image-character-thumbnail {:src image-url
-                      :on-error (image-error :failed-loading-image image-url)
-                      :on-load (image-load :loaded-image image-url)}])
-      [:div.flex-grow-1
-       {:on-paste (image-paste image-url)}
-       [:span.personality-label.f-s-18 "Image URL (128k max image size for PDF)"]
-       [character-input entity-values ::char5e/image-url nil set-image-url]
-       ;; integration's notice replaces the flat "failed to load" line; the
-       ;; launcher still belongs beside it, since composing a portrait is the
-       ;; other way to fill this slot.
-       [image-field-notice image-url image-url-failed
-        (get image-bytes image-url) (get server-reach image-url) set-image-url]
-       [portrait5e/launcher-button]]]
+     [:div.m-t-30
+      [:span.personality-label.f-s-18 "Picture"]
+      [:div.flex.align-items-c
+       (when image-url
+         ;; hidden: keeps the link's load checks running, which the thumbnail's own <img> does not
+         [:img {:style {:display "none"} :src image-url
+                             :on-error (image-error :failed-loading-image image-url)
+                             :on-load (image-load :loaded-image image-url)}])
+       [portrait5e/thumbnail (char5e/portrait built-char) image-url true]
+       [:button.form-button {:type "button" :on-click #(dispatch [:portrait/open])}
+        "Change picture"]]]
      [:div.field
       [:span.personality-label.f-s-18 "Faction Name"]
       [character-input entity-values ::char5e/faction-name]]
@@ -2667,7 +2373,7 @@
                      "Illegal")))]]
           (when (not al-legal?)
             [:span.m-l-10.f-s-14
-             [expand-button "hide reasons" "show reasons" expanded?]])]
+             [comps/expand-button "hide reasons" "show reasons" expanded?]])]
          (when (and @expanded?
                   (not al-legal?))
            [:div.i.red.m-t-5
@@ -2721,7 +2427,7 @@
     [:div.pointer.setting-toggle
      (merge {:on-click toggle-theme}
             (views5e/switch-attrs (= "light-theme" theme) toggle-theme))
-     [:span.m-r-5 (comps/checkbox (= "light-theme" theme) false)]
+     [:span.m-r-5 (comps/checkbox-mark (= "light-theme" theme) false)]
      [:span.main-text-color "Light Theme"]]))
 
 (defn button-text-toggle
@@ -2734,7 +2440,7 @@
       (let [toggle #(dispatch [:toggle-dark-button-text])]
         [:div.pointer.setting-toggle.m-l-20
          (merge {:on-click toggle} (views5e/switch-attrs on? toggle))
-         [:span.m-r-5 (comps/checkbox on? false)]
+         [:span.m-r-5 (comps/checkbox-mark on? false)]
          [:span.main-text-color "Dark Button Text"]]))))
 
 (defn set-loading []
@@ -2840,7 +2546,7 @@
     (when print-enabled? (print-char built-char))
     (when (not character-changed?) (js/window.scrollTo 0,0)) ;//Force a scroll to top of page only if we are not editing.
     [:<>
-     [portrait5e/drawer]
+     [portrait5e/drawer [image-link-field "Image address (URL)"]]
      [views5e/content-page
      "Character Builder"
      (vec
@@ -2883,7 +2589,7 @@
            :on-click (load-character-page (:db/id character))})
         {:title "Export"
          :icon "download"
-         :on-click (views5e/make-print-handler (:db/id character) built-char)}]))
+         :on-click (pdf-options/make-print-handler (:db/id character) true)}]))
      [:div
       [:div.container
        [:div.content
@@ -2906,4 +2612,4 @@
         ;; Held while another tab edits this character: nothing here takes input until Edit here.
         [:div.flex.w-100-p (when @(subscribe [::char5e/draft-held]) {:class "builder-held" :inert ""})
          [builder-columns]]]]]
-     :subheader (when character-id [integrations/share-line character-id])]]))
+     :subheader (when character-id [share-view/share-line character-id])]]))

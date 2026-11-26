@@ -25,14 +25,15 @@
 ;; The clones made at export copy the master's fields, so fixing the master
 ;; fixes every generated page with it.
 
-(require '[orcpub.pdf :as pdf]
-         '[clojure.java.io :as io])
-(import '[org.apache.pdfbox Loader]
-        '[org.apache.pdfbox.cos COSName]
-        '[org.apache.pdfbox.pdmodel.common PDRectangle]
-        '[org.apache.pdfbox.pdmodel.interactive.annotation PDAnnotationWidget]
-        '[org.apache.pdfbox.pdmodel.interactive.form PDTextField]
-        '[java.io File FileOutputStream])
+(ns fix-spell-row-fields
+  (:require [orcpub.pdf :as pdf]
+            [clojure.java.io :as io])
+  (:import [org.apache.pdfbox Loader]
+           [org.apache.pdfbox.cos COSName]
+           [org.apache.pdfbox.pdmodel.common PDRectangle]
+           [org.apache.pdfbox.pdmodel.interactive.annotation PDAnnotationWidget]
+           [org.apache.pdfbox.pdmodel.interactive.form PDTextField]
+           [java.io File FileOutputStream]))
 
 (declare add-row!*)
 

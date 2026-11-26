@@ -6,6 +6,8 @@
             [clojure.java.io :as io]
             [orcpub.common :as common]
             [orcpub.pdf :as pdf]
+            [orcpub.pdf.draw :as draw]
+            [orcpub.dnd.e5.spell-print :as sp]
             [orcpub.routes :as routes]
             [orcpub.spellbook :as sb]
             [orcpub.dnd.e5.emblems :as emblems]
@@ -83,7 +85,7 @@
 
 (deftest pact-slots-serve-every-level
   (with-open [doc (PDDocument.)]
-    (let [us (sb/units (pdf/load-fonts doc) (pdf/make-image-loader doc)
+    (let [us (sb/units (draw/load-fonts doc) (draw/make-image-loader doc)
                        {:classes [{:class "Warlock" :class-kw :warlock :level 5 :pact? true :icon "warlock-eye"}]
                         :slots {} :pact-slots {3 2} :layout :book :order :level :tabs :head}
                        {:all [{:key (common/name-to-kw "Charm Person") :class "Warlock"}
@@ -98,7 +100,7 @@
 
 (deftest the-slot-pool-wraps
   (with-open [doc (PDDocument.)]
-    (let [pool #(first (sb/units (pdf/load-fonts doc) (pdf/make-image-loader doc)
+    (let [pool #(first (sb/units (draw/load-fonts doc) (draw/make-image-loader doc)
                                  {:classes [{:class "Wizard" :class-kw :wizard :level 20 :icon "spell-book"}]
                                   :slots % :pact-slots {} :layout :prep :order :level :tabs :head}
                                  {:all [{:key (common/name-to-kw "Shield") :class "Wizard"}]}
@@ -109,9 +111,9 @@
 
 (deftest abbreviations-and-summaries
   (testing "reaction is not read as re- plus action, on the cards or here"
-    (is (= "1 React." (pdf/abbreviate-casting-time "1 reaction")))
-    (is (= "1 B.A." (pdf/abbreviate-casting-time "1 bonus action")))
-    (is (= "1 Act." (pdf/abbreviate-casting-time "1 action"))))
+    (is (= "1 React." (sp/abbreviate-casting-time "1 reaction")))
+    (is (= "1 B.A." (sp/abbreviate-casting-time "1 bonus action")))
+    (is (= "1 Act." (sp/abbreviate-casting-time "1 action"))))
   (testing "a summary never opens on a list bullet"
     (is (not (str/starts-with? (sb/summary (spell "Wish")) "\u00B7")))))
 
@@ -155,7 +157,7 @@
                           (group-by :level))
         out (ByteArrayOutputStream.)]
     (with-open [doc (PDDocument.)]
-      (let [n (sb/add-spellbook! doc (pdf/load-fonts doc) (pdf/make-image-loader doc)
+      (let [n (sb/add-spellbook! doc (draw/load-fonts doc) (draw/make-image-loader doc)
                                  (merge {:classes [{:class "Cleric" :class-kw :cleric :level 5 :ability "Wisdom"
                                                     :dc 15 :attack "+7" :icon "holy-symbol"}
                                                    {:class "Wizard" :class-kw :wizard :level 6 :ability "Intelligence"

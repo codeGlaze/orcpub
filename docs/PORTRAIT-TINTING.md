@@ -1,8 +1,8 @@
 # Tinting portrait line art
 
 How the character's colours get onto the illustrator's drawing, and why each
-step is the way it is. Everything here was settled by rendering the real art and
-looking, not by argument; the tests named at the end are what keep it settled.
+step is the way it is. Each step was checked by rendering the real art; the tests named at
+the end keep it that way.
 
 Nothing in here is AI image generation. Every asset is drawn by hand. The
 compositor's whole job is to recolour authored line art without damaging it.
@@ -109,6 +109,13 @@ very little mean and costs spread quickly; dropping the gamma below ~0.4 starts
 to look harsh. Both numbers are tuned to art with near-black irises and should
 be re-measured if a second illustrator's work comes in with lighter ones.
 
+**The lips need the opposite gamma.** They are colorized too, since an asset that
+names a conditional slot is colorized, but they are drawn light: 75% of the lipped
+mouth sits above the ramp's midpoint. A gamma below 1 washes them out, so they
+take 2.2 to pull them down into the colour. One value cannot serve both ends of
+the tonal range, so `tint-gamma` picks by slot and an asset can set its own
+`:asset/gamma`.
+
 ## Colour slot presets
 
 The eye slot is the one that needed the most saturation: at portrait size an
@@ -120,11 +127,10 @@ moves, because skin is the slot where a boost reads as sunburn.
 ## Hair streaks follow the drawn strands
 
 The ombré's Streaks setting moves where the tip colour starts, strand by
-strand. It was first a wave of horizontal position only, so every streak was
-a vertical stripe. On long straight hair that passed, but on the short cut,
-which is swept and curled all over, it read as paint on glass.
+strand. A wave of horizontal position alone makes every streak a vertical stripe, which
+reads as paint on glass on the short cut, where the hair is swept and curled all over.
 
-**Reversal:** streaks are no longer a function of x alone. `strand-field` in
+**Streak direction:** streaks are not a function of x alone. `strand-field` in
 `portrait_effects.cljc` reads the strand direction from the linework (the
 smoothed structure tensor of the ink; the lines run along the strands). It
 points that direction away from the crown and falls back to "outward from the
@@ -173,9 +179,8 @@ for hair), so the share card, the builder and the PDF draw them identically.
   field read as salt drying on cloth, and one ellipse across the whole head
   arched over every piece like a halo. Each piece takes its own ring.
   The ring sits the same depth below every piece's top, set by the Shine at
-  slider (default 0.3, chosen on the purple short cut). It used to sit 22% of
-  each piece's own length down, which put a long piece's ring by the ear and
-  well below the fringe's.
+  slider (default 0.3). A ring set as a share of each piece's own length would put a
+  long piece's ring by the ear, well below the fringe's.
 - **Split:** the tips colour on one side of a line down through the crown.
   The line and its wobble are measured on the frame, the same for every
   piece. Each piece's own measure put the line somewhere different on each

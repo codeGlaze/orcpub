@@ -1277,6 +1277,24 @@
     (is (= {:armor-profs [[:heavy false] [:medium true]]}
            (orcbrew-val/strip-export-blanks {:armor-profs [[:heavy false] [:medium true]]})))))
 
+(deftest strip-export-blanks-keeps-false-proficiency-flags
+  ;; In :profs :armor/:weapon/:tool, false means "proficient even when multiclassing"
+  ;; (docs/kb/class-proficiency-flags.md); dropping it would take the proficiency away.
+  (let [cls {:name "Warrior"
+             :profs {:armor {:light false :medium false :heavy true :shields false}
+                     :weapon {:simple false :martial false}
+                     :tool {:smiths-tools false :gone nil}
+                     :save {:orcpub.dnd.e5.character/str true :orcpub.dnd.e5.character/int false}}
+             :props {:flag false}}]
+    (is (= {:name "Warrior"
+            :profs {:armor {:light false :medium false :heavy true :shields false}
+                    :weapon {:simple false :martial false}
+                    :tool {:smiths-tools false}
+                    :save {:orcpub.dnd.e5.character/str true}}}
+           (orcbrew-val/strip-export-blanks cls)))
+    (testing "an armor map holding only nil still goes"
+      (is (= {:name "X"} (orcbrew-val/strip-export-blanks {:name "X" :profs {:armor {:light nil}}}))))))
+
 (deftest strip-export-blanks-roundtrip-safe
   (testing "the toggle false-cruft is removed, real proficiencies kept, still valid"
     (let [plugin (read-string
@@ -1588,15 +1606,23 @@
              (get-in (import! "{:orcpub.dnd.e5/feats {:tough {:key :tough :name \"Tough\"}}}")
                      [:data :orcpub.dnd.e5/feats :tough :option-pack]))))))
 
-(deftest import-mends-card-lists-and-keys-instead-of-crashing
-  (let [result (orcbrew-val/validate-import
-                "{\"P\" {:orcpub.dnd.e5/classes {:x {:key \"text\" :option-pack \"P\" :name \"X\" :traits [42 \"Darkvision\"]}}}}"
-                {:strategy :progressive :auto-clean true})]
-    (is (:success result) "it threw: No protocol method IAssociative.-assoc defined for type number")
-    (is (= :x (get-in result [:data "P" :orcpub.dnd.e5/classes :x :key])))
-    (is (= "Darkvision" (get-in result [:data "P" :orcpub.dnd.e5/classes :x :traits 0 :name])))
-    (is (some #(re-find #"Repaired 1 damaged entry" %)
-              (map #(if (map? %) (:text %) %) (:details (orcbrew-val/format-import-result result)))))))
+(deftest import-fixes-cards-and-keys-and-keeps-what-it-cannot-read-instead-of-crashing
+  (testing "a text key and a trait listed by name are fixed, and the import log says so"
+    (let [result (orcbrew-val/validate-import
+                  "{\"P\" {:orcpub.dnd.e5/classes {:x {:key \"text\" :option-pack \"P\" :name \"X\" :traits [\"Darkvision\"]}}}}"
+                  {:strategy :progressive :auto-clean true})]
+      (is (:success result) "it threw: No protocol method IAssociative.-assoc defined for type number")
+      (is (= :x (get-in result [:data "P" :orcpub.dnd.e5/classes :x :key])))
+      (is (= "Darkvision" (get-in result [:data "P" :orcpub.dnd.e5/classes :x :traits 0 :name])))
+      (is (some #(re-find #"Fixed traits 0 of Class :x" (str (:description %))) (:changes result)))))
+  (testing "a trait that cannot be read: the entry stays as written, to be set aside when stored"
+    (let [result (orcbrew-val/validate-import
+                  "{\"P\" {:orcpub.dnd.e5/classes {:x {:key \"text\" :option-pack \"P\" :name \"X\" :traits [42 \"Darkvision\"]}}}}"
+                  {:strategy :progressive :auto-clean true})]
+      (is (:success result))
+      (is (= [42 "Darkvision"] (get-in result [:data "P" :orcpub.dnd.e5/classes :x :traits])))
+      (is (some #(re-find #"could not be read, so it will be set aside" (str (:description %)))
+                (:changes result))))))
 
 (deftest import-of-a-source-that-is-not-a-map-does-not-crash
   (doseq [text ["{\"P\" 42}" "{\"P\" :kw}" "{\"P\" \"text\"}"]]

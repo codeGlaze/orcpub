@@ -1,0 +1,6 @@
+;; Written by orcpub's geometry characterization tests: sheet widgets
+;; A diff here is drawing moving. Read it before committing it.
+[{:style 1, :widgets 549, :sha "c39392ddd533"}
+ {:style 2, :widgets 457, :sha "74a91d0796f4"}
+ {:style 3, :widgets 457, :sha "2e32b09b9eac"}
+ {:style 4, :widgets 461, :sha "d462c9b0225f"}]

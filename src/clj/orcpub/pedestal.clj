@@ -1,16 +1,20 @@
 (ns orcpub.pedestal
   (:require [com.stuartsierra.component :as component]
-            [io.pedestal.http :as http]
+            [clojure.java.io :as io]
+            [io.pedestal.connector :as http]
+            [io.pedestal.http.jetty :as jetty]
             [io.pedestal.interceptor :as interceptor]
             [io.pedestal.log :as log]
+            [io.pedestal.response-mime :as response-mime]
             [pandect.algo.sha1 :refer [sha1]]
             [datomic.api :as d]
             [clojure.string :as s]
             [java-time.api :as t]
             [orcpub.csp :as csp]
             [orcpub.config :as config]
+            [orcpub.startup-email :as startup-email]
             [orcpub.fork.integrations :as integrations])
-  (:import [java.io File]
+  (:import [java.io Closeable File]
            [java.time.format DateTimeFormatter]
            [java.util Locale]))
 
@@ -72,11 +76,96 @@
                            ;; branch is unreachable in dev mode.
                            :dev-mode? false
                            :extra-connect-src (:connect-src integrations/csp-domains)
-                           :extra-frame-src (:frame-src integrations/csp-domains)))
+                           :extra-frame-src (cond-> (vec (:frame-src integrations/csp-domains))
+                                              (config/turnstile-enabled?)
+                                              (conj config/turnstile-origin))))
                ctx))}))
 
 ;; Create the nonce interceptor with current dev-mode? setting
 (def nonce-interceptor (make-nonce-interceptor (config/dev-mode?)))
+
+(def referrer-policy-interceptor
+  "Sets Referrer-Policy: strict-origin-when-cross-origin on every response that has not set its own,
+   so a site this one links to sees only its domain. A handler's own policy wins (the
+   password-reset page sends no-referrer)."
+  (interceptor/interceptor
+   {:name :referrer-policy
+    :leave (fn [ctx]
+             (if (get-in ctx [:response :headers "Referrer-Policy"])
+               ctx
+               (assoc-in ctx [:response :headers "Referrer-Policy"] "strict-origin-when-cross-origin")))}))
+
+(defn- headers-without-body
+  "`response` with no body: its headers kept, a Content-Type added from the body as Pedestal
+   would (response-mime/default) when it has none, and a Closeable body (a resource stream) closed."
+  [{:keys [body] :as response}]
+  (when (instance? Closeable body) (.close ^Closeable body))
+  (let [ctype (when-not (get-in response [:headers "Content-Type"]) (response-mime/default body))]
+    (cond-> (assoc response :body nil)
+      ctype (assoc-in [:headers "Content-Type"] ctype))))
+
+(def head-as-get-interceptor
+  "Answers a HEAD request as the GET of the same path, without the body: on enter it routes the
+   request as a GET, on leave it drops the body (headers-without-body) and keeps every header.
+   Routes declare only GET, so without it HEAD finds no route and answers 404."
+  (interceptor/interceptor
+   {:name :head-as-get
+    :enter (fn [ctx]
+             (if (= :head (get-in ctx [:request :request-method]))
+               (-> ctx (assoc-in [:request :request-method] :get) (assoc ::head? true))
+               ctx))
+    :leave (fn [ctx]
+             (if (and (::head? ctx) (:response ctx))
+               (update ctx :response headers-without-body)
+               ctx))}))
+
+(defn- read-content-stamp
+  "The first 12 hex digits of the SHA-1 of the public resource at `path`, or nil when it is missing."
+  [path]
+  (when-let [r (io/resource (str "public" path))]
+    (with-open [in (io/input-stream r)] (subs (sha1 in) 0 12))))
+
+(def content-stamp
+  "The content stamp of public file `path` (read-content-stamp), remembered: files do not change
+   while the server runs. index/asset-url puts it in addresses as ?v=."
+  (memoize read-content-stamp))
+
+(defn static-cache-control
+  "The Cache-Control for a static file response at `uri`, or nil to leave the response alone.
+   `stamp` is :current when the request's ?v= is this file's content stamp (kept a year: that
+   address names exactly this file), :stale when it names another build (rechecked), else nil.
+   Unstamped compiled files are rechecked every time; images, fonts and vendored assets kept a week."
+  [uri stamp]
+  (cond
+    (and (= :current stamp) (re-find #"^/(js|css)/" uri)) "public, max-age=31536000, immutable"
+    (and (= :stale stamp) (re-find #"^/(js|css)/" uri))   "no-cache"
+    (re-find #"^/(js|css)/compiled/" uri)       "no-cache"
+    (re-find #"^/(image|fonts|assets|favicon)/" uri) "public, max-age=604800"
+    (re-find #"^/(js|css)/[^/]+$" uri)          "public, max-age=86400"))
+
+(defn make-static-cache-interceptor
+  "Interceptor that sets Cache-Control (static-cache-control) on a successful GET of a static file
+   whose response sets none. In `dev-mode?` only /js/ and /css/ files get \"no-cache\" (Figwheel
+   rewrites them, and a browser must recheck rather than guess how long a copy stays good); the
+   production rules are untouched.
+   GOTCHA: Pedestal's static files answer ahead of every route, so this must be FIRST in the chain
+   (system/with-static-caching) for its :leave to see them."
+  [dev-mode?]
+  (interceptor/interceptor
+   {:name ::static-cache
+    :leave (fn [ctx]
+             (let [{:keys [request-method uri query-string]} (:request ctx)
+                   {:keys [status headers]} (:response ctx)
+                   cc (when (and (= :get request-method) (= 200 status)
+                                 (not (get headers "Cache-Control")))
+                        (if dev-mode?
+                          (when (re-find #"^/(js|css)/" (str uri)) "no-cache")
+                          (static-cache-control (str uri)
+                                                (when-let [v (some->> query-string (re-find #"(?:^|&)v=([^&]*)") second)]
+                                                  (if (= v (content-stamp uri)) :current :stale)))))]
+               (cond-> ctx cc (assoc-in [:response :headers "Cache-Control"] cc))))}))
+
+(def static-cache-interceptor (make-static-cache-interceptor (config/dev-mode?)))
 
 (def etag-interceptor
   (interceptor/interceptor
@@ -108,20 +197,50 @@
                 (log/error :msg "ETag interceptor error" :exception t)
                 context)))}))
 
+(defn- boot-report!
+  "Prints the boot banner for the Jetty `server` (config/print-report! reads its thread pool), then
+   checks the startup email on its own thread (`startup-email/check!`), so the server never waits
+   on it. Returns nil."
+  [server]
+  (config/print-report! server)
+  (future (startup-email/check!))
+  nil)
+
 (defn- arm-boot-report!
-  "Print the boot banner when Jetty reports itself started.
+  "Print the boot banner when the Jetty `server` reports itself started. Returns nil.
 
    Best effort: if the listener cannot be attached -- a different container, a Jetty API
    change -- print immediately rather than lose the banner, since a missing report is worse
    than one a few milliseconds early."
-  [created]
-  (let [server (get created ::http/server)]
-    (try
-      (.addEventListener
-       ^org.eclipse.jetty.util.component.LifeCycle server
-       (reify org.eclipse.jetty.util.component.LifeCycle$Listener
-         (lifeCycleStarted [_ _] (config/print-report! created))))
-      (catch Throwable _ (config/print-report! created)))))
+  [server]
+  (try
+    (.addEventListener
+     ^org.eclipse.jetty.util.component.LifeCycle server
+     (reify org.eclipse.jetty.util.component.LifeCycle$Listener
+       (lifeCycleStarted [_ _] (boot-report! server))))
+    (catch Throwable _ (boot-report! server)))
+  nil)
+
+(defn- delivering-server
+  "`container-options` with a Jetty :configurator that delivers the configured Jetty Server to the
+   promise `server`, then runs the configurator already there, if any. Returns the updated options.
+   The connector does not expose its Server; this is how the boot banner reaches it."
+  [container-options server]
+  (update container-options :configurator
+          (fn [configure]
+            (fn [jetty-server]
+              (deliver server jetty-server)
+              ((or configure identity) jetty-server)))))
+
+(defn connector-map
+  "`service-map` (system.clj's connector map) ready for jetty/create-connector: the nonce, db and
+   ETag interceptors appended after the rest, and a configurator that delivers the Jetty Server to
+   the promise `server`. `conn` is the Datomic component. Returns the map."
+  [service-map conn server]
+  (-> service-map
+      ;; nonce-interceptor first: runs last in :leave phase (sets CSP header after response built)
+      (update :interceptors conj nonce-interceptor (db-interceptor conn) etag-interceptor)
+      (update :container-options delivering-server server)))
 
 (defrecord Pedestal [service-map conn service]
   component/Lifecycle
@@ -129,21 +248,20 @@
   (start [this]
     (if service
       this
-      (cond-> service-map
-        ;; nonce-interceptor first: runs last in :leave phase (sets CSP header after response built)
-        true (update ::http/interceptors conj nonce-interceptor (db-interceptor conn) etag-interceptor)
-        true http/create-server
-        ;; Arm the banner here, fire it when Jetty says it is up. It cannot go after
-        ;; http/start -- that BLOCKS in prod, where join? defaults true, so the first
-        ;; version printed nothing in the one configuration it exists for -- and printing
-        ;; before start would call it "started" while it is not yet listening.
-        (not (test? service-map)) (doto arm-boot-report!)
-        (not (test? service-map)) http/start
-        true ((partial assoc this :service)))))
+      (let [server (promise)
+            _ (log/maybe-init-java-util-log)
+            connector (jetty/create-connector (connector-map service-map conn server) {})]
+        (when-not (test? service-map)
+          ;; Arm the banner here, fire it when Jetty says it is up. It cannot go after
+          ;; http/start! -- that BLOCKS in prod, where join? is true -- and printing
+          ;; before start would call it "started" while it is not yet listening.
+          (arm-boot-report! @server)
+          (http/start! connector))
+        (assoc this :service connector))))
 
   (stop [this]
     (when (and service (not (test? service-map)))
-      (http/stop service))
+      (http/stop! service))
     (assoc this :service nil)))
 
 (defn new-pedestal

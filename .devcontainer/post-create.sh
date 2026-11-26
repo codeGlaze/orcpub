@@ -15,12 +15,10 @@ set -euo pipefail
 
 # Source .env from repo root if present (authoritative config)
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-if [ -f "$REPO_ROOT/.env" ]; then
-  set -a
-  # shellcheck disable=SC1090
-  . "$REPO_ROOT/.env"
-  set +a
-fi
+# Read, never run: scripts/load-env.sh.
+# shellcheck source=scripts/load-env.sh
+. "$REPO_ROOT/scripts/load-env.sh"
+load_env "$REPO_ROOT/.env"
 
 # Redirect all output to persistent logs for visibility during Codespace creation
 LOG="/tmp/orcpub-post-create.log"
@@ -45,8 +43,8 @@ log "Starting postCreateCommand... (logging to $LOG and $WORKSPACE_LOG)"
 
 # Configuration with defaults
 DATOMIC_TYPE="${DATOMIC_TYPE:-pro}"
-RAW_DATOMIC_VERSION="${DATOMIC_VERSION:-1.0.7482}"
-# basename in case a path was provided (e.g., /tmp/datomic-pro-1.0.7482.zip)
+RAW_DATOMIC_VERSION="${DATOMIC_VERSION:-1.0.7745}"
+# basename in case a path was provided (e.g., /tmp/datomic-pro-1.0.7745.zip)
 RAW_DATOMIC_VERSION="$(basename "$RAW_DATOMIC_VERSION")"
 # strip leading prefix and trailing .zip if present
 DATOMIC_VERSION="${RAW_DATOMIC_VERSION#datomic-${DATOMIC_TYPE}-}"

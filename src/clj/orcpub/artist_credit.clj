@@ -20,10 +20,15 @@
    way out, so a value written by some older or buggier version still cannot
    put a javascript: link or an arbitrary colour on the page."
   (:require [clojure.edn :as edn]
+            [charred.api :as cheshire]
             [clojure.string :as s]
             [datomic.api :as d]
-            [orcpub.fork.branding :as branding]
+            [orcpub.env :as env]
             [orcpub.artist-links :as links]
+            [clj-http.client :as client]
+            [orcpub.config :as config]
+            [orcpub.bounded-cache :as bounded-cache]
+            [orcpub.heartbeat :as heartbeat]
             [orcpub.dnd.e5.portrait-assets :as pa]))
 
 ;; ---------------------------------------------------------------------------
@@ -40,12 +45,72 @@
 (def ^:private link-entry links/link-entry)
 (def ^:private clean-name links/clean-name)
 
+(def page-switches
+  "The parts of their page an artist can switch off, as {edit key credit key}. Stored only when
+   off, so a credit without one shows that part."
+  {:profile? :artist/profile?
+   :show-examples? :artist/show-examples?
+   :show-links? :artist/show-links?
+   :show-count? :artist/show-count?})
+
+(defn- switched-off
+  "{credit key false} for every page switch `m` (keyed by `key-of` each switch) turns off."
+  [m key-of]
+  (into {} (for [[edit-k credit-k] page-switches :when (false? (get m (key-of [edit-k credit-k])))]
+             [credit-k false])))
+
+(defn artist-override
+  "One artist's credit `fields` from PORTRAIT_ARTISTS (:name :link :links :license, and the page
+   switches :profile :show_examples :show_links :show_count, kept only when false) as overrides.
+   Links pass artist-links/url-problem, the check an artist's own edits pass; a link's icon and
+   colour come from its address (artist-links/link-entry), never from the setting. A switch can
+   only turn a page or its part off. Returns the map."
+  [fields]
+  (let [ok-url (fn [u] (if (links/url-problem u)
+                         (do (env/warn! :portrait-artists u (links/url-problem u)) nil)
+                         (s/trim (str u))))
+        link (some-> (:link fields) ok-url)
+        extra (vec (for [l (:links fields)
+                         :let [u (ok-url (:url l))] :when u]
+                     (cond-> (links/link-entry u)
+                       (string? (:label l)) (assoc :link/label (:label l)))))]
+    (cond-> {}
+      (string? (:name fields))    (assoc :artist/name (:name fields))
+      link                        (assoc :artist/link link)
+      (seq extra)                 (assoc :artist/links extra)
+      (string? (:license fields)) (assoc :artist/license (:license fields))
+      true (merge (into {} (for [[k ck] {:profile :artist/profile? :show_examples :artist/show-examples?
+                                         :show_links :artist/show-links? :show_count :artist/show-count?}
+                                 :when (false? (get fields k))]
+                             [ck false]))))))
+
+(def portrait-artists
+  "Deployment overrides for portrait artist credits, {artist-id {:artist/name :artist/link
+   :artist/links :artist/license}}, from PORTRAIT_ARTISTS: JSON keyed by artist id, e.g.
+   {\"house-pack\": {\"name\": \"Someone\", \"link\": \"https://...\"}}. Which artist drew
+   which asset is not overridable. See PORTRAIT-COMPOSITOR.md, \"Deployment overrides\".
+   A value that does not parse is ignored with a warning."
+  (or (when-let [raw (not-empty (env/value :portrait-artists))]
+        (try
+          (into {}
+                (for [[id fields] (cheshire/read-json raw :key-fn keyword)]
+                  [(keyword (name id)) (artist-override fields)]))
+          (catch Exception e
+            (println "branding: PORTRAIT_ARTISTS ignored --" (.getMessage e))
+            nil)))
+      {}))
+
+;; Apply them server-side at load. The client gets the same map through
+;; client-config and applies it itself, so the share card (rendered here) and
+;; the sheet (rendered in the browser) always name the same person.
+(pa/set-artist-overrides! portrait-artists)
+
 (defn check
   "Validate an edit submitted from the settings page:
-     {:name \"..\" :link \"..\" :links [{:url \"..\"}]}
-   Each link's icon is worked out from its address.
-   Returns {:credit <clean stored form>} or {:errors {field message}}.
-   A blank name or link means \"use the default\"."
+     {:name \"..\" :link \"..\" :links [{:url \"..\"}] :profile? :show-examples? ..}
+   Each link's icon is worked out from its address. Returns {:credit <clean stored form>} or
+   {:errors {field message}}. A blank name or link means \"use the default\"; a page switch is
+   kept only when false."
   [{:keys [name link links] :as edit}]
   (let [errors (links/edit-errors edit)
         nm (clean-name name)
@@ -53,7 +118,7 @@
         urls (->> links (map #(some-> (:url %) str s/trim)) (remove s/blank?))]
     (if (seq errors)
       {:errors errors}
-      {:credit (cond-> {}
+      {:credit (cond-> (switched-off edit first)
                  nm (assoc :artist/name nm)
                  link (assoc :artist/link link)
                  (seq urls) (assoc :artist/links (mapv link-entry urls)))})))
@@ -72,7 +137,7 @@
                        (filter #(and (string? %) (nil? (url-problem %))))
                        (take max-links))]
         (not-empty
-         (cond-> {}
+         (cond-> (switched-off m second)
            (and nm (<= (count nm) max-name-length)) (assoc :artist/name nm)
            (and (string? link) (nil? (url-problem link))) (assoc :artist/link link)
            ;; icons re-derived from the links, whatever was stored
@@ -98,9 +163,13 @@
             [a credit]))))
 
 (defn effective
-  "Artist edits under deployment config, field by field."
+  "Artist edits under deployment config, field by field; except that either one turning an
+   artist's page off (:artist/profile? false) keeps it off."
   [edits config]
-  (merge-with merge edits config))
+  (reduce-kv (fn [m artist-id e]
+               (cond-> m (false? (:artist/profile? e)) (assoc-in [artist-id :artist/profile?] false)))
+             (merge-with merge edits config)
+             edits))
 
 (defonce ^:private applied-t (atom nil))
 
@@ -113,7 +182,7 @@
   [db]
   (let [t [(:id db) (d/basis-t db)]]
     (when (not= t @applied-t)
-      (pa/set-artist-overrides! (effective (db-edits db) branding/portrait-artists))
+      (pa/set-artist-overrides! (effective (db-edits db) portrait-artists))
       (reset! applied-t t))))
 
 ;; ---------------------------------------------------------------------------
@@ -121,24 +190,47 @@
 ;; ---------------------------------------------------------------------------
 
 (defn credit-for-account
-  "What the settings page shows an artist: {:current <what the site shows>
-   :own <their saved edits> :locked #{fields the config decides}}."
+  "What the settings page shows an artist: {:current <what the site shows> :own <their saved edits>
+   :locked #{fields the config decides}}. A page switch is locked only when the config turns it
+   off: the config cannot force a page on (`effective`)."
   [db user-id]
   (let [{:orcpub.user/keys [artist artist-credit]}
         (d/pull db [:orcpub.user/artist :orcpub.user/artist-credit] user-id)]
     (when artist
       (let [own (some-> artist-credit read-stored)
-            config (get branding/portrait-artists artist)
+            config (get portrait-artists artist)
             base (some #(when (= artist (:artist/id %)) %) pa/registry)]
         {:artist-id artist
          :default (select-keys base [:artist/name :artist/link :artist/links])
-         :current (merge base own config)
+         :current (get (effective {artist (merge base own)} {artist config}) artist)
          :own own
-         :locked (set (keys config))}))))
+         :locked (set (remove #(and (contains? (set (vals page-switches)) %) (not (false? (get config %))))
+                              (keys config)))}))))
+
+(def save-cap
+  "Changes an account may save in an hour: generous for an artist, a wall against a script."
+  60)
+
+(def ^:private recent-saves
+  "When each account saved its changes in the last hour (ms), by [connection account]."
+  (bounded-cache/cache {:max-entries 1024 :max-age-ms (* 60 60 1000)}))
+
+(defn- saves-this-hour
+  "The times (ms) account `user-id` on `conn` saved a change in the hour before `now` (ms)."
+  [conn user-id now]
+  (filterv #(> % (- now 3600000)) (some-> (bounded-cache/lookup recent-saves [conn user-id]) first)))
+
+(defn- wait-secs
+  "Whole seconds until a save at `now` (ms) is allowed after the hour's saves `times`, or nil when
+   fewer than `save-cap` were made."
+  [times now]
+  (when (>= (count times) save-cap)
+    (long (Math/ceil (/ (- (+ (apply min times) 3600000) now) 1000.0)))))
 
 (defn save!
-  "Save `edit` as the credit for the artist `user-id` speaks for. Returns
-   {:errors ..}, {:unchanged true}, or {:saved credit :before old :artist-id id}."
+  "Save `edit` as the credit for the artist `user-id` speaks for. Returns {:errors ..},
+   {:unchanged true}, {:wait seconds} when the account has saved `save-cap` changes this hour, or
+   {:saved credit :before old :artist-id id}."
   [conn user-id edit]
   (let [db (d/db conn)
         {:orcpub.user/keys [artist artist-credit]}
@@ -146,13 +238,165 @@
     (if-not artist
       {:errors {:account "This account isn't an artist account"}}
       (let [{:keys [errors credit]} (check edit)
-            before (some-> artist-credit read-stored)]
+            before (some-> artist-credit read-stored)
+            now (.getTime ^java.util.Date (heartbeat/now))
+            times (saves-this-hour conn user-id now)]
         (cond
           errors {:errors errors}
           (= (not-empty credit) before) {:unchanged true}
+          (wait-secs times now) {:wait (wait-secs times now)}
           :else
           (do @(d/transact conn [(if (seq credit)
                                    {:db/id user-id :orcpub.user/artist-credit (pr-str credit)}
                                    [:db/retract user-id :orcpub.user/artist-credit artist-credit])])
+              (bounded-cache/put! recent-saves [conn user-id] (conj times now))
               (refresh! (d/db conn))
               {:saved credit :before before :artist-id artist}))))))
+
+;; ---------------------------------------------------------------------------
+;; Twitch live check: GET /api/twitch/live?login=<login>, for the Live dot on an artist's Twitch
+;; button. Only logins in a listed artist's Twitch link reach Twitch; off unless both Twitch
+;; keys are set (config/twitch-enabled?).
+
+(def ^:private token-url "https://id.twitch.tv/oauth2/token")
+(def ^:private streams-url "https://api.twitch.tv/helix/streams")
+
+(def ^:private timeout-ms 3000)
+
+(def answer-ttl-ms
+  "How long one login's answer, failures included, is kept before Twitch is asked again."
+  (* 2 60 1000))
+
+(def ^:private token-margin-ms
+  "The token is dropped this long before Twitch says it expires."
+  60000)
+
+(defonce ^:private token-cache (atom nil))
+(defonce ^:private answer-cache
+  ;; One lookup per login at a time: concurrent requests wait for it (bounded-cache/fetch!).
+  (bounded-cache/cache {:max-entries 256 :max-age-ms answer-ttl-ms}))
+
+(def ^:dynamic *twitch-http*
+  "The function that talks to Twitch: (f method url opts) returns clj-http's response map with
+   :throw-exceptions false. Tests rebind it so they never reach Twitch."
+  (fn [method url opts]
+    (client/request (assoc opts :method method :url url))))
+
+(defn- now-ms
+  "The current time in milliseconds."
+  []
+  (System/currentTimeMillis))
+
+(defn- parse-json
+  "`text` read as JSON with keyword keys, or nil when it is not JSON."
+  [text]
+  (try (cheshire/read-json (str text) :key-fn keyword) (catch Exception _ nil)))
+
+(defn- fetch-token!
+  "Asks Twitch for an app access token (client-credentials flow) and caches it until shortly before
+   it expires. Returns the token string; throws when Twitch refuses or answers without one."
+  []
+  (let [{:keys [status body]}
+        (*twitch-http* :post token-url
+                {:form-params {:client_id (config/twitch-client-id)
+                               :client_secret (config/twitch-client-secret)
+                               :grant_type "client_credentials"}
+                 :as :string
+                 :socket-timeout timeout-ms
+                 :connection-timeout timeout-ms
+                 :throw-exceptions false
+                 :cookie-policy :none
+                 :redirect-strategy :none})
+        {:keys [access_token expires_in]} (when (<= 200 status 299) (parse-json body))]
+    (when-not (string? access_token)
+      (throw (ex-info "Twitch gave no token" {:status status})))
+    (reset! token-cache {:token access_token
+                         :until (+ (now-ms) (max 0 (- (* 1000 (or expires_in 0)) token-margin-ms)))})
+    access_token))
+
+(defn- token!
+  "The cached app access token while it is still good, else a fresh one. Callers that find it
+   missing at once wait for one fetch."
+  []
+  (locking token-cache
+    (let [{:keys [token until]} @token-cache]
+      (if (and token (< (now-ms) until)) token (fetch-token!)))))
+
+(defn- streams-response
+  "One call to Twitch's streams endpoint for `login` with `token`; the response map."
+  [login token]
+  (*twitch-http* :get streams-url
+          {:query-params {:user_login login}
+           :headers {"Client-Id" (config/twitch-client-id)
+                     "Authorization" (str "Bearer " token)}
+           :as :string
+           :socket-timeout timeout-ms
+           :connection-timeout timeout-ms
+           :throw-exceptions false
+           :cookie-policy :none
+           :redirect-strategy :none}))
+
+(defn- ask-twitch
+  "True when Twitch lists a live stream for `login`. A 401 drops the cached token and retries once
+   with a new one. Throws on a network failure, a non-2xx answer or a body that is not the
+   expected JSON."
+  [login]
+  (let [resp (streams-response login (token!))
+        resp (if (= 401 (:status resp))
+               (do (reset! token-cache nil)
+                   (streams-response login (token!)))
+               resp)
+        data (:data (when (<= 200 (:status resp) 299) (parse-json (:body resp))))]
+    (when-not (sequential? data)
+      (throw (ex-info "Twitch answered without a stream list" {:status (:status resp)})))
+    (boolean (seq data))))
+
+(defn twitch-login
+  "The lower-case Twitch login a link names, or nil for a link that is not a Twitch profile."
+  [url]
+  (when (and (string? url) (= "twitch" (links/icon-for-url url)))
+    (some-> (links/handle-for-url url) (subs 1) s/lower-case)))
+
+(defn known-logins
+  "The set of Twitch logins named by listed artists' links: the registry with the credits in force
+   (pa/artist-info), plus links the overrides carry."
+  []
+  (let [artists (concat (map #(pa/artist-info (:artist/id %)) pa/registry)
+                        (vals (pa/current-overrides)))]
+    (->> artists
+         (mapcat (fn [a] (cons (:artist/link a) (map :link/url (:artist/links a)))))
+         (keep twitch-login)
+         set)))
+
+(defn twitch-live?
+  "Whether `login` is live on Twitch, as a boolean. False without calling Twitch when the feature is
+   off or `login` is not in a listed artist's Twitch link. Answers, failures too, are remembered for
+   `answer-ttl-ms`; a failure logs one warning and counts as not live."
+  [login]
+  (let [login (some-> login str s/trim s/lower-case)]
+    (cond
+      (not (config/twitch-enabled?)) false
+      (not (contains? (known-logins) login)) false
+      :else
+      (bounded-cache/fetch! answer-cache login
+                            #(try (ask-twitch login)
+                                  (catch Exception e
+                                    (println "twitch: live check failed, answering not live -"
+                                             (.. e getClass getSimpleName))
+                                    false))))))
+
+(defn reset-twitch-caches!
+  "Forgets the cached token and every cached answer. For tests."
+  []
+  (reset! token-cache nil)
+  (bounded-cache/clear! answer-cache))
+
+(defn twitch-live-route
+  "GET /api/twitch/live?login=<login>: answers {\"live\": true|false}. Never calls Twitch for a
+   login that is not in a listed artist's Twitch link."
+  [{:keys [db query-params]}]
+  (when db (refresh! db))
+  {:status 200
+   :headers {"Content-Type" "application/json; charset=utf-8"
+             "Cache-Control" "public, max-age=60"}
+   :body (cheshire/write-json-str {:live (twitch-live? (:login query-params))})})

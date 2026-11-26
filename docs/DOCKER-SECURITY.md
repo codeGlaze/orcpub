@@ -1,12 +1,13 @@
 # Docker Security Hardening
 
-Reasoning behind each security and correctness decision in the Docker
-infrastructure. For architecture and configuration reference, see `DOCKER.md`.
+How the Docker containers are locked down, and why each choice matters to you as an admin. For
+installing and running the stack, see [DOCKER.md](DOCKER.md).
 
 ## Non-Root Containers
 
-Both containers create non-root users at build time. The transactor uses an
-entrypoint-chown-drop pattern; the app uses a static `USER` directive.
+Both containers create non-root users at build time, and both use an
+entrypoint-chown-drop pattern: they start as root only long enough to give a
+mounted folder to their user, then run as that user.
 
 ### Transactor (`datomic` user) — Entrypoint-Chown-Drop
 
@@ -22,10 +23,9 @@ The transactor writes to four locations at runtime:
 **Why not `USER datomic` in the Dockerfile?** Build-time `chown` is overridden
 by Docker bind mounts (`./data:/data`, `./logs:/log`, `./backups:/backups`).
 The host directory's ownership takes over, making the container's `/log` etc.
-unwritable by the `datomic` user. This caused "Permission denied" on
-`/log/2026-02-24.log` in CI.
+unwritable by the `datomic` user, and the transactor fails with "Permission denied".
 
-**Solution:** The entrypoint-chown-drop pattern (used by official postgres,
+**The pattern used instead:** entrypoint-chown-drop (used by official postgres,
 redis, and other images):
 
 1. Container starts as root (no `USER` directive)
@@ -44,15 +44,24 @@ target command — no intermediate process, transactor becomes PID 1 as the
 
 ### App (`app` user)
 
-The app is stateless inside its container. The only runtime writes go to `/tmp`
-for temporary PDF generation (PDFBox `createTempFile`). `/tmp` is
-world-writable by default on Alpine, so no chown is needed. No bind mounts
-means the static `USER` directive works fine:
+The app keeps crash files and unsent admin alerts in `/var/log/$APP_LOGS_NAME`
+on the host (default `orcpub`). The host's `/var/log` is mounted at
+`/host-log`, because it exists on every machine and so never stops a Swarm task
+starting. The app starts as root and `deploy/app-start.sh`:
 
-```dockerfile
-RUN addgroup -S app && adduser -S -G app app
-USER app
-```
+1. checks `APP_LOGS_NAME` is a plain folder name (no `/`, no `..`), else uses
+   `orcpub`, so the folder can never be outside `/var/log`;
+2. creates that folder and its `alerts/` and `crash/`, and gives **those three
+   only** to `app`, private (`750`). It never changes ownership recursively and
+   never touches `/var/log` itself or anything else in it;
+3. checks the app can reach the folder; if the host's `/var/log` is closed to
+   other users it says so and keeps the files inside the container;
+4. runs Java as `app` with `su-exec`, so the app itself never runs as root.
+
+The cost: until step 4 the start script runs as root with the host's `/var/log`
+mounted. It is the only code that runs then, and it only does the steps above.
+
+`docker-user.sh` runs its commands in the container with `docker exec -u app`.
 
 ### Why This Matters
 
@@ -119,35 +128,24 @@ A `datomic:sql` URI carries the database password in a query parameter:
 datomic:sql://datomic?jdbc:postgresql://host:5432/datomic?user=datomic&password=hunter2
 ```
 
-The boot log used to print it verbatim, and it was also embedded in three `ex-info` maps,
-which reach logs and error reporters just as readily. Anywhere boot output is kept had the
-production password in it: terminal scrollback, container logs, a log aggregator, a
-screenshot pasted into chat.
-
-`orcpub.config/redact-secrets` blanks credentials before anything logs them, in both shapes
-they arrive in:
+The server hides the credentials it recognises before it logs them, so boot output can go to
+terminal scrollback, container logs or a log aggregator. Still read it before sharing it (a
+screenshot in a chat, a bug report): a credential in a parameter it does not recognise prints as
+written. `orcpub.config/redact-secrets` blanks them in both shapes they arrive in:
 
 | Shape | Becomes |
 |---|---|
-| `?password=` / `passwd` / `pwd` / `secret` / `token` / `api-key` | `password=****` |
+| A parameter whose name ends in `password`, `passwd`, `pwd`, `secret`, `token` or `api-key` (`password=`, `sslpassword=`) | `password=****` |
 | `scheme://user:pass@host` | `scheme://user:****@host` |
 
 Everything else is untouched, so host, port, database and user still show and the line stays
 useful for diagnosing a connection.
 
-**Two rules when adding to the boot output:**
+**If you ever find a connection string with a password in a log, rotate that password.** Hiding
+credentials protects new log lines; it does nothing about lines already written.
 
-1. Anything that might carry a credential goes through `redact-secrets` first. The startup
-   banner is the most likely place for the next leak, because it is where connection details
-   naturally get added.
-2. Redacting is not a licence to log more. Redact what must be shown; do not print a secret
-   just because it will be masked.
-
-Pinned by `test/clj/orcpub/config_redaction_test.clj`, including the exact URI shape from the
-production log, alternate parameter names, upper case, and a password containing `=` or `&`.
-
-**If a URI was ever logged unredacted, rotate the credential.** The fix stops new exposure;
-it does nothing about logs already written.
+Developers: anything that might carry a credential goes through `redact-secrets` before it is
+logged or put in an exception, and boot output should show a secret only when it must.
 
 ## Log Directory: `/log` Not `/logs`
 
@@ -163,9 +161,8 @@ volumes:
   # - ./logs:/logs  # WRONG: transactor writes to /log, /logs sits empty
 ```
 
-This mismatch went undetected because the transactor ran without errors — it
-just wrote to the ephemeral `/log` directory, and logs were silently lost on
-every container restart.
+If the mount points at `/logs`, the transactor runs without errors but writes to a folder inside
+the container, and its logs are lost on every restart.
 
 ## Dynamic PORT Across All Services
 
@@ -198,31 +195,17 @@ left untouched because they don't exist as environment variables.
 The compose files pass `ORCPUB_PORT: ${PORT:-8890}` to the web service so all
 three components track the same value from a single `.env` setting.
 
-## DATOMIC_URL Password Sync
+## Database Password in DATOMIC_URL
 
-`DATOMIC_URL` embeds the password inline:
+Keep `?password=` out of `DATOMIC_URL`. The app reads `DATOMIC_PASSWORD` and adds it to the URL
+itself, so changing the password in one place is enough: `?password=` when the URL has no query of
+its own, `&password=` when a Postgres JDBC URL already has one (`...datomic?user=datomic`). When
+`run` writes `.env`, it leaves the URL without a password.
 
-```
-datomic:dev://datomic:4334/orcpub?password=<DATOMIC_PASSWORD>
-```
-
-If a user edits `.env` and changes `DATOMIC_PASSWORD` without updating the
-password in `DATOMIC_URL`, the app connects with the wrong credential. The
-error is a cryptic Datomic authentication failure with no mention of password
-mismatch.
-
-`run` validates this in its verification section:
-
-```bash
-_env_datomic_pw=$(grep -m1 '^DATOMIC_PASSWORD=' "$ENV_FILE" | cut -d= -f2-)
-_env_datomic_url=$(grep -m1 '^DATOMIC_URL=' "$ENV_FILE" | cut -d= -f2-)
-if [[ "$_env_datomic_url" != *"password=${_env_datomic_pw}"* ]]; then
-  warn "DATOMIC_PASSWORD does not match the password in DATOMIC_URL"
-fi
-```
-
-When `run` generates the file, it constructs `DATOMIC_URL` using
-`${DATOMIC_PASSWORD}` so they always match at creation time.
+A URL that still carries `?password=` works, and its embedded password wins. If that password
+differs from `DATOMIC_PASSWORD`, the app fails to connect with a Datomic authentication error that
+does not mention a mismatch. `./run --check` warns about this, and `./run --upgrade` moves the
+password out of the URL for you.
 
 ## Environment Variable Passthrough
 
@@ -231,18 +214,17 @@ compose `environment:` block. Variables in `.env` are available to compose for
 interpolation (`${VAR}`), but are **not** automatically injected into
 containers.
 
-`CSP_POLICY` and `DEV_MODE` were in `.env.example` and documented in
-`ENVIRONMENT.md`, but neither compose file passed them through. The app reads
-them via `environ.core` (which checks system env vars inside the JVM), so
-setting `CSP_POLICY=strict` in `.env` had zero effect in Docker deployments.
-Users could believe they'd hardened CSP when they hadn't.
-
-Both compose files now include:
+Settings such as `CSP_POLICY` and `DEV_MODE` reach the app only because the compose files list
+them:
 
 ```yaml
 CSP_POLICY: ${CSP_POLICY:-strict}
 DEV_MODE: ${DEV_MODE:-}
 ```
+
+A variable that is in `.env` but not in the compose `environment:` block does not reach the app container.
+All the settings the app container reads are listed. Host-side settings such as `BACKUP_DIR` are read
+by `./run` from `.env` and need no entry there.
 
 ## VOLUME Declarations
 
@@ -261,6 +243,6 @@ users get data persistence by default.
 
 ## See Also
 
-- `DOCKER.md` — architecture, configuration, and operational reference
-- `ENVIRONMENT.md` — all environment variables
-- `LEIN-UBERJAR-HANG.md` — why the build uses a 3-step process
+- [DOCKER.md](DOCKER.md): architecture, configuration, and operational reference
+- [ENVIRONMENT.md](ENVIRONMENT.md): all environment variables
+- [LEIN-UBERJAR-HANG.md](LEIN-UBERJAR-HANG.md): why the build uses a 3-step process
