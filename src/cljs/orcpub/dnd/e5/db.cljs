@@ -413,7 +413,9 @@
 
 (defn- handle-unreadable
   "Fallback for a parse failure that self-heal could not repair: move the raw text to its
-   `set-aside-key` (recoverable) and clear the slot, or remove it when it has none. Returns nil."
+   `set-aside-key` (recoverable) and clear the slot, or remove it when it has none. When the copy
+   cannot be written (storage full) the original stays in place and the failure is logged.
+   Returns nil."
   [local-storage-key stored-str e]
   (if-let [aside (set-aside-key local-storage-key)]
     ;; Copy the raw bytes aside, then clear the active slot so a poison value can't brick boot.
@@ -422,8 +424,10 @@
        "UNREADABLE storage; preserved raw copy for recovery in"
        aside "and cleared the active slot."
        local-storage-key)
-      (set-item aside stored-str)
-      (.removeItem js/window.localStorage local-storage-key)
+      (if (set-item aside stored-str)
+        (.removeItem js/window.localStorage local-storage-key)
+        (js/console.error "Could not keep a copy of the unreadable value; left in place:"
+                          local-storage-key))
       nil)
     (do
       (prn "E" e)
