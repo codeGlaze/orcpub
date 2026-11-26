@@ -1327,9 +1327,9 @@
                            (conj (-> new-character
                                      (assoc :orcpub.entity.strict/owner username)
                                      add-dnd-5e-character-tags)))))]
-            (if (try @(d/transact conn (conj tx bump)) true
-                     (catch Exception e (if (cas-failed? e) false (throw e))))
-              (d/pull (d/db conn) '[*] id)
+            (if-let [saved (try @(d/transact conn (conj tx bump))
+                                (catch Exception e (if (cas-failed? e) nil (throw e))))]
+              (d/pull (:db-after saved) '[*] id)
               (stale! id)))))
       (throw (if (empty? (d/datoms db :eavt id))
                (ex-info "Character gone" {:error :character-gone})
