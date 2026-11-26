@@ -76,6 +76,31 @@
 (defn remove-ids [entity]
   (remove-orphan-ids-aux true entity))
 
+(defn- entities-by-id
+  "Every map in `entity`'s tree that has a :db/id, keyed by that id."
+  [entity]
+  (into {} (keep #(when (and (map? %) (:db/id %)) [(:db/id %) %])) (tree-seq children children entity)))
+
+(defn removed-value-retractions
+  "The [:db/retract id attr value] for each value `stored` holds that `incoming` leaves out of a
+   record it keeps (same :db/id): a value gone, or one item gone from a list. Skips references
+   (a record that is gone is retracted whole, by id) and the attributes in `server-attrs`. Both are
+   strict pulled shapes. Returns a vector. tracked-issues.md, #295."
+  [stored incoming server-attrs]
+  (let [incoming-by-id (entities-by-id incoming)]
+    (vec (for [[id before] (entities-by-id stored)
+               :let [after (incoming-by-id id)]
+               :when after
+               [k v] before
+               :when (not (or (= :db/id k) (contains? server-attrs k)))
+               :let [olds (if (and (coll? v) (not (map? v))) v [v])
+                     nv (get after k)]
+               :when (and (not-any? map? olds) (or (nil? nv) (sequential? olds)))
+               :let [news (cond (nil? nv) #{} (coll? nv) (set nv) :else #{nv})]
+               o olds
+               :when (not (contains? news o))]
+           [:db/retract id k o]))))
+
 (defn selection-options [{:keys [::t/options]}]
   options)
 

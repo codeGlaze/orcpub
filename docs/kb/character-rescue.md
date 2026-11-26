@@ -310,9 +310,14 @@ Browser-only characters: the same bar and repair page, run from the browser's ow
    made from an older copy is refused instead of written.
    Built (`routes/update-character`): `::se/version`, set to 1 on create and bumped by every save
    with `:db/cas`. A save sending a version other than the stored one is refused: 409
-   `{:error :stale-character :current <stored character>}`. A save sending none (an app without
-   the version, as integration's app is until #64 lands) is retried against a fresh read, up to 5
-   tries, so it is never refused for a version and never stores a duplicate. Data View sends the
+   `{:error :stale-character :current <stored character>}`. A save sending none is accepted only
+   while the stored character has none (its first save since versions, `:db/cas` from none to 1);
+   once it has one, an unversioned save is refused and writes nothing. The retry this replaced
+   reran the same stale copy and could overwrite newer data (owner, 2026-11-25). A loaded character
+   carries its version (`entity/from-strict`), so only an app copy from before #64 sends none. The
+   version has `:db/noHistory`. The same transaction removes what the save left out
+   (`entity/removed-value-retractions`; tracked-issues.md, #295), so a refused save removes
+   nothing either. Tests: `save_removals_test.clj`. Data View sends the
    version it opened with and shows its "Reload and keep my removals" on a 409. The app's side
    (carrying the version through `entity.cljc`, rebasing on a 409, the builder notice) is #64's.
    Tests: `save_version_test.clj` (50 concurrent pairs each way), R8 and R10 rewritten,

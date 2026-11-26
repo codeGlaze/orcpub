@@ -1280,12 +1280,17 @@
   [id]
   (throw (ex-info "Character changed since this copy was read" {:error :stale-character :id id})))
 
+(def ^:private saved-by-server
+  "Character attributes the save writes itself, never removed for being absent from what was sent."
+  #{::se/owner ::se/version ::se/game ::se/game-version ::se/type})
+
 (defn update-character
   "Save `character` (strict, with its :db/id) over the stored one, as `username`. Every save bumps
-   ::se/version with :db/cas in the same transaction. A save whose version differs from the stored
-   one, or that sends none for a character that has one, throws :stale-character and writes
-   nothing. Returns the stored character; throws :character-gone when nothing is stored at its id.
-   character-rescue.md item 4."
+   ::se/version with :db/cas in the same transaction, and stores what the save left out of a record it
+   keeps (entity/removed-value-retractions). A save whose version differs from the stored one, or
+   that sends none for a character that has one, throws :stale-character and writes nothing.
+   Returns the stored character; throws :character-gone when nothing is stored at its id.
+   character-rescue.md item 4; tracked-issues.md, #295."
   [db conn character username]
   (let [id (:db/id character)
         sent (::se/version character)
@@ -1317,6 +1322,8 @@
                            retract-ids (sets/difference (entity/db-ids current-character)
                                                         (entity/db-ids new-character))]
                        (-> (mapv (fn [retract-id] [:db/retractEntity retract-id]) retract-ids)
+                           (into (entity/removed-value-retractions current-character new-character
+                                                                   saved-by-server))
                            (conj (-> new-character
                                      (assoc :orcpub.entity.strict/owner username)
                                      add-dnd-5e-character-tags)))))]
