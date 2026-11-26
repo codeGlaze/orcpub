@@ -55,6 +55,15 @@
     (is (nil? (.getItem js/window.localStorage "character")) "the active slot is cleared")
     (is (= unreadable (.getItem js/window.localStorage (db/corrupt-slot-key "character"))))))
 
+(deftest unreadable-draft-stays-when-its-copy-cannot-be-kept
+  (testing "a full storage (set-item fails) leaves the active draft in place"
+    (.removeItem js/window.localStorage (db/corrupt-slot-key "character"))
+    (.setItem js/window.localStorage "character" unreadable)
+    (with-redefs [db/set-item (constantly false)]
+      (is (nil? (db/get-local-storage-item "character"))))
+    (is (= unreadable (.getItem js/window.localStorage "character")))
+    (is (nil? (.getItem js/window.localStorage (db/corrupt-slot-key "character"))))))
+
 (deftest unreadable-other-builder-drafts-are-still-removed
   (testing "a builder draft outside preserve-on-unreadable-keys (a spell) is removed"
     (.removeItem js/window.localStorage (db/corrupt-slot-key "spell"))
