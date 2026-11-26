@@ -207,3 +207,21 @@
     (is (nil? (ledger/removal-mark [:class :wizard :levels :level-3] removed)))
     (is (nil? (ledger/removal-mark [:class :wizard] removed)) "a parent of a removal is not marked")
     (is (nil? (ledger/removal-mark [:feats :tidebreaker] [])))))
+
+(deftest a-removal-applies-to-the-character-as-it-is-now
+  (let [opened (:character (ledger/read-character (pr-str stored-with-ids)))
+        row {:line 1 :below 0 :choice "Tide" :section "Race"}
+        st {:base opened :character opened :pending [] :note "old"}
+        once (ledger/with-removal st [:feats :tidebreaker] row)
+        twice (ledger/with-removal once [:race :tidefolk] row)]
+    (is (= 1 (count (:pending once))))
+    (is (nil? (:note once)))
+    (testing "an earlier removal made while a dialog was open is kept"
+      (is (= 2 (count (:pending twice))))
+      (is (= (:character (picks/remove-at (:character once) [:race :tidefolk])) (:character twice))))
+    (testing "an address that is already gone changes nothing"
+      (is (= twice (ledger/with-removal twice [:race :tidefolk] row))))))
+
+(deftest a-map-key-that-is-not-a-keyword-does-not-throw
+  (is (string? (ledger/readable-value {1 "x" :orcpub.dnd.e5.character.equipment/quantity 2})))
+  (is (re-find #"Qty 2" (ledger/readable-value {1 "x" :orcpub.dnd.e5.character.equipment/quantity 2}))))
