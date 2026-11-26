@@ -195,7 +195,7 @@ view is two: the hold decides what the built character applies; Data View edits 
   +1 AC for the party. Already proposed as a layer above the content silos, riding `:props`, with
   a ledger of who granted what:
   [rules-override-layer.md](docs/kb/rules-override-layer.md).
-  The name is open. "Boon" is taken twice in 5e (epic boons, DM boons), and the app already has
+  The name is decided when the work starts (owner, 2026-11-26). "Boon" is taken twice in 5e (epic boons, DM boons), and the app already has
   `homebrew-boon` (Pact Boon). Candidates for the owner:
   - **Decree** — short, plainly the DM's word.
   - **Writ** — short, reads like a ledger.

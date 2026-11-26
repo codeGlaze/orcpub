@@ -202,7 +202,8 @@ The owner reads every reply, often on a phone, and the log of a long turn alread
   **Needs you**. Do not restate test counts or steps already shown; detail lives in commits and
   `docs/kb/`.
 - **Every summary of a code change carries a line-count table:** each touched file, its lines
-  before and after (`git show <base>:<file> | wc -l` against now; 0 for a new file). It is the
+  before and after, printed by `git show origin/agents/develop:scripts/line-counts.sh | bash -s --
+  <base>` (add `<head>` for committed work only). It is the
   owner's quick check that a monolith is not growing and that new files are few and placed
   sanely. Mark files already over ~2,000 lines, and say why any new file exists.
 - **Questions go only in Needs you,** one per number, each readable on its own: what it is, why

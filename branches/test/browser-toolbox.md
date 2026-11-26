@@ -7,7 +7,7 @@
 
 - Done: branch created; plan written.
 - In progress: nothing.
-- Next: a second opinion on the plan (owner's call), then step 1, the library merge with no suite changed.
+- Next: step 1, the compatibility-safe library merge (plan 1.1 folds in the second opinion).
 
 ## Owner decisions
 

@@ -1309,7 +1309,7 @@ _declarative-grant-vocabulary · declarative grant vocabulary_
 
 _demo-content-tier · demo content tier_
 
-**topics:** base, content, content-lookup, copy, copy-on-edit, demo, diff, emitter, floor, frozen, golden, graduation, pack, per-device, recipe, tier, variant, viable
+**topics:** content, content-lookup, copy, copy-on-edit, demo, diff, emitter, example, floor, frozen, golden, graduation, pack, per-device, recipe, tier, variant, viable
 
 - Goal
 - Builds on the current content model
@@ -2023,7 +2023,7 @@ _garden-declaration-order · garden declaration order_
 
 _garden-inline-styles-harvest · garden inline styles harvest_
 
-**topics:** 648, branch, compiled, conversion, css, excluded, exit, flyout, focus-within, harvested, harvesting, hunk, inline, integration, media-scoped, no-visual-change, seeded, shapes
+**topics:** 648, branch, compiled, conversion, css, excluded, exit, flyout, focus-within, harvested, harvesting, hunk, inline, integration, media-scoped, mobile, no-visual-change, seeded
 
 - Why the branch stalled
 - The branch is healthy
@@ -2762,7 +2762,7 @@ _open5e-upstream-notes · open5e upstream notes_
 
 _orcbrew-format-versioning · orcbrew format versioning_
 
-**topics:** boot-load, brew, builds, community, compat, compatibility, demo, distinct, envelope, extension, implemented, in-file, incompatible, pickers, poll, tag, versioning, won
+**topics:** besides, boot-load, brew, builds, community, compat, compatibility, demo, envelope, extension, implemented, in-file, incompatible, pickers, poll, tag, versioning, won
 
 - Why this exists
 - The mechanism (three parts)
@@ -3081,17 +3081,18 @@ _plan-669-merge-verification · plan 669 merge verification_
 
 _plan-browser-toolbox · plan browser toolbox_
 
-**topics:** 2026-11-26, accessible, agent, census, fixtures, locator, module, page-load-budget, pointer, recipes, screens, selector, selectors, shims, suite, suites, viewport, visual
+**topics:** 2026-11-26, accessible, census, compatibility-safe, fixtures, journey, opinion, page-load-budget, pointer, recipes, role, screen, selectors, shims, suite, suites, viewport, visual
 
 - The problem, measured
 - What it is
 - 1. One place map, the evolving model of the app
-- 2. The census: the trigger that keeps the map true
+- 2. The census: a quick check of the map, beside journey assertions
 - 3. Recipes and seeded fixtures
 - 4. One library
 - 5. Bootstrap for agents
 - Order of work, each a commit seen working before the next
 - What it is not
+- Second opinion, 2026-11-26
 - Open for the owner
 
 ## plan-character-drafts.md
