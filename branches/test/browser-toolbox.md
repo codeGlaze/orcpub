@@ -12,10 +12,11 @@
 ## Owner decisions
 
 - 2026-11-26: build it on this branch ("exactly what I've been pushing for").
+- 2026-11-26: accessible names first; the few leftover hooks ship under a neutral attribute (proposed `data-part`), not `data-test*`. Plan, "Owner decisions".
 
 ## Open questions for the owner
 
-- Should `data-test` attributes ship in the production bundle? The proposal is yes.
+- None.
 
 ## Gotchas for the next agent
 

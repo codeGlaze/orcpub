@@ -53,7 +53,7 @@
   name or a label association in the app, so players with screen readers gain too.
 - **How locators are written:** by role and accessible name first (`getByRole('button',
   {name: 'Long Rest'})`). That form survives restyling and doubles as an accessibility check.
-  A `data-test` attribute is never a way around a missing role or name. It is only for hooks that have
+  A `data-part` hook (Owner decisions, below) is never a way around a missing role or name. It is only for hooks that have
   no meaning to a person, such as a list's container. Each one names its reason beside the map entry.
 - **How suites use it:** suites call names, never selectors. When a screen changes, its map entry
   changes in the same PR, and every suite follows.
@@ -143,7 +143,11 @@ Codex reviewed plan 1.0. Accepted:
 - prove the map on builder and sheet before building six modules.
 Corrected: the "hard-wired :8890" trap is in suites that build their own base, not in the helpers.
 
-## Open for the owner
+## Owner decisions
 
-- Should `data-test` attributes ship in the production bundle (a few bytes each) or be stripped
-  there? The proposal is to ship them: the production suites need them too.
+- 2026-11-26: names first. Accessible names do most of the work and help players with screen
+  readers, keyboard and voice control. The few remaining hooks are shipped in production under a
+  neutral attribute, not `data-test*`, through one helper. The proposal is `data-part` (Ark UI and
+  Zag use it) via `(part :kit-grid)`. `data-slot` (shadcn/ui) is the alternative; `data-role` is
+  avoided because it reads like ARIA's `role`. The helper's docstring says tests and styles find
+  the element by it, so nobody tidies it away.

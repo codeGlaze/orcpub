@@ -3093,7 +3093,7 @@ _plan-browser-toolbox · plan browser toolbox_
 - Order of work, each a commit seen working before the next
 - What it is not
 - Second opinion, 2026-11-26
-- Open for the owner
+- Owner decisions
 
 ## plan-character-drafts.md
 
