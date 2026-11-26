@@ -832,7 +832,7 @@ _character-validation · character validation_
 
 _ci-signal-plan · ci signal plan_
 
-**topics:** 2026-11-24, allowance, annotation, art, baseline, billing, dmv, hook, lock, portrait, pre-push, push, ran, ratchet, restarted, shadowed, skipped, workflow
+**topics:** 2026-11-24, allowance, art, baseline, billing, dmv, failed, github, hook, job, lock, pre-push, push, ran, ratchet, restarted, skipped, workflow
 
 - The owner's rule
 - What set it off
@@ -841,6 +841,7 @@ _ci-signal-plan · ci signal plan_
 - 3. Guards in the pre-push hook
 - 5. Intentional holds
 - 6. The lint ratchet
+- 7. No job hangs (2026-11-26)
 
 ## class-builder-extraction-plan.md
 
@@ -3034,7 +3035,7 @@ _perf-homebrew-builder-loop · perf homebrew builder loop_
 
 _personal-data-scan · personal data scan_
 
-**topics:** 2017, 2026-11-19, address, addresses, allow, author, aws, commits, dotted, email, github, hashes, private, public, range, ranges, scan, scanned
+**topics:** 2026-11-19, address, addresses, allow, allow-list, author, aws, commits, dotted, email, github, hashes, personal-data, private, public, range, scan, scanned
 
 - What runs, and when
 - Rules
