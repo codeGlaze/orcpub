@@ -4,8 +4,7 @@
 a standalone page, its own script (`ledger.js`), that lists a saved character's or this tab's
 draft's stored choices for its owner, with Remove, Undo, Save and Copy for support. Plus the server
 version check that refuses a save made from an older copy. **Base:** `integration`.
-**PR into:** `integration`, when the owner says. **KB:** `docs/kb/character-rescue.md`, on this
-branch by the owner's exception; it moves to agents/develop before the PR.
+**PR into:** `integration`, when the owner says. **KB:** `docs/kb/character-rescue.md`, on agents/develop since 2026-11-26.
 
 ## State (updated 2026-11-25)
 
@@ -21,9 +20,9 @@ branch by the owner's exception; it moves to agents/develop before the PR.
 - Second opinion (Codex) reviewed the merge `d6596d1ce`: resolutions sound, Docker builds
   ledger.js. Its "Data View not owner-gated" finding is by design (KB who-row: the client shows
   "Only the owner can open this"; character data is public anyway).
-- Next: the PR when the owner says: move `docs/kb/character-rescue.md` to agents/develop, the
-  real-app browser suites (Data View e2e, character drafts), label `heavy-docker: later` (the
-  Dockerfile is in the diff), CodeRabbit.
+- 2026-11-26: owner said open the PR. KB page moved here; browser suites run; PR opened (the open
+  is the heavy Docker landmark, since the Dockerfile is in the diff; label `heavy-docker: later`
+  after it), then CodeRabbit once the heavy run is green.
 
 ## Owner decisions
 

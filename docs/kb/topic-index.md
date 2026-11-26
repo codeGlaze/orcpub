@@ -544,7 +544,7 @@ _branch-inventory · branch inventory_
 
 _branch-md-2026-10-23 · branch md 2026 10 23_
 
-**topics:** 2026-10-06, 2026-10-08, branch, branch-inventory, branches, coderabbit, commits, hunks, merge, merged, patch, prs, push, release, rescue, reviews, summer, vetting
+**topics:** 2026-10-08, branch, branch-inventory, branches, coderabbit, commits, hunks, merge, merged, patch, prs, push, readme, release, rescue, reviews, summer, vetting
 
 - Current state
 - Summer Patch: where it stands (2026-10-08)
@@ -795,6 +795,27 @@ _character-rescue-console · character rescue console_
 - 6. Adapting it for a different corruption
 - Provenance
 
+## character-rescue.md
+
+_character-rescue · character rescue_
+
+**topics:** 100, 2026-10-16, address, browser-only, character, draft, drafts, invalid, opened, owner, pick, r10, remove, repair, rescue, save, scores, stored
+
+- The ledger: the Character data page (decided 2026-10-06; commits 1 and 2 built)
+- Save replaces an invalid character (fixed 2026-10-08: same id)
+- Settled by test (phase 1, 2026-10-06)
+- Why
+- The principle: an emergency path at the bottom, nicer layers on top
+- Layer 1 spec: the shared picks namespace (decided 2026-10-04)
+- Layer 0: the hatch finds the player
+- Precedents to build on, not beside (D29)
+- Limits, stated up front
+- Plan, in order (owner, 2026-10-14)
+- After the plan: ideas, not scheduled
+- Open, for the owner
+- Decided
+- History
+
 ## character-validation.md
 
 _character-validation · character validation_
@@ -811,7 +832,7 @@ _character-validation · character validation_
 
 _ci-signal-plan · ci signal plan_
 
-**topics:** 2026-11-24, 2026-11-25, allowance, art, baseline, billing, dmv, hook, lock, portrait, pre-push, push, ran, ratchet, restarted, shadowed, skipped, workflow
+**topics:** 2026-11-24, allowance, annotation, art, baseline, billing, dmv, hook, lock, portrait, pre-push, push, ran, ratchet, restarted, shadowed, skipped, workflow
 
 - The owner's rule
 - What set it off
@@ -917,7 +938,7 @@ _client-ip-behind-proxies · client ip behind proxies_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** auto-test, backend, case-sensitive, div, dom, driver, floating-asi, harmlessly, harness, headless, html, mode, per-test, race-builder, recipe, rooted, runs, totals
+**topics:** auto-test, backend, case-sensitive, div, dom, driver, floating-asi, harness, headless, html, mode, per-test, race-builder, recipe, rooted, runs, totals, widget
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -1469,7 +1490,7 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** about, agent, audit, before-you-start, claim, comments, confident, docstring, docstrings, generator, history, index, ledger, narrative, session, stale, topic, wrong
+**topics:** about, agent, audit, before-you-start, claim, comments, confident, docstring, docstrings, generator, history, irreducible, ledger, narrative, session, stale, topic, wrong
 
 - What earns a doc
 - Verify, don't remember
@@ -1520,7 +1541,7 @@ _dropdown-value-coercion · dropdown value coercion_
 
 _duplicate-key-durability-roadmap · duplicate key durability roadmap_
 
-**topics:** abbreviation, bulk, characters, dash, derivation, item, key, orphans, rebind, relink, rename, repair, rung, save, shim, trailing, trim, trimming
+**topics:** abbreviation, bulk, characters, dash, derivation, item, key, orphans, rebind, relink, rename, renames, rung, save, shim, trailing, trim, trimming
 
 - The problem, stated properly
 - The invariant to establish
@@ -1622,7 +1643,7 @@ _email-preferences-implementation · email preferences implementation_
 
 _empty-keyword-corruption · empty keyword corruption_
 
-**topics:** 196-line, 2026-09-12, already-corrupt, apostrophes, character-rescue-console, cljs-http, defences, defends, detonation, edn, go-loop, keyword-trap-name-repair, loader, non-word, prevention, rescued, throw, token
+**topics:** 196-line, 2026-09-12, already-corrupt, apostrophes, character-rescue-console, cljs-http, defences, defends, detonation, edn, go-loop, keyword-trap-name-repair, non-word, rescued, root-caused, throw, token, unfindable
 
 - The failure
 - The two defences, and where they are
@@ -1725,7 +1746,7 @@ _equipment-parity · equipment parity_
 
 _error-email-improvements · error email improvements_
 
-**topics:** concurrent, crash, datomic, email, emails, error, example, exception, feb, fingerprint, frames, java, log, pedestal, pprint, request, throttle, trace
+**topics:** crash, datomic, email, emails, error, example, exception, feb, fingerprint, frames, java, log, pedestal, pprint, request, scrubbed, throttle, trace
 
 - How error emails work today
 - Known problems (from codebase review, before example analysis)
@@ -1856,7 +1877,7 @@ _feat-builder-audit · feat builder audit_
 
 _fighting-style-authoring · fighting style authoring_
 
-**topics:** authors, backfill-ledger, built-in, d29, d30, divvying, eligible, feat, fighter, fighting-style, grant, mariner, paladin, per-class, pool, ranger, style, watch-list
+**topics:** authors, backfill-ledger, built-in, d29, d30, divvying, eligible, fighter, fighting-style, grant, mariner, paladin, per-class, pool, ranger, style, watch-list, whitelist
 
 - Status — 2026-09-05: BUILT
 - The divvying rule (decided) — which classes can take a homebrew style
@@ -2360,7 +2381,7 @@ _http-fx-patterns · http fx patterns_
 
 _icon-font-failure · icon font failure_
 
-**topics:** arrows, awesome, cause, delivery, diagnosed, discriminate, fa5, font, fonts, glyph, icon, locale-safety, separates, server, stylesheet, svg, webjar, width
+**topics:** arrows, awesome, cause, delivery, diagnosed, discriminate, fa5, font, fonts, glyph, icon, locale-safety, methods, separates, stylesheet, svg, webjar, width
 
 - 1. The failure mode
 - 2. Diagnosing it
@@ -3261,7 +3282,7 @@ _plan-lookup-indexes · plan lookup indexes_
 
 _plan-next · plan next_
 
-**topics:** advanced, agent-dev-loop, armour, capabilities, contributor, creator, damage, macro, natural-armor, number, picked, requirements, row, support-session-ledger, templates, tier, understood, warforged
+**topics:** advanced, agent-dev-loop, armour, capabilities, contributor, control, creator, damage, macro, natural-armor, picked, requirements, row, support-session-ledger, templates, tier, understood, warforged
 
 - 0. Standing, do these first
 - 0b. September support sessions — tracked separately
@@ -3456,7 +3477,7 @@ _registry-before-after · registry before after_
 
 _release-deploy-traps · release deploy traps_
 
-**topics:** alt-host, de-index, dmv, folder, hand-insert, host, in-browser, lag, logged, parsers, pprinted, projects, release, reviewing, robots, sigpipe, slips, swarm
+**topics:** alt-host, de-index, dmv, folder, hand-insert, host, in-browser, lag, parsers, pprinted, projects, release, reviewing, robots, sigpipe, slips, start-time, swarm
 
 - Open and unchecked
 
@@ -3696,7 +3717,7 @@ _settings-registry-and-boot-report · settings registry and boot report_
 
 _share-bundle-dependency-extraction · share bundle dependency extraction_
 
-**topics:** cljc, cljs, closure, def, direct, entity, extractor, index, languages, plugins, recipient, reverse, selections, spell, spell-list, spells, subs, sweep
+**topics:** cljc, cljs, closure, def, direct, extractor, index, languages, plugins, recipient, reverse, selections, spell, spell-list, spells, subrace, subs, sweep
 
 - Why this is not trivial
 - The content types (master list)
@@ -3886,7 +3907,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, 2024-only, 2026-10-07, 5etools, content, data, edition, editions, monsters, open5e, owner, pdf, spells, srd, srd-2024-coverage, text, trunk
+**topics:** 2014, 2024, 2024-only, 2026-10-07, 5etools, content, edition, editions, monsters, open5e, owner, pdf, served, spells, srd, srd-2024-coverage, text, trunk
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded
@@ -3969,7 +3990,7 @@ _srd-vs-plugin-content · srd vs plugin content_
 
 _start-build · start build_
 
-**topics:** 2026-10-30, 2026-11-02, amber, badge, chrome, css, disk, file-time, folder, french, lein, outweigh, port, prefix, repl, stamp, start, worktree
+**topics:** 2026-10-30, 2026-11-02, amber, badge, chrome, css, disk, file-time, folder, french, lein, outweigh, port, repl, spit, stamp, start, worktree
 
 - Regenerating CSS without a second lein process
 
@@ -4216,7 +4237,7 @@ _ux-guide · ux guide_
 
 _verification-discipline · verification discipline_
 
-**topics:** armed, baseline, behavior, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, green, miss, perf-homebrew-builder-loop, proves, running, synthetic
+**topics:** armed, baseline, behavior, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, green, miss, perf-homebrew-builder-loop, proves, synthetic, tells
 
 - Lessons (each with the concrete miss that taught it)
 - A check that has never failed has never been tested
@@ -4348,7 +4369,7 @@ _weapons-table-follow-ups · weapons table follow ups_
 
 _weapons-table-spec · weapons table spec_
 
-**topics:** 1d10, 2026-10-15, amber, blue, buttons, chip, damage, dark, grey, headings, opened, preference, row, shield, study, versatile, weapon, white
+**topics:** 1d10, 2026-10-15, amber, blue, buttons, chip, damage, dark, grey, headings, preference, row, shield, study, theme, versatile, weapon, white
 
 - The parts and their names
 - Agreed
