@@ -290,3 +290,20 @@
                       [". hidden ." "hidden"]
                       ["a​b" "ab"]]]
       (is (= out (pdf-spec/file-safe in)) (pr-str in)))))
+
+(deftest tab-attrs-name-and-operate-a-tab
+  (testing "role, state, name and focus, for a selected and an unselected tab"
+    (doseq [[selected? state] [[true "true"] [false "false"] [nil "false"]]]
+      (let [a (views/tab-attrs selected? "Combat" (fn [_]))]
+        (is (= "tab" (:role a)))
+        (is (= state (:aria-selected a)) (pr-str selected?))
+        (is (= "Combat" (:aria-label a)))
+        (is (= 0 (:tabIndex a))))))
+  (testing "Enter and Space call the handler and stop the page scrolling; other keys do not"
+    (doseq [[k calls] [["Enter" 1] [" " 1] ["a" 0] ["Tab" 0] ["Escape" 0]]]
+      (let [handled (atom 0)
+            prevented (atom 0)
+            a (views/tab-attrs true "Details" (fn [_] (swap! handled inc)))]
+        ((:on-key-down a) #js {:key k :preventDefault #(swap! prevented inc)})
+        (is (= calls @handled) (str "handler calls for " (pr-str k)))
+        (is (= calls @prevented) (str "preventDefault calls for " (pr-str k)))))))
