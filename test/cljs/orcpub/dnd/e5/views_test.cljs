@@ -290,3 +290,12 @@
                       [". hidden ." "hidden"]
                       ["a​b" "ab"]]]
       (is (= out (pdf-spec/file-safe in)) (pr-str in)))))
+
+(deftest typed-hit-points
+  (testing "a whole number is taken, 0 included"
+    (is (= 7 (views/typed-hit-points "7")))
+    (is (= 0 (views/typed-hit-points "0"))))
+  (testing "a blank or unreadable box gives nothing, so nothing is saved and leaving it restores the number"
+    (is (nil? (views/typed-hit-points "")))
+    (is (nil? (views/typed-hit-points "-")))
+    (is (nil? (views/typed-hit-points nil)))))
