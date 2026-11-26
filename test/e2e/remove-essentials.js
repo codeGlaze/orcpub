@@ -13,7 +13,7 @@
 //   NODE_PATH=/opt/node22/lib/node_modules node test/e2e/remove-essentials.js
 // Needs: dev bundle (reads the app's internals through dbAt, which a production bundle compiles away).
 const { chromium } = require('playwright');
-const { BASE, findChrome, checker, dbAt, readyPage, dismissWhatsNew, clickTab } = require('./lib');
+const { APP_BUNDLE, BASE, findChrome, checker, dbAt, readyPage, dismissWhatsNew, clickTab } = require('./lib');
 const { dvButton, dvDialog, dvAnswer, dvSave } = require('./rescue-lib');
 
 const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -170,7 +170,7 @@ async function openInApp(page, id, errors, recover, check) {
   const errors = [];
   app.on('pageerror', e => errors.push(String(e).slice(0, 160)));
   const page = await ctx.newPage();
-  await page.route('**/js/compiled/orcpub.js', r => r.abort());
+  await page.route(APP_BUNDLE, r => r.abort());
   try {
     await logIn(app, 'kaylee', 'serenity99');
     const cases = [['NO CLASS', 'Wizard', 'class', /^Remove Wizard and the \d+ choices under it\?$/, ':wizard'],

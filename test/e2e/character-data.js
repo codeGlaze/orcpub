@@ -28,7 +28,7 @@
 //   NODE_PATH=/opt/node22/lib/node_modules node test/e2e/character-data.js
 // Needs: dev bundle (reads the app's internals through dbAt, which a production bundle compiles away).
 const { chromium } = require('playwright');
-const { BASE, findChrome, checker, dbAt, dismissWhatsNew } = require('./lib');
+const { APP_BUNDLE, BASE, findChrome, checker, dbAt, dismissWhatsNew } = require('./lib');
 
 const { PAK, wait, log, importPak, build, myContent, logIn, dvRows, dvKept, dvButton, dvDialog, dvAnswer, dvSave } = require('./rescue-lib');
 
@@ -36,7 +36,7 @@ const { PAK, wait, log, importPak, build, myContent, logIn, dvRows, dvKept, dvBu
 async function noAppPage(context) {
   const page = await context.newPage();
   page.appRequests = 0;
-  await page.route('**/js/compiled/orcpub.js', r => { page.appRequests++; return r.abort(); });
+  await page.route(APP_BUNDLE, r => { page.appRequests++; return r.abort(); });
   page.on('pageerror', e => log('   pageerror:', String(e).slice(0, 160)));
   return page;
 }
@@ -113,6 +113,7 @@ const ledgerText = page => page.evaluate(() => document.getElementById('ledger')
     check('Remove marks the row removed in place', (await markOf(page, 'Tidebreaker')) === 'removed' && (await dvKept(page)).includes('Tidefolk'));
     check('with Undo on it', (await rowButton('Tidebreaker').innerText()).trim() === 'Undo');
     check('the notice says it is not saved', /^1 removed, not saved Save$/.test(await noticeText(page)), await noticeText(page));
+    await page.evaluate(() => window.scrollTo(0, 0));  // Remove scrolls the row into view; the notice is pinned
     const notice = await page.locator('.dv-notice-box').boundingBox();
     const firstCard = await page.locator('.dv-card').first().boundingBox();
     check('on a desktop the notice is at the top, above the cards', notice && firstCard && notice.y + notice.height <= firstCard.y, JSON.stringify([notice, firstCard]));
@@ -248,7 +249,7 @@ const ledgerText = page => page.evaluate(() => document.getElementById('ledger')
     check('removing the race asks first in a popup', /^Remove Tidefolk( and the \d+ choices under it)?\?$/.test(raceTitle) && /ask for a race again/.test(await dvDialog(app).innerText()), raceTitle);
     await dvAnswer(app, 'Remove');
     const [draftTab] = await Promise.all([owner.waitForEvent('page'), app.evaluate(u => { window.open(u); }, draftUrl)]);
-    await draftTab.route('**/js/compiled/orcpub.js', r => r.abort());
+    await draftTab.route(APP_BUNDLE, r => r.abort());
     await dataRows(draftTab, draftUrl);
     await dvButton(draftTab, 'Spellbook').click();
     await dvSave(draftTab);

@@ -13,7 +13,7 @@
 //   NODE_PATH=/opt/node22/lib/node_modules node test/e2e/data-view-entry-points.js
 // Needs: dev bundle (reads the app's internals through dbAt, which a production bundle compiles away).
 const { chromium } = require('playwright');
-const { BASE, findChrome, checker, dismissWhatsNew, clickTab } = require('./lib');
+const { APP_BUNDLE, BASE, findChrome, checker, dismissWhatsNew, clickTab } = require('./lib');
 const { wait, importPak, build, myContent, logIn, clickCard } = require('./rescue-lib');
 
 const PHONE_UA = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36';
@@ -118,7 +118,7 @@ async function openWarning(page) {
 
     // 5. The notice under the loading picture, when the app's script never arrives.
     const dead = await (await browser.newContext({ viewport: { width: 1280, height: 900 }, storageState: await ctx.storageState() })).newPage();
-    await dead.route('**/js/compiled/orcpub.js', r => r.abort());
+    await dead.route(APP_BUNDLE, r => r.abort());
     await dead.goto(`${BASE}/pages/dnd/5e/characters/${id}`, { waitUntil: 'load' });
     await wait(4000);
     check('the notice waits: hidden 4 seconds in', !(await dead.locator('#load-rescue').isVisible()));

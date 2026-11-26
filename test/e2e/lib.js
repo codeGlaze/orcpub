@@ -378,4 +378,8 @@ async function login(browser) {
   return page;
 }
 
-module.exports = { BASE, TABS, pick, setClass, setLevel, login, classRows, addClass, deleteClass, SHOTS, findChrome, checker, dbAt, controlFor, fill, clickText, clickTab, fillEffectBonus, dismissCookieBar, dismissWhatsNew, readyPage, pickFromAnySelect, chipIsOn, chipClick, pickOption, optionsOf };
+// Matches the app bundle's address for page.route, with or without the ?v= cache stamp a
+// non-dev server adds (a '**/orcpub.js' glob misses the stamped one).
+const APP_BUNDLE = (url) => url.pathname === '/js/compiled/orcpub.js';
+
+module.exports = { APP_BUNDLE, BASE, TABS, pick, setClass, setLevel, login, classRows, addClass, deleteClass, SHOTS, findChrome, checker, dbAt, controlFor, fill, clickText, clickTab, fillEffectBonus, dismissCookieBar, dismissWhatsNew, readyPage, pickFromAnySelect, chipIsOn, chipClick, pickOption, optionsOf };
