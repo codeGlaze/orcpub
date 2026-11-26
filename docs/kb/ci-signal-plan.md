@@ -78,7 +78,7 @@ branch, whose baseline is now DMV's own.
 ## 7. No job hangs (2026-11-26)
 
 The owner's rule: a step that waits more than 5 to 10 minutes is a defect, never a flake to rerun. On PR #99 the Library security scan sat 2 h 48 min. `install-lein`'s `lein version` ran inside the project folder, so it resolved the project's plugins from Maven Central before the Maven cache was restored, with no timeout anywhere, and the job had none either (GitHub's default is 6 hours). The log ended with "Failed to read artifact descriptor" and the scan never ran; a rerun passed in 60 s. The fix (feature/character-rescue, `fc04edea0`):
-- every job has `timeout-minutes` (10 for checks, 15 for the scan and dependency graph, 30 for Test & Lint, 90 for the multi-arch release build);
+- every job has `timeout-minutes` (10 for checks, 15 for the scan and dependency graph, 30 for Test & Lint, 20 for the release build, which takes about 3.5 minutes);
 - `lein version` runs from `$RUNNER_TEMP` under `timeout 5m`;
 - `lein deps` stops at 15 minutes and is tried once more.
 
