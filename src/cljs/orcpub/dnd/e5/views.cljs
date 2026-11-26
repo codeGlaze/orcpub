@@ -2538,11 +2538,12 @@
                      (vals levels))) false)))
 
 (defn typed-hit-points
-  "The HP typed in the sheet's box `text` as a whole number, or nil when the box is blank or holds
-   no number (nothing is saved then; leaving the box puts back the stored HP)."
+  "The HP typed in the sheet's box `text` as a whole number, or nil when the box is blank or is
+   not whole-integer text such as 3.5 (nothing is saved then; leaving the box puts back the
+   stored HP)."
   [text]
-  (let [n (js/parseInt text 10)]
-    (when-not (js/isNaN n) n)))
+  (when (and (string? text) (re-matches #"-?\d+" (clojure.string/trim text)))
+    (js/parseInt text 10)))
 
 (defn current-hit-points-input
   "The sheet's current HP box for character `id`. What is typed is kept here while editing and
