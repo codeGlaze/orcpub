@@ -1992,7 +1992,7 @@ _garden-calc-plus · garden calc plus_
 
 _garden-declaration-order · garden declaration order_
 
-**topics:** 2026-11-23, 3px, big, composite, firefox, garden, hash, hiding, longhand, mask, notice, order, painted, properties, resets, shorthand, tester, typed
+**topics:** 2026-11-23, 3px, big, composite, firefox, garden, hash, hiding, longhand, mask, notice, order, painted, properties, reset, resets, shorthand, tester
 
 - The trap
 - The fix and the guard

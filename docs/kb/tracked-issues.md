@@ -340,7 +340,13 @@ comes back on reload. Play state is saved as "nothing saved = baseline": max HP,
 feature uses are computed on every load; `::spells/slots-used` and `::char5e/features-used` record
 what was spent, and a rest deletes them. `slots-used` is a ref (schema.clj), so deleting it reaches
 storage. `current-hit-points` is a plain long, so it doesn't. The per-rest unit sets inside
-`features-used` may be plain values too (unchecked). Any reset that removes a plain value has this bug. Write a value instead
+`features-used` are cardinality-many string attributes, so they have the bug too (confirmed by a
+second review, 2026-11-25). Writing an empty or shorter set doesn't help: a Datomic map transaction
+never removes cardinality-many values it isn't told to, so unticking one feature likely doesn't
+persist either. The planned fix is server-side: in `update-character`, for each entity the incoming
+tree keeps (same :db/id), emit `:db/retract` for the stored attributes and values it lacks. Skip ref
+attributes (the retractEntity step covers those) and the server-set owner and tags. First check that
+every caller sends the whole character, since a partial save would wipe fields. Write a value instead
 (the planned fix: an "at max" flag written true or false, never removed). The browser test that
 showed it, with its setup traps (seeded server via `scripts/e2e/server.sh start`, the 7.5 s
 autosave throttle), should become the branch's regression test.
