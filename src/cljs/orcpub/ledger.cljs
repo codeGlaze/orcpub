@@ -155,48 +155,52 @@
 
 (defn- remove!
   "Take the pick at `address` (its row is `row`) out of the open character, unsaved, after the
-   player confirms `ledger/warning` in a popup when there is one."
+   player confirms `ledger/warning` in a popup when there is one. The removal is applied to the
+   character as it stands when the player confirms; nothing happens while a save is under way."
   [address row]
-  (let [{:keys [character removed]} (picks/remove-at (:character @state) address)
+  (let [{:keys [removed]} (picks/remove-at (:character @state) address)
         caution (ledger/warning row)
-        apply! #(do (swap! state (fn [st] (-> st (assoc :character character :note nil)
-                                              (update :pending conj (assoc removed :line (:line row) :below (:below row)
-                                                                                    :choice (:choice row) :section (:section row))))))
-                    (render!))]
-    (when removed
+        apply! #(when-not (:saving @state)
+                  (swap! state ledger/with-removal address row)
+                  (render!))]
+    (when (and removed (not (:saving @state)))
       (if caution
         (let [[question & more] (clojure.string/split caution #"(?<=\?) ")]
           (ask! question (concat more [[:muted "Nothing is saved until you press Save."]]) "Remove" apply!))
         (apply!)))))
 
 (defn- undo!
-  "Put the pending removal at `address` back, or say what has to come back first."
+  "Put the pending removal at `address` back, or say what has to come back first. Does nothing
+   while a save is under way."
   [address]
-  (let [{:keys [character pending]} @state
+  (when-not (:saving @state)
+   (let [{:keys [character pending]} @state
         i (first (keep-indexed (fn [i p] (when (= address (:address p)) i)) pending))
         back (picks/put-at character (nth pending i))]
     (if back
       (swap! state assoc :character back :note nil
              :pending (vec (concat (subvec pending 0 i) (subvec pending (inc i)))))
       (swap! state assoc :note "Put back the choice it sits under first."))
-    (render!)))
+    (render!))))
 
 (defn- saved!
   "After a save: show `note` over what storage now holds."
   [note]
+  (swap! state dissoc :saving)
   (let [{:keys [root saved-id]} @state]
     (if saved-id (load-saved! root saved-id note) (load-draft! root note))))
 
 (defn- write!
   "Write the open character back: to the server through the app's own save route, or to this
-   browser's draft. Keeps everything the page did not change."
+   browser's draft. Keeps everything the page did not change. Every outcome but success clears
+   :saving, which `save!` set."
   []
   (let [{:keys [stored character saved-id]} @state
         data (ledger/save-data stored character)]
     (if-not saved-id
       (if (try (.setItem js/localStorage (draft-slot) (draft-text data)) true (catch :default _ false))
         (saved! "Saved.")
-        (do (swap! state assoc :note "This browser would not save it.") (render!)))
+        (do (swap! state assoc :saving false :note "This browser would not save it.") (render!)))
       (-> (js/fetch "/dnd/5e/characters"
                     #js {:method "POST"
                          :headers #js {"Content-Type" "application/transit+json"
@@ -209,7 +213,7 @@
                      (.then (.text r)
                             (fn [text]
                               (let [current (ledger/refused-current text)]
-                                (swap! state assoc :conflict current
+                                (swap! state assoc :saving false :conflict current
                                        :note (if current
                                                "This character changed since you opened this page."
                                                "Not saved: the character could not be read again."))
@@ -223,11 +227,11 @@
                                   (set! (.-location js/window) (str "/pages/dnd/5e/characters/" new-id "/data"))
                                   (saved! "Saved.")))))
                      :else
-                     (do (swap! state assoc :note (if (= 401 (.-status r))
+                     (do (swap! state assoc :saving false :note (if (= 401 (.-status r))
                                                     "Only the owner can save this. Log in again and retry."
                                                     "The server refused this change."))
                          (render!)))))
-          (.catch (fn [_] (swap! state assoc :note "Not saved: check the connection and retry.") (render!)))))))
+          (.catch (fn [_] (swap! state assoc :saving false :note "Not saved: check the connection and retry.") (render!)))))))
 
 (defn- current-text
   "Call `f` with the character's text as storage holds it now, or with nil when it cannot be read."
@@ -241,13 +245,16 @@
 
 (defn- save!
   "Save, but only when storage still holds what the page opened: otherwise say so and offer to
-   reload with the pending removals kept."
+   reload with the pending removals kept. Sets :saving, which locks Remove and Undo until the save
+   ends; every outcome but success clears it."
   []
+  (swap! state assoc :saving true)
+  (render!)
   (current-text
    (fn [text]
      (if (and text (ledger/same-stored? (:stored @state) (ledger/read-stored text)))
        (write!)
-       (do (swap! state assoc :conflict text
+       (do (swap! state assoc :saving false :conflict text
                   :note (if text "This character changed since you opened this page." "Not saved: the character could not be read again."))
            (render!))))))
 
@@ -301,6 +308,8 @@
                      :under nil
                      (small-button (if (pos? below) (str "Remove (+" below ")") "Remove") (fn [_] (remove! address row)))))
                (str "dv-row" (when top? " dv-top") (when mark " dv-removed")))]
+    (when (:saving @state)
+      (doseq [b (array-seq (.querySelectorAll node "button"))] (set! (.-disabled b) true)))
     (.setAttribute node "data-row" choice)
     (.setAttribute node "data-section" section)
     (when mark (.setAttribute node "data-removed" (name mark)))

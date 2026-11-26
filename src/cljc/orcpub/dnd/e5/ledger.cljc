@@ -40,15 +40,28 @@
     (nil? v) nil
     (map? v) (let [m (dissoc v :db/id)
                    scores (keep (fn [[k lbl]] (when-some [n (get m k)] (str lbl " " n))) ability-order)
-                   entry (fn [[k x]] (let [nm (s/replace (name k) #"\?$" "")]
+                   key-text (fn [k] (if (keyword? k) (name k) (str k)))
+                   entry (fn [[k x]] (let [nm (s/replace (key-text k) #"\?$" "")]
                                        (cond (true? x) (s/lower-case (label (keyword nm)))
                                              (false? x) nil
                                              (= "quantity" nm) (str "Qty " x)
                                              :else (str (label (keyword nm)) " " x))))]
                (s/join " · " (if (seq scores)
                                scores
-                               (keep entry (sort-by (fn [[k]] [(not= "quantity" (name k)) (name k)]) m)))))
+                               (keep entry (sort-by (fn [[k]] [(not= "quantity" (key-text k)) (key-text k)]) m)))))
     :else (str v)))
+
+(defn with-removal
+  "The page state `st` with the pick at `address` taken out of its CURRENT :character and its
+   `row`'s record added to :pending, and :note cleared. `st` unchanged when nothing is removed there."
+  [st address row]
+  (let [{:keys [character removed]} (picks/remove-at (:character st) address)]
+    (if removed
+      (-> st
+          (assoc :character character :note nil)
+          (update :pending conj (assoc removed :line (:line row) :below (:below row)
+                                               :choice (:choice row) :section (:section row))))
+      st)))
 
 (defn removal-mark
   "How the row at `address` stands against the `removed` addresses not saved yet: :removed when it
