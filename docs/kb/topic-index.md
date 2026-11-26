@@ -544,7 +544,7 @@ _branch-inventory · branch inventory_
 
 _branch-md-2026-10-23 · branch md 2026 10 23_
 
-**topics:** 2026-10-08, branch, branch-inventory, branches, coderabbit, commits, hunks, merge, merged, patch, prs, push, readme, release, rescue, reviews, summer, vetting
+**topics:** 2026-10-08, branch, branch-inventory, branches, coderabbit, commits, hold, hunks, merge, merged, patch, prs, push, release, rescue, reviews, summer, vetting
 
 - Current state
 - Summer Patch: where it stands (2026-10-08)
@@ -1027,7 +1027,7 @@ _content-extensibility-direction · content extensibility direction_
 
 _content-extensibility-e2e · content extensibility e2e_
 
-**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, homebrew, level-3, name-keyword, pact, phase, phases, read-seams, spell-selection
+**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, homebrew, name-keyword, pact, phase, phases, positional-threading, read-seams, spell-selection
 
 - Setup (use the project's standard dev flow)
 - Checks
@@ -1309,7 +1309,7 @@ _declarative-grant-vocabulary · declarative grant vocabulary_
 
 _demo-content-tier · demo content tier_
 
-**topics:** content, content-lookup, copy, copy-on-edit, demo, diff, emitter, example, floor, frozen, golden, graduation, pack, per-device, recipe, tier, variant, viable
+**topics:** base, content, content-lookup, copy, copy-on-edit, demo, diff, emitter, floor, frozen, golden, graduation, pack, per-device, recipe, tier, variant, viable
 
 - Goal
 - Builds on the current content model
@@ -1325,7 +1325,7 @@ _demo-content-tier · demo content tier_
 
 _dependency-alerts · dependency alerts_
 
-**topics:** 2026-11-18, 2026-11-20, alert, alerts, critical, dependabot, high, jars, jetty, jline, libraries, low, netty, push, rebel-readline, repl, rewrite-clj, scan
+**topics:** 2026-11-18, 2026-11-20, alert, alerts, critical, dependabot, high, jars, jetty, jline, jsoup, libraries, low, netty, rebel-readline, repl, rewrite-clj, scan
 
 - Where the alerts come from
 - Triage, 2026-11-18
@@ -1891,7 +1891,7 @@ _fighting-style-authoring · fighting style authoring_
 
 _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
-**topics:** ability, archery, attack, blindsight, damage, defense, dueling, fighting, great, pool, predicate, prop, protection, style, styles, thrown, vocabulary, weapon
+**topics:** ability, archery, attack, damage, defense, dueling, fighting, great, pool, predicate, prop, protection, style, styles, three-state, thrown, vocabulary, weapon
 
 - The shapes, grouped
 - :ranged? is a real flag, not the negation of :melee?
@@ -2014,7 +2014,7 @@ _garden-calc-plus · garden calc plus_
 
 _garden-declaration-order · garden declaration order_
 
-**topics:** 2026-11-23, 3px, big, composite, firefox, garden, hash, hiding, longhand, mask, notice, order, painted, properties, resets, shorthand, tester, typed
+**topics:** 2026-11-23, 3px, big, composite, firefox, garden, hash, hiding, longhand, mask, notice, order, painted, properties, reset, resets, shorthand, tester
 
 - The trap
 - The fix and the guard
@@ -2586,7 +2586,7 @@ _memoize-antipattern-scan · memoize antipattern scan_
 
 _merging-across-a-refactor · merging across a refactor_
 
-**topics:** 669, bare, branch, call, cleanly, conflict, cut, fetch, filtered-list-staleness, handler, handoff-669-final-pass, merge, merging, newer, plan-669-merge-verification, refactor, side, undeclared
+**topics:** 669, bare, call, cleanly, conflict, cut, fetch, filtered-list-staleness, git, handler, handoff-669-final-pass, merge, merging, newer, plan-669-merge-verification, refactor, side, undeclared
 
 - Case 1: the clean merge that was already broken
 - Case 2: the conflict whose obvious resolution restores a bug
@@ -2762,7 +2762,7 @@ _open5e-upstream-notes · open5e upstream notes_
 
 _orcbrew-format-versioning · orcbrew format versioning_
 
-**topics:** besides, boot-load, brew, builds, community, compat, compatibility, demo, envelope, extension, implemented, in-file, incompatible, pickers, poll, tag, versioning, won
+**topics:** boot-load, brew, builds, community, compat, compatibility, demo, distinct, envelope, extension, implemented, in-file, incompatible, pickers, poll, tag, versioning, won
 
 - Why this exists
 - The mechanism (three parts)
@@ -3047,7 +3047,7 @@ _personal-data-scan · personal data scan_
 
 _plan-669-merge-verification · plan 669 merge verification_
 
-**topics:** 2026-09-13, 669, chain, counter, custom-items, db-population, differential, endpoint, expire, five, guard, items, login, sharing, stage, stages, subs, suite
+**topics:** 2026-09-13, 669, chain, counter, custom-items, differential, endpoint, expire, five, guard, items, login, scenario, sharing, stage, stages, subs, suite
 
 - What is actually being merged
 - Does any of this fix something broken on integration? Only P1.
@@ -3076,6 +3076,23 @@ _plan-669-merge-verification · plan 669 merge verification_
 - What seeding the differential originally required
 - Take it whole — decided
 - What this plan cannot cover
+
+## plan-browser-toolbox.md
+
+_plan-browser-toolbox · plan browser toolbox_
+
+**topics:** 2026-11-26, accessible, agent, census, fixtures, locator, module, page-load-budget, pointer, recipes, screens, selector, selectors, shims, suite, suites, viewport, visual
+
+- The problem, measured
+- What it is
+- 1. One place map, the evolving model of the app
+- 2. The census: the trigger that keeps the map true
+- 3. Recipes and seeded fixtures
+- 4. One library
+- 5. Bootstrap for agents
+- Order of work, each a commit seen working before the next
+- What it is not
+- Open for the owner
 
 ## plan-character-drafts.md
 
@@ -3283,7 +3300,7 @@ _plan-lookup-indexes · plan lookup indexes_
 
 _plan-next · plan next_
 
-**topics:** advanced, agent-dev-loop, armour, capabilities, contributor, control, creator, damage, macro, natural-armor, picked, requirements, row, support-session-ledger, templates, tier, understood, warforged
+**topics:** advanced, agent-dev-loop, armour, capabilities, contributor, creator, damage, macro, natural-armor, number, picked, requirements, row, support-session-ledger, templates, tier, understood, warforged
 
 - 0. Standing, do these first
 - 0b. September support sessions — tracked separately
@@ -3376,7 +3393,7 @@ _portrait-and-image-picture · portrait and image picture_
 
 _proposal-indexeddb-storage · proposal indexeddb storage_
 
-**topics:** asynchronous, capacity, chunking, cross-tab, drawbacks, goal, indexeddb, library, localstorage, long-term, on-demand, per-key, perf-homebrew-builder-loop, plan-chunked-library-storage, recorded, safari, storage, trial
+**topics:** asynchronous, capacity, chunking, cross-tab, drawbacks, goal, indexeddb, library, localstorage, long-term, on-demand, per-key, perf-homebrew-builder-loop, plan-chunked-library-storage, quota, recorded, safari, storage
 
 - The idea
 - Why it is worth looking at
@@ -3908,7 +3925,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, 2024-only, 2026-10-07, 5etools, content, edition, editions, monsters, open5e, owner, pdf, served, spells, srd, srd-2024-coverage, text, trunk
+**topics:** 2014, 2024, 2024-only, 2026-10-07, 5etools, diff, edition, editions, monsters, open5e, owner, pdf, served, spells, srd, srd-2024-coverage, text, trunk
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded
@@ -3991,7 +4008,7 @@ _srd-vs-plugin-content · srd vs plugin content_
 
 _start-build · start build_
 
-**topics:** 2026-10-30, 2026-11-02, amber, badge, chrome, css, disk, file-time, folder, french, lein, outweigh, port, repl, spit, stamp, start, worktree
+**topics:** 2026-10-30, 2026-11-02, amber, badge, css, disk, file-time, folder, french, lein, outweigh, port, repl, spit, stamp, start, translatable, worktree
 
 - Regenerating CSS without a second lein process
 
@@ -4030,7 +4047,7 @@ _starting-equipment · starting equipment_
 
 _style-and-branding-audit-prompt · style and branding audit prompt_
 
-**topics:** 2026-11-16, audit, audit-only, audits, branding, cleanup, despite, inventory, layer, messy, near-duplicate, paste, piled, plans, prompt, rails, stylesheets, went
+**topics:** 2026-11-16, audit, audit-only, audits, branding, cleanup, despite, inventory, layer, messy, near-duplicate, paste, piled, plans, prompt, rails, stylesheets, update
 
 - The job
 - Scope
@@ -4238,7 +4255,7 @@ _ux-guide · ux guide_
 
 _verification-discipline · verification discipline_
 
-**topics:** armed, baseline, behavior, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, green, miss, perf-homebrew-builder-loop, proves, synthetic, tells
+**topics:** armed, baseline, behavior, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, green, miss, perf-homebrew-builder-loop, proves, running, synthetic
 
 - Lessons (each with the concrete miss that taught it)
 - A check that has never failed has never been tested

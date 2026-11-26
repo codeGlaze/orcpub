@@ -177,6 +177,40 @@ view is two: the hold decides what the built character applies; Data View edits 
   Next: merge `integration` in, review where the two sources differ (`srd-2024-roadmap.md`, "Stage 1,
   first type"), then PR. After that, spells join the pipeline by generating into the
   `spells.edn` that `perf/srd-spells-static` creates.
+- **Roadmap, not imminent: alternative rules** (owner, 2026-11-26). Table-wide rule variants that
+  are switched on or off, not content:
+  - official alternatives, such as how a critical hit's damage resolves (double the dice, or
+    maximise one set and roll the other), rolled or average HP, feats or multiclassing off;
+  - homebrew overrides of a rule's settings.
+  Two pages:
+  - a **build page** to author a homebrew variant;
+  - a **view page** listing every variant with an on/off switch.
+  Open: does a switch belong to the character or to a campaign? Rules have to be data with named
+  options before any of this can switch them; the roll result sheet (above) is the first
+  consumer, through crit damage. Not the same as class-feature swaps
+  ([demo-content-tier.md](docs/kb/demo-content-tier.md), "variant rules"). It shares its
+  provenance needs with the DM grants layer below.
+- **Roadmap, not imminent: DM grants for players** (owner, 2026-11-26). A section where a player
+  records the rules and bonuses their DM granted: an extra feat, "a tortle can wear armour",
+  +1 AC for the party. Already proposed as a layer above the content silos, riding `:props`, with
+  a ledger of who granted what:
+  [rules-override-layer.md](docs/kb/rules-override-layer.md).
+  The name is open. "Boon" is taken twice in 5e (epic boons, DM boons), and the app already has
+  `homebrew-boon` (Pact Boon). Candidates for the owner:
+  - **Decree** — short, plainly the DM's word.
+  - **Writ** — short, reads like a ledger.
+  - **Dispensation** — exact for permissions, but long.
+  - **Codicil** — precise, but obscure.
+  - **Favor** — warm, player-facing, no 5e rules meaning.
+  - **Edict** — firmer than a decree.
+  - **Charter** — a standing grant to a party.
+  - **Warrant** — an official permission.
+  - **Privilege** — plain English for a permission.
+  - **Table Ruling** — what it literally is, but two words.
+  - **Accord** — something agreed with the DM.
+  - **Patent** — as in letters patent; precise, but reads as intellectual property.
+  - **Gift** — avoid: the 2024 rules and Theros use "supernatural gift".
+  - **Blessing** — avoid: it collides with the Bless spell and clerical blessings.
 - **Roadmap: make the test suites cheaper** (owner, 2026-11-25). `lein test` runs 1678 tests and the
   cljs suite 1042, and each run pays the JVM start before the first test. Measure before changing:
   time each namespace, find the slowest, look for tests that rebuild the same fixture (a full
