@@ -70,3 +70,9 @@ What really went wrong was the check:
   `test/browser/page_load_budget_e2e.js`; raised from 900 KB, owner, 2026-11-09).
 - `?v=` stamps only change the address so caches refetch; they do not rebuild anything: a stale bundle gets a stamp too.
 - `page_load_budget_e2e.js` is not in CI.
+- **A browser test that blocks the bundle must match its path, not a glob** (found 2026-11-26).
+  A non-dev server serves `/js/compiled/orcpub.js?v=<stamp>`, and Playwright's
+  `route('**/js/compiled/orcpub.js')` does not match the query, so the bundle loads and the test
+  quietly checks a booted app. Use `APP_BUNDLE` from `test/e2e/lib.js` (a pathname match). Four
+  Data View suites and `boot_rescue_e2e.js` had the glob; their "never requested" counts read 0
+  because nothing matched, not because nothing was asked for.

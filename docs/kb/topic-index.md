@@ -2790,7 +2790,7 @@ _orcbrew-level-modifiers · orcbrew level modifiers_
 
 _page-load-budget · page load budget_
 
-**topics:** 2026-10-15, bundle, caching, compressed, credits, e2e-runner, font, fonts, headers, icons, loads, parties, production, repeat, sheet, signed, stamps, visit
+**topics:** 2026-10-15, bundle, caching, compressed, credits, e2e-runner, font, fonts, glob, headers, icons, loads, parties, production, repeat, signed, stamps, visit
 
 - Why it exists
 - Audit of integration (2026-10-15, b8035afe, production bundle)
