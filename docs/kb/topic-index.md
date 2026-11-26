@@ -1992,7 +1992,7 @@ _garden-calc-plus · garden calc plus_
 
 _garden-declaration-order · garden declaration order_
 
-**topics:** 2026-11-23, 3px, big, composite, firefox, garden, hash, hiding, longhand, mask, notice, order, painted, properties, reset, resets, shorthand, tester
+**topics:** 2026-11-23, 3px, big, composite, firefox, garden, hash, hiding, longhand, mask, notice, order, painted, properties, resets, shorthand, tester, typed
 
 - The trap
 - The fix and the guard
@@ -3222,7 +3222,7 @@ _plan-homebrew-markdown-export · plan homebrew markdown export_
 
 _plan-inventory-kits · plan inventory kits_
 
-**topics:** 2026-10-22, 2026-10-23, backpack, box, equipment, gear, inventory, items, kit, kits, owner, pack, packs, quantity, refill, restock, torches, undo
+**topics:** 2026-10-22, 2026-10-23, backpack, bag, equipment, gear, inventory, items, kit, kits, owner, pack, packs, quantity, refill, restock, torches, undo
 
 - The problems today
 - The model
@@ -4148,7 +4148,7 @@ _tracked-issues · tracked issues_
 - Window the combobox row list, and reach the 969-option monster picker
 - Windowing
 - The monster picker
-- A field removed from a character is never removed in storage (#295)
+- A value removed from a character is never removed in storage (#295)
 
 ## typed-keys.md
 

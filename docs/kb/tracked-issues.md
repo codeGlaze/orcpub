@@ -328,25 +328,29 @@ control (it dispatches, clears the query and closes), while `monster-selector` p
 a *single current value* that must stay displayed. Generalising means parameterising
 the selected-value display and the on-pick behaviour.
 
-## A field removed from a character is never removed in storage (#295)
+## A value removed from a character is never removed in storage (#295)
 
-**Status:** Reproduced 2026-11-25 on `integration` (b14a515e4); same code upstream. Fix planned on
-`fix/long-rest-hp-saved`.
+**Status:** Tested 2026-11-25 on `integration` (b14a515e4): a browser test (HP) and a JVM test that
+saves through `do-save-character` after the client's own `from-strict`/`to-strict` round trip
+(kept as scratch, not committed). Same save code upstream. Fix not started; direction is with the owner.
 
-A Long Rest resets HP by removing `::char5e/current-hit-points` (absent means full). The save
-succeeds, but `update-character` (`src/clj/orcpub/routes.clj`) retracts only sub-entities whose
-ids disappeared. It never retracts a plain attribute missing from the new save, so the old HP
-comes back on reload. Play state is saved as "nothing saved = baseline": max HP, slots and
-feature uses are computed on every load; `::spells/slots-used` and `::char5e/features-used` record
-what was spent, and a rest deletes them. `slots-used` is a ref (schema.clj), so deleting it reaches
-storage. `current-hit-points` is a plain long, so it doesn't. The per-rest unit sets inside
-`features-used` are cardinality-many string attributes, so they have the bug too (confirmed by a
-second review, 2026-11-25). Writing an empty or shorter set doesn't help: a Datomic map transaction
-never removes cardinality-many values it isn't told to, so unticking one feature likely doesn't
-persist either. The planned fix is server-side: in `update-character`, for each entity the incoming
-tree keeps (same :db/id), emit `:db/retract` for the stored attributes and values it lacks. Skip ref
-attributes (the retractEntity step covers those) and the server-set owner and tags. First check that
-every caller sends the whole character, since a partial save would wipe fields. Write a value instead
-(the planned fix: an "at max" flag written true or false, never removed). The browser test that
-showed it, with its setup traps (seeded server via `scripts/e2e/server.sh start`, the 7.5 s
-autosave throttle), should become the branch's regression test.
+Play state follows "nothing saved = baseline": a reset removes a value. `update-character`
+(`src/clj/orcpub/routes.clj`) retracts only nested entities whose `:db/id` vanished. It never
+retracts an attribute, or one value of a cardinality-many attribute, missing from an entity that
+keeps its id. What decides it is whether the client keeps the record's id on load
+(`update-values-from-strict`, `src/cljc/orcpub/dnd/e5/character.cljc`):
+
+| Removal | Record keeps its id? | After save and reload |
+|---|---|---|
+| HP after a long rest, or an emptied HP box (`remove-nans`) | yes (values) | old HP comes back |
+| XP box cleared | yes (values) | old XP comes back |
+| One spell slot unticked | yes (`slots-used`) | the tick comes back |
+| A rest clearing used features, or one feature unticked | no: the id is dropped on load | works (record replaced whole) |
+| One spell unprepared | no: the list is rebuilt | works |
+| All slots cleared by a long rest | the record is removed | works |
+
+Fix directions weighed with a second review: retract missing attributes and values for kept
+entities in `update-character`, under the version check (`:db/cas` on `::se/version`, 409
+`:stale-character`) whose server half is on the unmerged `feature/character-rescue` (the client half
+is on `integration` since `0d0ace873`). The alternative is to write values instead of removing them
+(HP as a number or an "at max" flag). Resets stay registry-free either way.
