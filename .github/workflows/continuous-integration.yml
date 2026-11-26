@@ -19,6 +19,7 @@ jobs:
   detect-stack:
     name: Detect Stack
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       java-version: ${{ steps.detect.outputs.java-version }}
       java-distribution: ${{ steps.detect.outputs.java-distribution }}
@@ -56,6 +57,7 @@ jobs:
   test:
     name: Test & Lint (${{ needs.detect-stack.outputs.stack-label }})
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: detect-stack
 
     steps:
@@ -141,6 +143,7 @@ jobs:
   security-scan:
     name: Library security scan
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: detect-stack
     steps:
       - name: Checkout
@@ -165,6 +168,7 @@ jobs:
   personal-data:
     name: Personal data scan
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -213,6 +217,7 @@ jobs:
   dependency-graph:
     name: Submit Clojure dependencies
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: detect-stack
     # Not integration: alerts read the default branch, and this job ran only for develop and main.
     if: github.event_name != 'pull_request' && github.ref_name != 'integration'

@@ -34,4 +34,5 @@ runs:
       shell: bash
       run: |
         echo "$HOME/.lein/bin" >> "$GITHUB_PATH"
-        "$HOME/.lein/bin/lein" version
+        # Outside the project, so it checks Leiningen alone and does not fetch the project's plugins.
+        cd "$RUNNER_TEMP" && timeout 5m "$HOME/.lein/bin/lein" version

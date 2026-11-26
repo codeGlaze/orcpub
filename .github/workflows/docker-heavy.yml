@@ -39,6 +39,7 @@ jobs:
     name: Paused by label
     if: "github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'heavy-docker: later')"
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       pull-requests: write
     steps:
