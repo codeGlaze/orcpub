@@ -156,7 +156,8 @@
 
 (defn load-rescue
   "The notice under the loading picture on a character page or the builder: hidden, shown after
-   8 seconds if the app has not rendered (`window.orcpubBooted`), with a link to Data View.
+   8 seconds if the app has not rendered (`window.orcpubBooted`), with a link to Data View. It
+   sits 404px down, moved up on a short screen so it stays in view.
    Inline styles and script only, so it works when the app's files do not."
   [nonce]
   (let [char-path (routes/path-for routes/dnd-e5-char-page-route :id "ID")
@@ -166,7 +167,7 @@
         draft-path (routes/path-for routes/dnd-e5-draft-data-page-route)]
     (list
      [:div#load-rescue
-      {:style (str "display:none;position:fixed;left:50%;top:404px;transform:translateX(-50%);"
+      {:style (str "display:none;position:fixed;left:50%;top:max(8px,min(404px,calc(100vh - 140px)));transform:translateX(-50%);"
                    "width:min(92vw,440px);box-sizing:border-box;z-index:2147482000;"
                    "flex-wrap:wrap;gap:6px 16px;align-items:center;justify-content:space-between;"
                    "padding:12px 16px;border-radius:6px;border:2px solid transparent;"
