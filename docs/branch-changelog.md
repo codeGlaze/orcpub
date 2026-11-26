@@ -60,4 +60,13 @@ whatever state it is in. Design: `docs/kb/character-rescue.md`.
   address: it stays in its folders and parties, its share link keeps working, and other open tabs
   can still save it.
 
+- **Characters:** HP restored by a long rest, a cleared XP box and an unticked spell slot now stay
+  that way after a reload, instead of the old value coming back (#295).
+
+- **Characters:** an HP box left blank puts back the character's HP instead of saving as full HP;
+  0 has to be typed.
+
+- **Characters:** a copy of the app from before save versions can no longer overwrite a newer save
+  of the same character.
+
 ## Security
