@@ -582,6 +582,16 @@
                                     (handler e))))
     (nil? handler) (assoc :aria-disabled "true")))
 
+(defn tab-attrs
+  "Attributes for a clickable tab: its role and selected state, the accessible name `label`, keyboard
+   focus, and Space or Enter calling `handler` (the tab's click handler, given the key event)."
+  [selected? label handler]
+  {:role "tab" :aria-selected (str (boolean selected?)) :aria-label label :tabIndex 0
+   :on-key-down (fn [e]
+                  (when (#{" " "Enter"} (.-key e))
+                    (.preventDefault e)
+                    (handler e)))})
+
 (def loading-style
   {:position :fixed
    :height "100%"
@@ -4195,8 +4205,9 @@
 
 (defn details-tab [title icon device-type selected? on-select]
   [:div.b-b-2.f-w-b.pointer.p-10.hover-opacity-full
-   {:class (if selected? "b-orange" "b-gray")
-    :on-click on-select}
+   (merge {:class (if selected? "b-orange" "b-gray")
+           :on-click on-select}
+          (tab-attrs selected? (s/capitalize title) on-select))
    [:div.hover-opacity-full
     {:class (when (not selected?) "opacity-5")}
     [:div (svg-icon icon 24)]
@@ -4500,6 +4511,7 @@
            [:div
             {:class (if two-columns? "w-50-p" "w-100-p")}
             [:div.flex.p-l-10.m-b-10.m-r-10
+             {:role "tablist" :aria-label "Character sheet sections"}
              (doall
               (map
                (fn [[title {:keys [view icon]}]]

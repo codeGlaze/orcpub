@@ -2192,8 +2192,9 @@
 
 (defn builder-tab [title key current-tab]
   [:span.builder-tab
-   {:class (when (= current-tab key) "selected-builder-tab")
-    :on-click (set-builder-tab key)}
+   (merge {:class (when (= current-tab key) "selected-builder-tab")
+           :on-click (set-builder-tab key)}
+          (views5e/tab-attrs (= current-tab key) title (set-builder-tab key)))
    [:span.builder-tab-text title]])
 
 (defn mobile-columns []
@@ -2201,7 +2202,7 @@
     [:div.p-r-10.w-100-p
      [:div.flex-grow-1.flex.p-l-10.p-t-10
       [:div.w-100-p
-       [:div.builder-tabs
+       [:div.builder-tabs {:role "tablist" :aria-label "Builder sections"}
         [builder-tab "Options" :options current-tab]
         [builder-tab "Description" :description current-tab]
         [builder-tab "Portrait" :portrait current-tab]
@@ -2223,7 +2224,7 @@
     [:div.w-100-p
      [:div.flex-grow-1.flex.p-l-10.p-t-10
       [:div.w-50-p
-       [:div.builder-tabs
+       [:div.builder-tabs {:role "tablist" :aria-label "Builder sections"}
         [builder-tab "Options" :options current-tab]
         [builder-tab "Description" :description current-tab]
         [builder-tab "Portrait" :portrait current-tab]]
