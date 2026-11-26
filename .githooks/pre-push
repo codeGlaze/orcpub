@@ -111,8 +111,8 @@ if [ -x "$shape" ] && [ "${1:-}" = origin ]; then
 fi
 
 # Heads-up, never blocks: a push that changes the files deployment depends on sets off the heavy
-# Docker checks on its PR (about 20 minutes). The file list is read from that workflow, so the two
-# cannot drift apart.
+# Docker checks on its PR (about 20 minutes) unless the PR carries the 'heavy-docker: later' label.
+# The file list is read from that workflow, so the two cannot drift apart.
 heavy_wf=.github/workflows/docker-heavy.yml
 if [ -f "$heavy_wf" ]; then
   patterns="$(awk '/^    paths:/{p=1;next} p&&/^      - /{gsub(/^      - |'"'"'/,"");print;next} p{exit}' "$heavy_wf")"
@@ -136,10 +136,11 @@ if [ -f "$heavy_wf" ]; then
       branch="${remote_ref#refs/heads/}"
       echo "" >&2
       echo "  heads-up: this branch changes files deployment depends on:$hits" >&2
-      echo "  Its PR into develop or integration runs the heavy Docker checks (about 20 minutes) on every push." >&2
-      echo "  To run them by hand (works only once docker-heavy.yml is on develop, the default branch):" >&2
-      echo "      gh workflow run docker-heavy.yml --ref $branch" >&2
-      echo "  A newer push cancels an older run; the PR label 'heavy-docker: later' pauses them." >&2
+      echo "  The heavy Docker checks (about 20 minutes) run at landmark pushes only: keep the label" >&2
+      echo "  'heavy-docker: later' on its PR, and remove it (which starts a run) when review is requested," >&2
+      echo "  after a push that changes one of these files, and before merge. Adding the label:" >&2
+      echo "      gh api -X POST repos/codeGlaze/orcpub/issues/<PR>/labels -f 'labels[]=heavy-docker: later'" >&2
+      echo "  By hand: gh workflow run docker-heavy.yml --ref $branch   (AGENTS.md, \"Deployment changes\")" >&2
       echo "" >&2
     fi
   done < <(printf '%s\n' "$pushed_refs")
