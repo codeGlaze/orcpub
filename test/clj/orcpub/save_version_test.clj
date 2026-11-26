@@ -107,3 +107,13 @@
 (deftest the-version-keeps-no-history
   (let [conn (fresh-conn)]
     (is (true? (:db/noHistory (d/pull (d/db conn) [:db/noHistory] ::se/version))))))
+
+(deftest the-response-is-read-from-the-save-s-own-database
+  (let [conn (fresh-conn)
+        created (routes/create-new-character conn beren "kaylee")
+        id (:db/id created)
+        db (d/db conn)
+        later (:db-after (d/with db [[:db/add id ::se/version 99]]))]
+    (with-redefs [d/db (constantly later)]
+      (is (= 2 (::se/version (routes/update-character db conn created "kaylee")))
+          "a database read after the save, holding a later version, does not leak into the response"))))
