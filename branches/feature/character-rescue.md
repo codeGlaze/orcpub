@@ -15,19 +15,15 @@ branch by the owner's exception; it moves to agents/develop before the PR.
   the app.
 - Not on the branch: the Data View drafts picker (handoff of 2026-10-25 said "not pushed"; the code
   is lost). Owner, 2026-11-25: ship without it, add it later.
-- Next, in order (owner go, 2026-11-25), each its own commit with tests seen failing first:
-  1. version check: an unversioned save is accepted only when the stored character is unversioned
-     too (today a stale unversioned save is retried and can overwrite newer data); a refused save
-     applies nothing; `::se/version` gets `:db/noHistory true`.
-  2. the save removes what a save left out (#295): for each entity the incoming tree keeps, retract
-     the attributes and cardinality-many values it lacks; skip refs and the server-set owner and
-     tags. Tested scope: `docs/kb/tracked-issues.md`, #295.
-  3. the HP box left blank goes back to its previous number; 0 must be typed (owner, 2026-11-25).
-  4. tests: two tabs (second refused), an old unversioned copy refused, HP/XP/one slot removals,
-     the already-working removals, an unrelated save keeps equipment, charges, portrait and notes,
-     a rest then a level up shows the new max.
-  5. then the PR: move the KB page, full suites, `heavy-docker: later` label (the Dockerfile is in
-     the diff), CodeRabbit.
+- Done 2026-11-25, pushed (`07dc14136`), each fix seen failing first: unversioned saves refused
+  once a character has a version, `::se/version` with no history (`ce54ec065`); removals stored
+  (#295, `ffab1a216`); a blank HP box reverts (`8b7b02ec7`); branch changelog lines.
+- Second opinion (Codex) reviewed the merge `d6596d1ce`: resolutions sound, Docker builds
+  ledger.js. Its "Data View not owner-gated" finding is by design (KB who-row: the client shows
+  "Only the owner can open this"; character data is public anyway).
+- Next: the PR when the owner says: move `docs/kb/character-rescue.md` to agents/develop, the
+  real-app browser suites (Data View e2e, character drafts), label `heavy-docker: later` (the
+  Dockerfile is in the diff), CodeRabbit.
 
 ## Owner decisions
 

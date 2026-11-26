@@ -330,9 +330,10 @@ the selected-value display and the on-pick behaviour.
 
 ## A value removed from a character is never removed in storage (#295)
 
-**Status:** Tested 2026-11-25 on `integration` (b14a515e4): a browser test (HP) and a JVM test that
-saves through `do-save-character` after the client's own `from-strict`/`to-strict` round trip
-(kept as scratch, not committed). Same save code upstream. Fix not started; direction is with the owner.
+**Status:** Fixed on `feature/character-rescue` (2026-11-25, `ffab1a216`, tests `df8dc403e`),
+not yet in `integration`. `update-character` now adds `entity/removed-value-retractions` to the same
+transaction as the version check. Found by a browser test (HP) and a JVM test through
+`do-save-character` after the client's `from-strict`/`to-strict` round trip; same save code upstream.
 
 Play state follows "nothing saved = baseline": a reset removes a value. `update-character`
 (`src/clj/orcpub/routes.clj`) retracts only nested entities whose `:db/id` vanished. It never
