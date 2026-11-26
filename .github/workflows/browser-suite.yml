@@ -76,6 +76,11 @@ jobs:
         with:
           node-version: '22'
 
+      # The shared helpers every browser suite imports; node only, no browser or server.
+      - name: Toolbox helpers pass their table test
+        timeout-minutes: 2
+        run: node test/browser/lib/toolbox_test.js
+
       - name: Install Playwright and Chromium
         working-directory: scripts/e2e
         run: |
