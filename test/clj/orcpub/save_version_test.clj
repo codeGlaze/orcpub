@@ -1,6 +1,7 @@
 (ns orcpub.save-version-test
   "The character version (`::se/version`): every save bumps it, a save sent with an older one is
-   refused with a 409, and concurrent saves never store a duplicate selection. Saves run through
+   refused with a 409, a save with none is refused once the character has one, and concurrent saves
+   never store a duplicate selection. Saves run through
    `routes/do-save-character`, each taking its own database value as a request does."
   (:require [clojure.spec.alpha :as spec]
             [clojure.test :refer [deftest testing is]]
@@ -83,12 +84,26 @@
             statuses (together! #(save! conn (with-skill copy :stealth)) #(save! conn (with-skill copy :insight)))]
         (is (= #{200 409} (set statuses)) (pr-str statuses))
         (is (= 1 (skills conn (:db/id copy)))))))
-  (testing "without a version (an app from before): both are saved, one after the other"
-    (dotimes [_ 50]
+  (testing "without a version (an app from before) on a versioned character: both refused, nothing written"
+    (dotimes [_ 20]
       (let [conn (fresh-conn)
             copy (dissoc (routes/create-new-character conn beren "kaylee") ::se/version)
-            statuses (together! #(save! conn (with-skill copy :stealth)) #(save! conn (with-skill copy :insight)))
-            stored (d/pull (d/db conn) '[*] (:db/id copy))]
-        (is (= [200 200] statuses))
-        (is (= 1 (skills conn (:db/id copy))))
-        (is (spec/valid? ::se/entity stored))))))
+            before (d/pull (d/db conn) '[*] (:db/id copy))
+            statuses (together! #(save! conn (with-skill copy :stealth)) #(save! conn (with-skill copy :insight)))]
+        (is (= [409 409] statuses))
+        (is (= before (d/pull (d/db conn) '[*] (:db/id copy))))))))
+
+(deftest an-unversioned-copy-never-overwrites-a-newer-save
+  (let [conn (fresh-conn)
+        created (routes/create-new-character conn beren "kaylee")
+        id (:db/id created)
+        newer (:body (save! conn (assoc-in created [::se/values :orcpub.dnd.e5.character/character-name] "Bree")))
+        {:keys [status]} (save! conn (-> created (dissoc ::se/version)
+                                         (assoc-in [::se/values :orcpub.dnd.e5.character/character-name] "Old")))]
+    (is (= 409 status))
+    (is (= "Bree" (get-in (d/pull (d/db conn) '[*] id) [::se/values :orcpub.dnd.e5.character/character-name])))
+    (is (= (::se/version newer) (::se/version (d/pull (d/db conn) '[*] id))))))
+
+(deftest the-version-keeps-no-history
+  (let [conn (fresh-conn)]
+    (is (true? (:db/noHistory (d/pull (d/db conn) [:db/noHistory] ::se/version))))))

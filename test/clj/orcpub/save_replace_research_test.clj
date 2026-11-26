@@ -124,7 +124,7 @@
         (is (not (spec/valid? ::se/entity round-trip)))
         (is (= 400 (:status (save! conn round-trip))))))))
 
-(deftest r8-a-tab-holding-an-older-copy-is-refused-and-an-old-app-still-saves
+(deftest r8-a-tab-holding-an-older-copy-is-refused-and-so-is-an-unversioned-one
   (let [conn (fresh-conn)
         id (store! conn (character {::se/key :race ::se/option {::se/key :x}}))
         first-save (without conn id :race)
@@ -136,14 +136,12 @@
         (is (= :stale-character (:error body)))
         (is (= (d/pull (d/db conn) '[*] id) (:current body)))
         (is (= "Beren" (get-in (:current body) [::se/values :orcpub.dnd.e5.character/character-name])))))
-    (testing "an app that sends no version still saves, to the same character, the later save winning"
-      (let [{:keys [status body]} (save! conn (dissoc other-tab ::se/version))
-            after (d/pull (d/db conn) '[*] id)]
-        (is (= 200 status))
-        (is (= id (:db/id body)))
-        (is (= "Renamed" (get-in after [::se/values :orcpub.dnd.e5.character/character-name])))
-        (is (spec/valid? ::se/entity after))
-        (is (= 1 (count (filter #(= :race (::se/key %)) (::se/selections after)))) "the duplicate does not come back")
+    (testing "an app that sends no version is refused once the character has one, and writes nothing"
+      (let [before (d/pull (d/db conn) '[*] id)
+            {:keys [status body]} (save! conn (dissoc other-tab ::se/version))]
+        (is (= 409 status))
+        (is (= :stale-character (:error body)))
+        (is (= before (d/pull (d/db conn) '[*] id)))
         (is (= {:folder id :party id :share id} (links conn id)))))))
 
 (deftest r11-another-players-party-keeps-the-character
@@ -163,8 +161,8 @@
       "a name's key is not repaired on the way in; the loader quarantines it and offers a rename"))
 
 (deftest r10-two-saves-from-the-same-old-copy-never-store-two-selections-with-one-key
-  (doseq [[label strip] [["carrying the version: the second is refused" identity]
-                         ["without a version: the second is retried and wins" #(dissoc % ::se/version)]]]
+  ;; Unversioned copies of a versioned character are refused outright: save_version_test.
+  (doseq [[label strip] [["carrying the version: the second is refused" identity]]]
     (testing label
       (let [conn (fresh-conn)
             id (store! conn (character))
@@ -178,8 +176,5 @@
         (is (= 200 first-status))
         (is (= 1 (count skills)))
         (is (spec/valid? ::se/entity stored))
-        (if (= identity strip)
-          (do (is (= 409 second-status))
-              (is (= :stealth (-> skills first ::se/options first ::se/key)) "the first save stands"))
-          (do (is (= 200 second-status))
-              (is (= :insight (-> skills first ::se/options first ::se/key)) "the later save wins")))))))
+        (is (= 409 second-status))
+        (is (= :stealth (-> skills first ::se/options first ::se/key)) "the first save stands")))))
