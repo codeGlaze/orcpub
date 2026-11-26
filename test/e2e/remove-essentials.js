@@ -11,6 +11,7 @@
 //
 // Needs the seeded server (kaylee / serenity99) and both bundles (lein fig:build, lein fig:ledger):
 //   NODE_PATH=/opt/node22/lib/node_modules node test/e2e/remove-essentials.js
+// Needs: dev bundle (reads the app's internals through dbAt, which a production bundle compiles away).
 const { chromium } = require('playwright');
 const { BASE, findChrome, checker, dbAt, readyPage, dismissWhatsNew, clickTab } = require('./lib');
 const { dvButton, dvDialog, dvAnswer, dvSave } = require('./rescue-lib');

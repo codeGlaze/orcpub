@@ -26,6 +26,7 @@
 //   DATOMIC_URL=datomic:mem://orcpub-e2e ORCPUB_ENV=dev SIGNATURE=e2e-test-signature PORT=8890 \
 //   CSP_POLICY=none lein with-profile init-db run -m e2e-boot
 //   NODE_PATH=/opt/node22/lib/node_modules node test/e2e/character-data.js
+// Needs: dev bundle (reads the app's internals through dbAt, which a production bundle compiles away).
 const { chromium } = require('playwright');
 const { BASE, findChrome, checker, dbAt, dismissWhatsNew } = require('./lib');
 

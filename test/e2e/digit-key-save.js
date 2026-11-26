@@ -7,6 +7,7 @@
 //
 // Needs the seeded server (kaylee / serenity99), `lein fig:build` and `lein garden once`:
 //   NODE_PATH=/opt/node22/lib/node_modules node test/e2e/digit-key-save.js
+// Needs: dev bundle (reads the app's internals through dbAt, which a production bundle compiles away).
 const path = require('path');
 const fs = require('fs');
 const os = require('os');

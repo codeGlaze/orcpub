@@ -11,6 +11,7 @@
 //
 // Needs the seeded server (kaylee / serenity99, zoe / washburne7), lein fig:build, lein fig:ledger:
 //   NODE_PATH=/opt/node22/lib/node_modules node test/e2e/data-view-entry-points.js
+// Needs: dev bundle (reads the app's internals through dbAt, which a production bundle compiles away).
 const { chromium } = require('playwright');
 const { BASE, findChrome, checker, dismissWhatsNew, clickTab } = require('./lib');
 const { wait, importPak, build, myContent, logIn, clickCard } = require('./rescue-lib');
