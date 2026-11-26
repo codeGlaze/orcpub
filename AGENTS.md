@@ -391,15 +391,14 @@ Needs you: what it is, where it would go, and why.
   message and in the PR beside the pass. A break that does not fail the test means the test is weak:
   strengthen the test, never weaken the break. The commands: `docs/TESTING.md`, "Seeing a test fail".
 - **Large schema changes** need migration scripts and tests.
-- **Deployment changes:** a change to any path in the `paths:` list of
+- **Deployment changes:** a PR touching any path in the `paths:` list of
   `.github/workflows/docker-heavy.yml` (Docker, compose, deploy, `run`, the swarm, release, env and
-  start scripts, the crash and alert code). On a PR whose branch or base carries that workflow, one
-  such file anywhere in the PR runs about 20 minutes of heavy Docker checks on **every** push, docs-only
-  pushes included. So once such a PR is open, or before you open it, ask in Needs you before the first push that
-  brings a listed file in and before every push after (pushes to `feature/email-and-alerts` itself:
-  `docs/GIT_WORKFLOW.md`, "Heavy Docker checks"), and push only after the owner says yes (an exception to "push
-  the branch as you go"). The owner can waive this for the session; then push and say so in your
-  summary. Before asking for review of such a PR, its heavy Docker run must be green. When they run and how to start them: `docs/GIT_WORKFLOW.md`, "Heavy Docker checks".
+  start scripts, the crash and alert code) gets about 20 minutes of heavy Docker checks. **They run
+  at landmark pushes, not every push** (owner, 2026-11-25): the PR carries the `heavy-docker: later`
+  label from the moment it holds such a file, so ordinary pushes go out without asking; remove the
+  label (which starts a run) at a landmark: before asking for review, after a push that changes a
+  listed file itself, and before merge. Its heavy Docker run must be green before review. Mechanics:
+  `docs/GIT_WORKFLOW.md`, "Heavy Docker checks".
 - **Where a test goes and how to run it:** `docs/TESTING.md` has the four layers. A regression test
   goes in the lowest layer that can reach the bug. **Before a PR:** `lein test`, the cljs suite, the
   full `lein lint`, and the real-app browser suites for what the branch changed.

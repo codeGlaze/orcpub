@@ -165,7 +165,10 @@ branch without the file: `git show origin/integration:.github/workflows/docker-h
   every such PR into either runs it, older branches included.
 - **No PR, no CI:** pushing a branch with no open PR starts no CI at all, heavy Docker included,
   despite the pre-push heads-up. CI starts when the PR opens (2026-11-18).
-- **Pausing them:** the PR label `heavy-docker: later`. Batch pushes to keep runs few.
+- **Landmarks only:** the PR label `heavy-docker: later` pauses them, and removing it starts a run.
+  Keep the label on from the first push that brings a listed file into the PR. Remove it at a landmark
+  (review requested, a listed file itself changed, before merge), then put it back for the next pushes.
+  Adding it: `gh api -X POST repos/codeGlaze/orcpub/issues/<PR>/labels -f 'labels[]=heavy-docker: later'`.
 - **By hand:** `gh workflow run docker-heavy.yml --ref <branch>` (the pre-push hook prints it); it
   needs the workflow on `develop`, the default branch, which it is.
 - **When to ask the owner:** `AGENTS.md`, "Tests".
