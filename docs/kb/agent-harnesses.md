@@ -102,6 +102,9 @@ in AGENTS.md; nothing here loosens them.
   worst; its counts and totals do not: every count must come from a check (`count-and-compare`).
   Reads evidence right more often than it concludes right: its verdicts that change something
   are reviewed.
+  Its "done" is not evidence: on row 2 (2026-11-26) it reported a word-for-word copy met when the
+  file was 7 lines off, copied by line numbers read before the plan changed under it. Never edit a
+  file a Cline task is reading; check its output with a script, not its report.
 
 ## Writing instructions that get followed
 
