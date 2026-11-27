@@ -171,7 +171,7 @@ _SESSION-SUMMARY · SESSION SUMMARY_
 
 _UPGRADE_DEPENDENCIES · UPGRADE_DEPENDENCIES_
 
-**topics:** allows, clojurescript, closure, csp, dev, ecosystem, figwheel-main, java, loader, nonce, nonce-based, nonces, pedestal, protection, scripts, support, violations, xss
+**topics:** allows, clojurescript, closure, csp, dev, doesn, ecosystem, figwheel-main, java, loader, nonce, nonce-based, nonces, pedestal, protection, scripts, support, xss
 
 - Java 9+/21 & Servlet API
 - Datomic Pro
@@ -282,7 +282,7 @@ _account-flows · account flows_
 
 _agent-harnesses · agent harnesses_
 
-**topics:** auto-approve, bot, claude, cline, com, command, commands, configuration, copilot, customization, hooks, https, plugins, sdk, skill, skills, task, taskcomplete
+**topics:** auto-approve, bot, claude, cline, com, command, commands, configuration, copilot, customization, hook, hooks, https, plugins, sdk, skill, skills, task
 
 - Rules files
 - Skills
@@ -457,7 +457,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** 2026-09-29, authored, builder, control, css, docstrings, form, icon, item, lesson, reagent, review, row, sat, signing, unknown, vanished, vector
+**topics:** 2026-09-29, authored, builder, control, css, docstrings, form, icon, item, lesson, reagent, review, sat, signing, thirteen, unknown, vanished, vector
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -592,7 +592,7 @@ _browser-probe-registration · browser probe registration_
 
 _builder-and-sheet-copies · builder and sheet copies_
 
-**topics:** 2026-10-15, 409, 410, autosave, builder, copy, draft, edit, edits, multi-tab-character-contamination, recorded, reply, save, sends, server, sheet, unsaved, version
+**topics:** 2026-10-15, 409, 410, autosave, builder, character, copy, draft, edit, edits, multi-tab-character-contamination, recorded, reply, save, sends, sheet, unsaved, version
 
 - What was lost, proven on a real server
 - The fix
@@ -603,7 +603,7 @@ _builder-and-sheet-copies · builder and sheet copies_
 
 _builder-conversion-gallery · builder conversion gallery_
 
-**topics:** ---, add-bar, assets, bespoke, builder-comparison, chip, chips, controls, conversion, form, gallery, height, jpg, metric, mockup, row, rows, toggle
+**topics:** ---, add-bar, assets, bespoke, builder-comparison, chip, chips, controls, conversion, duration, form, gallery, height, jpg, mockup, row, rows, toggle
 
 - Pair 1 — Language builder (tier 1): 21 lines → 1
 - The code
@@ -705,7 +705,7 @@ _builder-form-schemas · builder form schemas_
 
 _building-a-class-from-builders · building a class from builders_
 
-**topics:** artificer, builders, capability, cfg, cited, companion, content-extensibility, d28, express, first-class, gap, infusions, int-mod, multiselect, pool, profs, scaling, tool
+**topics:** artificer, builders, capability, cfg, companion, content-extensibility, d28, express, first-class, gap, infusions, int-mod, magic-item, multiselect, pool, profs, scaling, tool
 
 - The capability witness — VERIFIED
 - What a homebrew class/subclass can already express — VERIFIED
@@ -800,7 +800,7 @@ _character-rescue-console · character rescue console_
 
 _character-rescue · character rescue_
 
-**topics:** 100, 2026-10-16, address, browser-only, character, draft, drafts, invalid, opened, owner, pick, r10, remove, repair, rescue, save, scores, stored
+**topics:** 100, 2026-10-16, address, browser-only, character, draft, invalid, opened, owner, pick, r10, remove, repair, rescue, save, saves, scores, stored
 
 - The ledger: the Character data page (decided 2026-10-06; commits 1 and 2 built)
 - Save replaces an invalid character (fixed 2026-10-08: same id)
@@ -833,7 +833,7 @@ _character-validation · character validation_
 
 _ci-signal-plan · ci signal plan_
 
-**topics:** 2026-11-24, allowance, art, baseline, billing, dmv, failed, github, hook, job, lock, pre-push, push, ran, ratchet, restarted, skipped, workflow
+**topics:** 2026-11-24, allowance, art, baseline, billing, dmv, failed, github, job, lint, lock, pre-push, push, ran, ratchet, restarted, skipped, workflow
 
 - The owner's rule
 - What set it off
@@ -1004,7 +1004,7 @@ _content-extensibility-decisions · content extensibility decisions_
 
 _content-extensibility-direction · content extensibility direction_
 
-**topics:** ancestry, bespoke, built-ins, descriptor, draconic, field, ftd, grant, maintainability, metadata, page-map, parametric, per-type, pool, pools, primitive, registry, wiring
+**topics:** ancestry, bespoke, descriptor, draconic, field, ftd, grant, maintainability, metadata, page-map, parametric, per-type, pool, pools, primitive, registry, vocabulary, wiring
 
 - Why the re-centering (don't misread the deflation)
 - The one principle (a constraint, not a ceiling)
@@ -1143,7 +1143,7 @@ _content-to-character-pipeline · content to character pipeline_
 
 _copilot-agents · copilot agents_
 
-**topics:** agent, agents, chat, claude, commit-msg, copilot, custom-instructions-reference, finishing, folder, git, gpg, hook, hooks, nested-project-instructions, prompt, task, visualstudio, worktree
+**topics:** 2026-10-27, agent, agents, chat, claude, commit-msg, copilot, custom-instructions-reference, finishing, folder, git, gpg, hooks, nested-project-instructions, prompt, task, visualstudio, worktree
 
 - What carries over, and what does not
 - One-time setup in VS Code
@@ -1294,7 +1294,7 @@ _decision-vocabulary · decision vocabulary_
 
 _declarative-grant-vocabulary · declarative grant vocabulary_
 
-**topics:** and-list, cantrips, choice, compound, creator, dependent, descriptive, filters, grant, idiomatic, layer-a, mis-attribution, progression, repeatable, select, spell, two-level, vocabulary
+**topics:** agreed, and-list, cantrips, choice, compound, creator, dependent, descriptive, grant, idiomatic, layer-a, mis-attribution, progression, repeatable, select, spell, two-level, vocabulary
 
 - Two layers, kept separate (agreed)
 - The vocabulary (DESIGN)
@@ -1310,7 +1310,7 @@ _declarative-grant-vocabulary · declarative grant vocabulary_
 
 _demo-content-tier · demo content tier_
 
-**topics:** content, content-lookup, copy, copy-on-edit, demo, diff, emitter, example, floor, frozen, golden, graduation, pack, per-device, recipe, tier, variant, viable
+**topics:** base, content, content-lookup, copy, copy-on-edit, demo, diff, emitter, floor, frozen, golden, graduation, pack, per-device, recipe, tier, variant, viable
 
 - Goal
 - Builds on the current content model
@@ -1339,7 +1339,7 @@ _dependency-alerts · dependency alerts_
 
 _dev-tooling-decisions · dev tooling decisions_
 
-**topics:** 2026-stack-modernization, 3449, 9500, best-practice, cli, config, consolidation, csp, datomic, dev-setup, fast, figwheel, init, java, orchestrates, port, profile, repl
+**topics:** 2026-stack-modernization, 3449, 9500, best-practice, cli, config, consolidation, csp, datomic, dev-setup, fast, figwheel, init, java, organizational, port, profile, repl
 
 - user.clj Consolidation Pattern
 - Current State (as of breaking/2026-stack-modernization)
@@ -1519,7 +1519,7 @@ _documentation-discipline · documentation discipline_
 
 _documentation-tenets · documentation tenets_
 
-**topics:** agentic, chose, commit, conclusion, dense, discovering, docs-only, dotfiles, instrument, investigation, narrate, readme, reminder, tenets, tradeoff, unioning, verification-discipline, window
+**topics:** agentic, chose, commit, conclusion, dense, discovering, docs-only, dotfiles, instrument, investigation, narrate, per-change, readme, reminder, tenets, tradeoff, unioning, verification-discipline
 
 - The tenets
 - What belongs here
@@ -1578,7 +1578,7 @@ _duplicate-key-durability-roadmap · duplicate key durability roadmap_
 
 _e2e-logged-in-sessions · e2e logged in sessions_
 
-**topics:** 2026-09-13, 394, cljs-headless-harness, credentials, e2e-boot, fast-browser-probes, journey, kaylee, logged-in, login, scenarios, script, seeding, seeds, server, suite, suites, testing-infrastructure
+**topics:** 2026-09-13, cljs-headless-harness, credentials, e2e-boot, fast-browser-probes, helper, journey, kaylee, logged-in, login, scenarios, script, seeding, seeds, server, suite, suites, testing-infrastructure
 
 - The credentials
 - The one command
@@ -1597,7 +1597,7 @@ _e2e-logged-in-sessions · e2e logged in sessions_
 
 _e2e-runner · e2e runner_
 
-**topics:** 8890, 8891, batch, bundle, busy, min, port, probe, probes, production, rebuilds, run, runner, server, servers, suite, suites, worktree
+**topics:** 8890, 8891, batch, bundle, busy, min, port, probe, probes, production, profile, run, runner, server, servers, suite, suites, worktree
 
 - The rule
 - Production is the default
@@ -1658,7 +1658,7 @@ _empty-keyword-corruption · empty keyword corruption_
 
 _entity-options-architecture · entity options architecture_
 
-**topics:** autosave-fx, coast, determines, equipment-subs, feat, feats, initialized, kw-path, multi-select, nested, nesting, plugin, plugins, quantity, rain-junkie, single-select, subscription, vector
+**topics:** autosave-fx, coast, determines, equipment-subs, feat, feats, kw-path, multi-select, nested, nesting, plugin, plugins, quantity, rain-junkie, single-select, subscribe, subscription, vector
 
 - Character Entity Structure
 - Single-select → MAP (no vector index in path)
@@ -1737,7 +1737,7 @@ _equipment-option-picker · equipment option picker_
 
 _equipment-parity · equipment parity_
 
-**topics:** ammunition, armor, damage, dash, die, equipment, gear, generator, leather, longbow, net, open5e, rations, spiked, srd, studded, weapons, weights
+**topics:** ammunition, app, armor, damage, dash, die, equipment, gear, generator, leather, longbow, net, open5e, rations, spiked, srd, studded, weapons
 
 - How a difference is classified
 - Findings (2026-10-15, against integration b8035afe4)
@@ -2007,7 +2007,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _garden-calc-plus · garden calc plus_
 
-**topics:** 2026-11-09, 2562, 3640, around, compresses, css, declaration, define, initial, invalid, invalidates, negative, offset, operator, popover, spaces, subtract, whitespace
+**topics:** 2026-11-09, 2562, 3640, around, compresses, css, declaration, define, initial, invalid, invalidates, negative, offset, popover, spaces, subtract, succeeds, whitespace
 
 
 
@@ -2423,7 +2423,7 @@ _input-field-debounce · input field debounce_
 
 _key-collision-behavior · key collision behavior_
 
-**topics:** address, author, coexist, consent, item, key, library, minted, move, origin, override, pak, refusal, rename, replace, round, save, source
+**topics:** address, author, coexist, consent, item, key, library, minted, move, origin, pak, refusal, rename, replace, round, save, source, stamps
 
 - TL;DR
 - The map (VERIFIED)
@@ -2450,7 +2450,7 @@ _key-collision-behavior · key collision behavior_
 
 _keyword-trap-name-repair · keyword trap name repair_
 
-**topics:** -asdml, 2020, auto-coerce, auto-heal, digits, intent, invalid, junk, leading, least-destructive, mangled, quarantined, repair, restore, suggestion, translator, unnamed, word
+**topics:** -asdml, 2020, auto-coerce, auto-heal, digits, intent, invalid, junk, leading, least-destructive, mangled, quarantined, repair, restore, suggestion, translator, unnamed, wind
 
 - Principle (why this exists)
 - The repair chain (least-destructive first)
@@ -2769,7 +2769,7 @@ _open5e-upstream-notes · open5e upstream notes_
 
 _orcbrew-format-versioning · orcbrew format versioning_
 
-**topics:** boot-load, brew, builds, community, compat, compatibility, demo, distinct, envelope, extension, implemented, in-file, incompatible, pickers, poll, tag, versioning, won
+**topics:** boot-load, brew, builds, community, compat, compatibility, demo, demo-pack, envelope, extension, implemented, in-file, incompatible, pickers, poll, tag, versioning, won
 
 - Why this exists
 - The mechanism (three parts)
@@ -3084,6 +3084,46 @@ _plan-669-merge-verification · plan 669 merge verification_
 - Take it whole — decided
 - What this plan cannot cover
 
+## plan-agent-harness.md
+
+_plan-agent-harness · plan agent harness_
+
+**topics:** 2026-11-27, 6aeea4ab8d46c167855e7e96e0b3c80347437c1e, claude, cline, codeglaze, com, command, folder, githubusercontent, guard, orcpub, owner, protected, push, row, skill, task, worktree
+
+- Tested (2026-11-23, Cline 4.1.26 in WSL, model cline-free/nemotron-3.5-super-vl)
+- Sources for reviewers
+- Review rules (read before reviewing)
+- Closed decisions
+- Approvals
+- Rows, in build order
+- Row specs and texts
+- Row 1: agent-harnesses.md, new section
+- Cline in VS Code, tested
+- Models
+- Row 2: docs/kb/inbox/README.md
+- Waiting
+- Rows 3 and 11: Cline guard plugin
+- Row 4: benchmark baseline
+- Row 5: claim checker
+- Row 6: BRANCH.md rewrite
+- Row 7: skills
+- Row 8: AGENTS.md
+- Three tenets — every rule below serves one
+- Skills — use the one named here, at that moment
+- Row 9: scripts/kb-audit.sh
+- Row 10: Claude wrappers
+- Row 12: agent-setup.sh
+- Row 13: bootstrap texts
+- Starting a session
+- Row 14: the generic layer in dotfiles
+- Working rules for free models
+- Several agents at once
+- Making free models better
+- Rejected, with reasons (do not re-propose without new evidence)
+- Later (not this version)
+- Unchecked
+- Verification prompts
+
 ## plan-browser-toolbox.md
 
 _plan-browser-toolbox · plan browser toolbox_
@@ -3308,7 +3348,7 @@ _plan-lookup-indexes · plan lookup indexes_
 
 _plan-next · plan next_
 
-**topics:** advanced, agent-dev-loop, armour, capabilities, contributor, creator, damage, macro, natural-armor, number, picked, requirements, row, support-session-ledger, templates, tier, understood, warforged
+**topics:** advanced, agent-dev-loop, armour, capabilities, contributor, control, creator, damage, macro, natural-armor, picked, requirements, row, support-session-ledger, templates, tier, understood, warforged
 
 - 0. Standing, do these first
 - 0b. September support sessions — tracked separately
@@ -3503,7 +3543,7 @@ _registry-before-after · registry before after_
 
 _release-deploy-traps · release deploy traps_
 
-**topics:** alt-host, de-index, dmv, folder, hand-insert, host, in-browser, lag, parsers, pprinted, projects, release, reviewing, robots, sigpipe, slips, start-time, swarm
+**topics:** alt-host, de-index, dmv, folder, hand-insert, host, in-browser, lag, parsers, pprinted, projects, release, robots, sigpipe, slips, start-time, swarm, unresolvable
 
 - Open and unchecked
 
@@ -3728,7 +3768,7 @@ _secrets-in-boot-output · secrets in boot output_
 
 _settings-registry-and-boot-report · settings registry and boot report_
 
-**topics:** 2026-10-19, accessor, blank-env-values, branding, compose, install, operator, portainer, printed, registry, release, report, row, secrets-in-boot-output, setting, settings, start-up, upgrading
+**topics:** 2026-10-17, 2026-10-19, accessor, blank-env-values, branding, compose, install, portainer, printed, registry, release, report, row, secrets-in-boot-output, setting, settings, start-up, upgrading
 
 - Where things are
 - Row keys
@@ -3933,7 +3973,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, 2024-only, 2026-10-07, 5etools, diff, edition, editions, monsters, open5e, owner, pdf, served, spells, srd, srd-2024-coverage, text, trunk
+**topics:** 2014, 2024, 2024-only, 2026-10-07, 5etools, content, edition, editions, monsters, open5e, owner, pdf, served, spells, srd, srd-2024-coverage, text, trunk
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded
@@ -4108,7 +4148,7 @@ _subscribe-refactor-phase2 · subscribe refactor phase2_
 
 _support-session-ledger · support session ledger_
 
-**topics:** 2026-09-20, 695, bodies, booted, cherry-picked, commits, copilot, fa4, fork, hotfix, icon-font-failure, locale, locale-safety, port, session, upstream, upstreamable, windows
+**topics:** 2026-09-20, 695, bodies, booted, cherry-picked, commits, fa4, fork, github, hotfix, icon-font-failure, locale, locale-safety, port, session, upstream, upstreamable, windows
 
 - WHERE WE ARE — 2026-09-20, paused mid-review
 - The Copilot review — 6 medium + 1 low, NOT yet triaged
@@ -4333,7 +4373,7 @@ _weapon-data-model · weapon data model_
 
 _weapon-mastery-plan · weapon mastery plan_
 
-**topics:** 2026-10-21, 2026-10-26, attack, band, cleave, dawn, dusk, graze, long, masteries, mastery, owner, rest, srd, topple, undo, vex, weapon
+**topics:** 2026-10-21, 2026-10-26, attack, band, dawn, dusk, graze, long, masteries, mastery, owner, rest, srd, tap, topple, undo, vex, weapon
 
 - The rule
 - What exists, and where (verified 2026-10-19)
