@@ -92,6 +92,7 @@ Homebrew is repaired instead of lost, a character that used to blank the page no
 - **Server:** admin alerts by email: one email per problem with a count of repeats, a limit on how many are sent an hour, and nothing lost or slowed down when the mail server or the database is down. (#716)
 - **Server:** sign-ins, failed sign-ins, sign-ups, password resets, email changes, deleted accounts and refused logins are written to the server log, without passwords or email addresses. (#716)
 - **Server:** an optional `REDIS_URL` shares the sign-in and email limits across app containers. (#725)
+- **Characters:** a Data View page lists everything stored on a saved character or on this browser's draft, lets its owner remove any of it (marked in place, with Undo) and save after a confirmation, and opens even when the character itself will not load. Its owner reaches it from a gear on the character page and in the opened character-list row, from the Missing Content warning, from "Repair this character" on the panel shown when a character can't be loaded, and from a notice under the loading picture when a character page or the builder never finishes loading.
 
 ### Changed
 - **Characters:** the Missing Content warning also covers spells and languages, and ignores the built-in "Custom" option. (#524)
@@ -121,6 +122,7 @@ Homebrew is repaired instead of lost, a character that used to blank the page no
 - **Server:** blank settings count as unset, and Docker secrets work for the app's signing key. (#701)
 - **Server:** runs on Pedestal 0.8.3 and Jetty 12, and the production build leaves out the developer hot-reload tool.
 - **Docs:** the setup and operation guides read as step-by-step instructions, list every server setting, and cover backups and email troubleshooting. (#724)
+- **Support:** the email sent when a player reports a character that won't load now carries the link to repair it in Data View and the character's stored choices.
 
 ### Fixed
 - **Characters:** switching between Race and Class no longer freezes the builder, and an edit rebuilds the character once. (#621)
@@ -206,6 +208,12 @@ Homebrew is repaired instead of lost, a character that used to blank the page no
 - **Server:** `./run --check` run without a terminal (CI, cron) only reports; it no longer starts setup or `--upgrade` by default. (#724)
 - **Server:** the Windows start scripts find their ports. (#701)
 - **Server:** uptime monitors and link previews that check a page with a HEAD request get its headers instead of "not found".
+- **Characters:** a character draft this browser can no longer read, in the old slot or a character's own draft, is kept aside instead of deleted, and Data View's draft page offers it for download.
+- **Characters:** two saves of the same character at once no longer store a choice twice, and a Data View save no longer overwrites changes made elsewhere since it opened; it offers a reload.
+- **Characters:** saving a character whose stored copy was damaged no longer moves it to a new address: it stays in its folders and parties, its share link keeps working, and other open tabs can still save it.
+- **Characters:** HP restored by a long rest, a cleared XP box and an unticked spell slot now stay that way after a reload, instead of the old value coming back (#295).
+- **Characters:** an HP box left blank puts back the character's HP instead of saving as full HP; 0 has to be typed.
+- **Characters:** a copy of the app from before save versions can no longer overwrite a newer save of the same character.
 
 ### Security
 - **Accounts:** sign-up no longer says when an email is already in use; it answers as for a new address and emails the account's owner instead. (#725)
