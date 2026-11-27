@@ -3,7 +3,7 @@
             #?(:cljs [re-frame.core :refer [dispatch]])
             #?(:cljs [reagent.core :as r :refer [atom]])))
 
-(defn- press-to-click
+(defn press-to-click
   "A keydown handler that turns Space or Enter into a click on the element, so whatever handles
    its clicks (on it or an ancestor) handles the key too."
   [e]
@@ -11,6 +11,16 @@
              (.preventDefault e)
              (.click (.-currentTarget e)))
      :clj e))
+
+(defn event-value
+  "The value of the input a DOM event `e` came from."
+  [e]
+  (.. e -target -value))
+
+(defn on-enter
+  "A keydown handler that calls `f` with the event when the key is Enter."
+  [f]
+  (fn [e] (when (= "Enter" (.-key e)) (f e))))
 
 (defn switch-attrs
   "Attributes for a `.dev-mode-switch`: its role and state, keyboard focus, and Space or Enter
@@ -140,7 +150,7 @@
       [:select.builder-option.builder-option-dropdown
        {:value @selected-value
         :on-change (fn [e]
-                     (let [v (-> e .-target .-value)]
+                     (let [v (event-value e)]
                        (on-change e)
                        (reset! selected-value "")))}
        [:option.builder-dropdown-item
@@ -180,7 +190,7 @@
          :on-click #(.stopPropagation %)
          :on-change (fn [e]
                       #?(:cljs
-                         (let [v (.. e -target -value)]
+                         (let [v (event-value e)]
                            (reset! local-val v)
                            (on-change v))))})])))
 

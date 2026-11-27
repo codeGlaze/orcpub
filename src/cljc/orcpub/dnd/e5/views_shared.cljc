@@ -3,7 +3,8 @@
    app: the home page, the site footer, the copyright strip and the support links. Code here must
    compile for both; browser-only parts sit behind #?(:cljs ...). Anything else belongs in
    views.cljs or views/*."
-  (:require [orcpub.route-map :as routes]
+  (:require [orcpub.components :as comps]
+            [orcpub.route-map :as routes]
             [clojure.string :as s]
             [orcpub.fork.branding :as branding]
             [orcpub.fork.splash :as splash]
@@ -79,10 +80,7 @@
    #?(:cljs {:role "button"
              :tab-index 0
              :on-click #(dispatch [:orcpub.dnd.e5/open-whats-new])
-             :on-key-down (fn [e]
-                            (when (#{"Enter" " "} (.-key e))
-                              (.preventDefault e)
-                              (dispatch [:orcpub.dnd.e5/open-whats-new])))}
+             :on-key-down comps/press-to-click}
       :clj {})
    [:i.fa.fa-gift] "What's New"])
 

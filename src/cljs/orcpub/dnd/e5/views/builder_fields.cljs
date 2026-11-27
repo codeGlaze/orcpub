@@ -5,13 +5,8 @@
             [reagent.core :as r]
             [re-frame.core :refer [subscribe dispatch]]
             [orcpub.common :as common]
-            [orcpub.components :as comps]
+            [orcpub.components :as comps :refer [event-value]]
             [orcpub.fork.branding :as branding]))
-
-(defn event-value
-  "The value of the input a DOM event `e` came from."
-  [e]
-  (.. e -target -value))
 
 (defn set-value [atom key e]
   (swap! atom assoc key (event-value e)))

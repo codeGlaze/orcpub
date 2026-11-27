@@ -4,7 +4,7 @@
             [orcpub.route-map :as routes]
             [orcpub.common :as common]
             [orcpub.entity :as entity]
-            [orcpub.components :as comps :refer [orange text-color make-event-handler make-arg-event-handler]]
+            [orcpub.components :as comps :refer [event-value orange make-event-handler make-arg-event-handler]]
             [orcpub.entity-spec :as es]
             [orcpub.pdf-spec :as pdf-spec]
             [orcpub.dnd.e5.spell-packing :as packing]
@@ -54,7 +54,7 @@
             [orcpub.dnd.e5.views.whats-new :as whats-new-view]
             [orcpub.dnd.e5.views-shared :as views-shared]
             [orcpub.dnd.e5.views.pdf-options :as pdf-options]
-            [orcpub.dnd.e5.views.builder-fields :refer [event-value dropdown labeled-dropdown
+            [orcpub.dnd.e5.views.builder-fields :refer [dropdown labeled-dropdown
                                                         with-help
                                                         base-builder-field
                                                         input-builder-field textarea-field
@@ -87,20 +87,6 @@
 ;; the `amount` of "uses" an action may have before it warrants
 ;; using a dropdown instead of a list of checkboxes
 (def actions-amount-many 5)
-
-(def input-style
-  {:height "38px"
-   :border-style "solid"
-   :border-width "1px"
-   :border-radius "3px"
-   :font-size "14px"
-   :padding-left "10px"
-   :color text-color})
-
-(def default-input-style
-  (merge
-   input-style
-   {:border-color "rgba(72,72,72,0.37)"}))
 
 (defn validation-messages [messages]
   (when messages
@@ -346,7 +332,7 @@
   (dispatch [:route routes/default-route]))
 
 (defn search-input-keypress [e]
-  (when (= "Enter" (.-key e)) (dispatch [:set-search-text (.. e -target -value)])))
+  (when (= "Enter" (.-key e)) (dispatch [:set-search-text (comps/event-value e)])))
 
 (defn set-search-text [e]
   (dispatch [:set-search-text (event-value e)]))
@@ -434,10 +420,7 @@
                {:role "button"
                 :tab-index 0
                 :on-click #(dispatch [::e5/open-whats-new])
-                :on-key-down (fn [e]
-                               (when (#{"Enter" " "} (.-key e))
-                                 (.preventDefault e)
-                                 (dispatch [::e5/open-whats-new])))
+                :on-key-down comps/press-to-click
                 :title "What's New"}
                [:i.fa.fa-gift] "What's New"]
               (when-let [url (not-empty (:facebook branding/social-links))]
@@ -2427,7 +2410,7 @@
              :name (str i)}))
 
         (fn on-change [e]
-          (let [v (-> e .-target .-value)]
+          (let [v (comps/event-value e)]
             (when initial-value
               ; dispatch-sync: when id is nil this handler dispatches too, so the call
               ; below would read a stale db and overwrite this value. See
@@ -3578,8 +3561,8 @@
                (str "Roll " (::mi/charges-start item))]
               [:input.input.item-charges-input
                {:type "number" :min 0 :placeholder "or type" :aria-label "Starting charges"
-                :on-key-down #(when (= "Enter" (.-key %)) (.blur (.-target %)))
-                :on-blur #(let [v (js/parseInt (.. % -target -value))]
+                :on-key-down (comps/on-enter #(.blur (.-target %)))
+                :on-blur #(let [v (js/parseInt (comps/event-value %))]
                             (when-not (js/isNaN v)
                               (dispatch [::char/set-item-charges-max id selection-key item-kw i (max 0 v)])))}]]
 
@@ -5761,7 +5744,7 @@
                           ""))
             :placeholder "Default Option Source"
             :value (or (:option-pack plugin-val) "")
-            :on-change #(do (dispatch-sync [dispatch-event :option-pack (-> % .-target .-value)])
+            :on-change #(do (dispatch-sync [dispatch-event :option-pack (comps/event-value %)])
                             (dispatch [:clear-builder-field-error :option-pack]))}]
    [:datalist {:id "plugins-list" :class "width-100-p"}
     (for [{:keys [title value]} (get-plugin-names)]
@@ -8661,7 +8644,7 @@
    [:select.m-l-5.p-5.builder-option-dropdown.w-auto
     {:value ""
      :on-change (fn [e]
-                  (let [v (.. e -target -value)
+                  (let [v (comps/event-value e)
                         spec (first (filter #(= v (name (:type-key %))) missing-specs))]
                     (set! (.. e -target -value) "")
                     (when spec
@@ -8748,7 +8731,7 @@
                 {:type "text"
                  :placeholder "search this source…"
                  :value @search
-                 :on-change #(reset! search (.. % -target -value))}])
+                 :on-change #(reset! search (comps/event-value %))}])
              (when has-content?
                (let [dn (source-disabled-count plugin)]
                  [:div.flex.align-items-c.pointer.f-s-14.mc-source-disabled
@@ -8811,7 +8794,7 @@
          [:span.m-r-5.f-s-14 "to"]
          [:select.m-r-10.p-5.f-s-14
           {:value (str tgt)
-           :on-change #(reset! target (.. % -target -value))}
+           :on-change #(reset! target (comps/event-value %))}
           (doall (for [s sources] ^{:key s} [:option {:value s} s]))]
          [:button.form-button.m-r-5
           {:class (when none? "disabled") :disabled none?
@@ -9049,7 +9032,7 @@
                 [:div.m-t-5.flex.align-items-c
                  [:span.f-s-12.m-r-5 {:style {:min-width "90px"}} "Name"]
                  [:input.input {:type "text" :value nm
-                                :on-change #(swap! edits assoc nk (.. % -target -value))}]
+                                :on-change #(swap! edits assoc nk (comps/event-value %))}]
                  ;; Preview what Auto-name would do to this entry: salvage a
                  ;; leading number to a real name (orange, keeps intent), or —
                  ;; when unsalvageable — replace it with a placeholder (amber).
@@ -9061,7 +9044,7 @@
                 [:div.m-t-5.flex.align-items-c
                  [:span.f-s-12.m-r-5 {:style {:min-width "90px"}} "Option source"]
                  [:input.input {:type "text" :value (get current ok "")
-                                :on-change #(swap! edits assoc ok (.. % -target -value))}]]]))]
+                                :on-change #(swap! edits assoc ok (comps/event-value %))}]]]))]
            (when (empty? damaged)
              [:div.f-s-12.m-t-5
               (str "Nothing here can load or be repaired: this copy holds only "
@@ -9573,12 +9556,9 @@
              [:div.flex.align-items-c.m-t-5.pointer
               {:on-click toggle}
               [:span.toggle-switch
-               {:class (when send-updates? "on")
-                :role "switch"
-                :aria-checked (str send-updates?)
-                :aria-label (str "Email me news and updates from " branding/app-name)
-                :tabIndex 0
-                :on-key-down #(when (#{"Enter" " "} (.-key %)) (.preventDefault %) (toggle))}]
+               (assoc (comps/switch-attrs send-updates? (fn [_] (toggle)))
+                      :class (when send-updates? "on")
+                      :aria-label (str "Email me news and updates from " branding/app-name))]
               [:span.m-l-10.f-s-16
                (str "Email me news and updates from " branding/app-name)]]
              [:div.f-s-14.m-t-5.opacity-7
@@ -9653,7 +9633,7 @@
                         :value @draft
                         :auto-focus true
                         :placeholder placeholder
-                        :on-change #(reset! draft (-> % .-target .-value))}]
+                        :on-change #(reset! draft (comps/event-value %))}]
                       [:span.pointer.bf-meta-action.m-r-10
                        {:on-click #(do (on-save @draft) (reset! editing? false))}
                        "save"]
@@ -9920,7 +9900,7 @@
          {:style {:width "auto" :align-self "stretch" :box-sizing "border-box"}
           :value (or current-folder-id "")
           :on-change (fn [e]
-                       (let [val (.-value (.-target e))]
+                       (let [val (comps/event-value e)]
                          (if (= val "")
                            (when current-folder-id
                              (dispatch [::folder/remove-character current-folder-id id]))
@@ -10013,7 +9993,7 @@
             {:auto-focus true
              :value @edit-name
              :style {:width "160px"}
-             :on-change #(reset! edit-name (.-value (.-target %)))
+             :on-change #(reset! edit-name (comps/event-value %))
              :on-key-down (fn [e]
                             (when (= "Enter" (.-key e))
                               (save-fn)))}]
@@ -10111,7 +10091,7 @@
              ;; the buttons' 10px pad) and no top-margin offset from .input.
              :style       {:width "200px" :margin-top 0 :padding "9px 10px" :font-size "12px"}
              :value       name-filter
-             :on-change   #(dispatch [::char/set-char-name-filter (.. % -target -value)])}]
+             :on-change   #(dispatch [::char/set-char-name-filter (comps/event-value %)])}]
            (when (not (s/blank? name-filter))
              [:i.fa.fa-times.posn-abs.pointer.orange.f-s-14
               {:style    {:right "8px" :top "8px"}
@@ -10357,7 +10337,7 @@
                                :key id})))
                           @(subscribe [::char/characters]))
                          (fn [e]
-                           (let [selected-id (js/parseInt (.. e -target -value))]
+                           (let [selected-id (js/parseInt (comps/event-value e))]
                              (dispatch [::party/add-character id selected-id])))]]
                        [:div.m-t-5
                         [:button.form-button.m-l-10

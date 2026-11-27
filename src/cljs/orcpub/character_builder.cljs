@@ -111,9 +111,6 @@
            (= min max))
       (nil? max)))
 
-(defn get-event-value [e]
-  (.-value (.-target e)))
-
 (defn character-state-path [path]
   (concat [:character] path))
 
@@ -167,7 +164,7 @@
 ;; ---------------------------------------------------------------------------
 
 (defn set-class-fn [i options-map]
-  (fn [e] (let [new-key (keyword (.. e -target -value))]
+  (fn [e] (let [new-key (keyword (comps/event-value e))]
             (dispatch [:set-class new-key i options-map]))))
 
 ;; DO NOT MEMOIZE. See the block comment above set-class-fn.
@@ -181,7 +178,7 @@
 
 (defn set-class-level-fn [i]
   (fn [e]
-    (let [new-highest-level-str (.. e -target -value)
+    (let [new-highest-level-str (comps/event-value e)
           new-highest-level (js/parseInt (last (s/split new-highest-level-str #"-")))]
       (dispatch [:set-class-level i new-highest-level]))))
 
@@ -1124,7 +1121,7 @@
            [:input.input.f-s-18.m-b-5.p-l-0.w-100-p
             {:value (k abilities)
              :type :number
-             :on-change (fn [e] (let [value (.-value (.-target e))
+             :on-change (fn [e] (let [value (comps/event-value e)
                                       new-v (when (not (s/blank? value))
                                               (js/parseInt value))]
                                   (dispatch [:set-ability-score k new-v])))}]])
@@ -1144,7 +1141,7 @@
                       (total-abilities k))
              :type :number
              :on-change (fn [e] (let [total (total-abilities k)
-                                      value (.-value (.-target e))
+                                      value (comps/event-value e)
                                       diff (- total
                                               (abilities k))
                                       new-v (when (not (s/blank? value))
@@ -1338,7 +1335,7 @@
            {:type :number
             :value total-hps
             :on-change (fn [e]
-                         (let [value (js/parseInt (.. e -target -value))
+                         (let [value (js/parseInt (comps/event-value e))
                                total-value (if (js/isNaN value) 0 (- value first-class-hit-die total-level-bonus))
                                average-value (int (/ total-value (count selections)))
                                remainder (rem total-value (count selections))
@@ -1404,7 +1401,7 @@
                                                   (not (pos? (:value level-value))))
                                             "b-red b-3")
                               :on-change (fn [e]
-                                           (let [value (js/parseInt (.. e -target -value))]
+                                           (let [value (js/parseInt (comps/event-value e))]
                                              (dispatch [:set-level-hit-points built-template character level-value value])))
                               :value (:value level-value)}]]
                    [:td.p-5 con-bonus-str]
@@ -2091,7 +2088,7 @@
     [:div {:on-paste (image-paste url)}
      [:span.personality-label.f-s-18 label]
      [:input.input {:type "url" :value (or url "") :placeholder "https://"
-                    :on-change #(set-draft (.. % -target -value))}]
+                    :on-change #(set-draft (comps/event-value %))}]
      [image-field-notice url false (get image-bytes url) (get server-reach url) set-draft]]))
 
 (defn description-fields []

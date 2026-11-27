@@ -7,7 +7,7 @@
             [reagent.core :as r]
             [orcpub.route-map :as routes]
             [orcpub.common :as common]
-            [orcpub.components :as comps :refer [make-event-handler]]
+            [orcpub.components :as comps :refer [event-value make-event-handler]]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.character :as char]
             [orcpub.dnd.e5.magic-items :as mi]
@@ -15,8 +15,7 @@
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.srd-conditions :as srd-conditions]
             [orcpub.dnd.e5.srd-rules :as srd-rules]
-            [orcpub.dnd.e5.views :as views]
-            [orcpub.dnd.e5.views.builder-fields :refer [event-value]]))
+            [orcpub.dnd.e5.views :as views]))
 
 (defn monster-page
   "The page for one monster, from the route's :key."

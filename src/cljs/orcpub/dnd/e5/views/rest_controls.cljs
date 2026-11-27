@@ -59,8 +59,8 @@
                       [:span.rest-amount-all "all"]
                     [:input.input.rest-amount
                      {:type "number" :min 0 :default-value amount :aria-label (str name " charges regained")
-                      :on-key-down #(when (= "Enter" (.-key %)) (.blur (.-target %)))
-                      :on-blur #(let [v (js/parseInt (.. % -target -value))]
+                      :on-key-down (comps/on-enter #(.blur (.-target %)))
+                      :on-blur #(let [v (js/parseInt (comps/event-value %))]
                                   (when (and (not (js/isNaN v)) (not= v amount))
                                     (dispatch [::char/set-rest-amount id item-key i (max 0 v)])))}])
                     [:span.rest-dice (if dice (str "rolled " dice) "typed")]]))])])))
