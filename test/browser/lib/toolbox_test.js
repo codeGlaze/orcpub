@@ -1,7 +1,7 @@
 // Node-only table test of test/browser/lib/toolbox.js: the checker's output and exit code, the
 // bundle test with and without a cache stamp, and the current What's New id. No browser, no server.
 // Needs:     nothing. Run: node test/browser/lib/toolbox_test.js
-const { checker, APP_BUNDLE, currentWhatsNewId } = require('./toolbox');
+const { checker, APP_BUNDLE, currentWhatsNewId, escapeRegExp } = require('./toolbox');
 
 let passed = 0, failed = 0;
 /**
@@ -30,6 +30,21 @@ const bundleCases = [
 ];
 for (const [u, want] of bundleCases)
   expect(`APP_BUNDLE ${u}`, APP_BUNDLE(new URL(u, 'http://localhost:8890')) === want);
+
+// [name, other string the pattern must NOT match]
+const nameCases = [
+  ['Javelin (+1)', 'Javelin +1'],
+  ['Mace +2', 'Maceee2'],
+  ['Dagger.1', 'Daggerx1'],
+  ['Sword [Light]', 'Sword L'],
+  ['Plain Name', 'Plain Names'],
+];
+for (const [n, other] of nameCases) {
+  let re;
+  try { re = new RegExp(`^${escapeRegExp(n)}$`); } catch (e) { expect(`escapeRegExp(${n}) is a valid pattern`, false); continue; }
+  expect(`escapeRegExp matches ${n} literally`, re.test(n));
+  expect(`escapeRegExp does not let ${n} match ${other}`, !re.test(other));
+}
 
 const lines = [];
 const exits = [];
