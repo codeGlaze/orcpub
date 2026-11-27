@@ -799,7 +799,7 @@ _character-rescue-console · character rescue console_
 
 _character-rescue · character rescue_
 
-**topics:** 100, 2026-10-16, address, browser-only, character, draft, invalid, opened, owner, pick, r10, remove, repair, rescue, save, saves, scores, stored
+**topics:** 100, 2026-10-16, address, browser-only, character, draft, drafts, invalid, opened, owner, pick, r10, remove, repair, rescue, save, scores, stored
 
 - The ledger: the Character data page (decided 2026-10-06; commits 1 and 2 built)
 - Save replaces an invalid character (fixed 2026-10-08: same id)
@@ -898,7 +898,7 @@ _class-proficiency-flags · class proficiency flags_
 
 _claude-branch-triage · claude branch triage_
 
-**topics:** 171, 2026-01-17, 2026-02-02, 2026-06-10, 2026-09-12, branch, branches, byte-identical, definitions, defs, elsewhere, reachability, robe, salvage, shas, superseded, tip, unique
+**topics:** 171, 2026-01-17, 2026-02-02, 2026-06-10, 2026-09-12, blob, branch, branches, byte-identical, defs, elsewhere, reachability, robe, salvage, shas, superseded, tip, unique
 
 - How this was established, and why reachability was not enough
 - Corrections to the starting premise
@@ -939,7 +939,7 @@ _client-ip-behind-proxies · client ip behind proxies_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** auto-test, backend, case-sensitive, div, dom, driver, floating-asi, harness, headless, html, mode, per-test, race-builder, recipe, rooted, runs, totals, widget
+**topics:** auto-test, backend, case-sensitive, dom, driver, floating-asi, harmlessly, harness, headless, html, mode, per-test, race-builder, recipe, rooted, runs, totals, widget
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -1625,7 +1625,7 @@ _edition-drift · edition drift_
 
 _email-preferences-implementation · email preferences implementation_
 
-**topics:** 4-arg, can-spam, datomic, echoing, email, emails, endpoint, function, jwt, marketing, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
+**topics:** 4-arg, can-spam, datomic, echoing, email, emails, endpoint, jwt, jwt-signed, marketing, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
 
 - Architecture
 - Datomic Schema
@@ -1736,7 +1736,7 @@ _equipment-option-picker · equipment option picker_
 
 _equipment-parity · equipment parity_
 
-**topics:** app, armor, damage, dash, die, equipment, gear, generator, leather, longbow, net, open5e, rations, spiked, srd, studded, weapons, weights
+**topics:** ammunition, armor, damage, dash, die, equipment, gear, generator, leather, longbow, net, open5e, rations, spiked, srd, studded, weapons, weights
 
 - How a difference is classified
 - Findings (2026-10-15, against integration b8035afe4)
@@ -2014,7 +2014,7 @@ _garden-calc-plus · garden calc plus_
 
 _garden-declaration-order · garden declaration order_
 
-**topics:** 2026-11-23, 3px, big, composite, firefox, garden, hash, hiding, longhand, mask, notice, order, painted, properties, resets, shorthand, tester, typed
+**topics:** 2026-11-23, 3px, big, composite, firefox, garden, hash, hiding, longhand, mask, notice, order, painted, properties, reset, resets, shorthand, tester
 
 - The trap
 - The fix and the guard
@@ -2023,7 +2023,7 @@ _garden-declaration-order · garden declaration order_
 
 _garden-inline-styles-harvest · garden inline styles harvest_
 
-**topics:** 648, branch, compiled, conversion, css, excluded, exit, flyout, focus-within, harvested, harvesting, hunk, inline, integration, media-scoped, mobile, no-visual-change, seeded
+**topics:** 648, branch, compiled, conversion, css, excluded, exit, flyout, focus-within, harvested, harvesting, hunk, inline, integration, media-scoped, no-visual-change, seeded, shapes
 
 - Why the branch stalled
 - The branch is healthy
@@ -2624,7 +2624,7 @@ _modifier-vs-trait-slots · modifier vs trait slots_
 
 _monolith-decomposition-plan · monolith decomposition plan_
 
-**topics:** -------, --------, 2026-09-15, 623, 821, cljs, cohesive, decomposition, domain, domain-based, incrementally, monolith, phase, split, splitting, tier, todo, views
+**topics:** -------, builder, caret, checkbox-grid, cljc, cljs, components, domain, helpers, monolith, on-click, shared, sites, split, survivor, tier, views, wrappers
 
 - 1. Did the Builders Split Make Issues Easier to Find?
 - 2. What Files Can or Should Be Broken Down?
@@ -2640,6 +2640,12 @@ _monolith-decomposition-plan · monolith decomposition plan_
 - Recommendation: One branch per tier, not per file
 - Exception: If any split gets complicated
 - 5. Pre-existing Issues Surfaced by Scanning
+- Shared controls and duplicates (audit, 2026-11-27)
+- 1. Generic helpers and where they go
+- 2. Wrapper families (one HOF plus a data table)
+- 3. Look generic, are not (stay)
+- 4. Totals
+- 5. Duplicates across src/, ordered by value (lines saved x call sites)
 
 ## multi-system-expansion.md
 
@@ -3328,7 +3334,7 @@ _plan-npc-statblock-customizer · plan npc statblock customizer_
 
 _plan-pdf-page-sizes · plan pdf page sizes_
 
-**topics:** 2-arity, 36pt, 419, 595, acroform, appearance, artwork, binding, height, inches, ink, letter, primitives, rect, spellbook, translate, widget, width
+**topics:** 2-arity, 36pt, 419, 595, acroform, appearance, artwork, binding, height, inches, ink, letter, primitives, rect, scaling, spellbook, translate, widget
 
 - The problem in one paragraph
 - Order, and why this order
@@ -4081,7 +4087,7 @@ _subscribe-diagnosis-techniques · subscribe diagnosis techniques_
 
 _subscribe-refactor-phase2 · subscribe refactor phase2_
 
-**topics:** caller, chain, cljc, low, pdf, phase, plugin-data, pure, race-map, reactive, reg-sub-raw, shouldn, spec, ssot, subscribe, subscribes, user-imported, warnings
+**topics:** chain, cljc, low, pdf, phase, plugin-data, prereq, pure, race-map, reactive, reg-sub-raw, shouldn, spec, ssot, subscribe, subscribes, user-imported, warnings
 
 - Context
 - Fix Patterns (New in Phase 2)
@@ -4388,7 +4394,7 @@ _weapons-table-follow-ups · weapons table follow ups_
 
 _weapons-table-spec · weapons table spec_
 
-**topics:** 1d10, 2026-10-15, amber, blue, buttons, chip, damage, dark, grey, headings, preference, row, shield, study, theme, versatile, weapon, white
+**topics:** 1d10, 2026-10-15, amber, blue, buttons, chip, damage, dark, grey, headings, preference, restrains, row, shield, study, versatile, weapon, white
 
 - The parts and their names
 - Agreed
