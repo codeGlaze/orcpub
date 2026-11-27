@@ -76,8 +76,8 @@ const loadMagic = (page, keys) => page.evaluate(keys => {
 // (subs.cljs build-debounce-ms), so the first paint after `load` can still be the default character.
 // Returns whether they all arrived.
 const eightRows = async scope => {
-  await scope.locator(W.name, { hasText: /^Flame Tongue, Longsword$/ }).first()
-    .waitFor({ timeout: 5000 }).catch(() => {});
+  await attempt('see the Flame Tongue row', scope.locator(W.name, { hasText: /^Flame Tongue, Longsword$/ }).first()
+    .waitFor({ timeout: 5000 }));
   return scope.locator(W.row).nth(7).waitFor({ timeout: 5000 }).then(() => true, () => false);
 };
 
@@ -275,7 +275,7 @@ async function layout(page, theme) {
 
     await loadMagic(page, [':holy-avenger-longsword', ':javelin-of-lightning']);
     const jav = row('Javelin of Lightning');
-    await jav.waitFor({ timeout: 5000 }).catch(() => {});
+    await attempt('see the Javelin of Lightning row', jav.waitFor({ timeout: 5000 }));
     await attempt('open the javelin\'s + menu', plus(jav).click({ timeout: 5000 }));
     const use = weapons.menuItem(jav, /\+4d6 lightning/);
     check('the last row\'s menu opens upward',
@@ -288,7 +288,7 @@ async function layout(page, theme) {
           && await use.getAttribute('aria-disabled', { timeout: 3000 }).catch(() => null) === 'true');
     await page.keyboard.press('Escape');
     await load(page, false);
-    await page.waitForFunction(sel => document.querySelectorAll(sel).length === 8, W.row, { timeout: 5000 }).catch(() => {});
+    await attempt('see 8 weapon rows after the reload', page.waitForFunction(sel => document.querySelectorAll(sel).length === 8, W.row, { timeout: 5000 }));
 
     await attempt('switch to the light theme', settings.lightTheme(page).click({ timeout: 5000 }));
     await page.waitForTimeout(300);
@@ -327,7 +327,8 @@ async function layout(page, theme) {
           && /TOPPLE\s*ON HIT\s*DC 12 Con or prone/i.test(await band.innerText()));
     if (SHOT_DIR) {
       // a roll's message bar and the sticky header sit over the table: close one, centre the row
-      await page.locator('.message').first().click({ timeout: 2000 }).catch(() => {});
+      const message = page.locator('.message').first();
+      if (await message.count()) await attempt('close the message bar', message.click({ timeout: 2000 }));
       await mrow('Test Blade').evaluate(e => e.scrollIntoView({ block: 'center' }));
       await page.waitForTimeout(300);
       await mrow('Test Blade').screenshot({ path: `${SHOT_DIR}/weapons-mastery-band.png` });
