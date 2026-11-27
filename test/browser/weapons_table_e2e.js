@@ -36,7 +36,7 @@ const weapons = require('./places/weapons');
 const W = weapons.parts;
 const SHOT_DIR = process.env.SHOT_DIR;
 
-const { check, attempt, must, finish } = checker();
+const { check, attempt, must, watch, finish } = checker();
 
 // Puts a level 1 wizard carrying the test weapons into the builder, and a Shield when `shield`.
 const load = (page, shield) => page.evaluate(shield => {
@@ -123,8 +123,7 @@ async function layout(page, theme) {
   const ctx = await phoneContext(browser);
   await quietOverlays(ctx);
   const page = await ctx.newPage();
-  const errors = [];
-  page.on('pageerror', e => errors.push(e.message));
+  const phoneWatch = watch(page, 'phone page');
   await page.goto(`${BASE}/pages/dnd/5e/character-builder`, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => { try { return !!re_frame.core.dispatch_sync; } catch (e) { return false; } },
                              null, { timeout: 60000 });
@@ -345,7 +344,7 @@ async function layout(page, theme) {
   const desk = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await quietOverlays(desk);
   const dp = await desk.newPage();
-  dp.on('pageerror', e => errors.push(e.message));
+  const deskWatch = watch(dp, 'desktop page');
   await dp.goto(`${BASE}/pages/dnd/5e/character-builder`, { waitUntil: 'domcontentloaded' });
   await dp.waitForFunction(() => { try { return !!re_frame.core.dispatch_sync; } catch (e) { return false; } }, null, { timeout: 60000 });
   await load(dp, false);
@@ -388,6 +387,7 @@ async function layout(page, theme) {
   }
   await desk.close();
 
+  const errors = [...phoneWatch.pageErrors, ...deskWatch.pageErrors];
   check('no page errors', errors.length === 0, errors.slice(0, 2).join(' | '));
 
   await browser.close();

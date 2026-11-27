@@ -16,6 +16,61 @@ const PHONE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWe
  */
 const APP_BUNDLE = url => url.pathname === '/js/compiled/orcpub.js';
 
+/**
+ * True when `url` (a string) is on the same origin as `base` (a string); false for anything that
+ * is not a parseable URL.
+ * @param {string} url
+ * @param {string} base
+ * @returns {boolean}
+ */
+function isSameOrigin(url, base) {
+  try { return new URL(url).origin === new URL(base).origin; } catch (e) { return false; }
+}
+
+/**
+ * Formats collected page diagnostics as printable lines: one heading per page that has any, then
+ * one indented line per console error, page error and failed request. Returns [] when there are none.
+ * @param {Array<{label: string, consoleErrors: string[], pageErrors: string[], failedRequests: string[]}>} collectors
+ * @returns {string[]}
+ */
+function formatDiagnostics(collectors) {
+  const lines = [];
+  for (const c of collectors) {
+    const rows = [
+      ...c.consoleErrors.map(m => `console: ${m}`),
+      ...c.pageErrors.map(m => `page error: ${m}`),
+      ...c.failedRequests.map(m => `request: ${m}`),
+    ];
+    if (!rows.length) continue;
+    lines.push(`Diagnostics for ${c.label} (${rows.length}):`);
+    for (const r of rows) lines.push('  ' + r.split('\n')[0]);
+  }
+  return lines;
+}
+
+/**
+ * Starts collecting a page's console errors (and this toolbox's own console warnings), uncaught
+ * page errors, failed requests and same-origin responses with status 400 or more.
+ * @param {import('playwright').Page} page
+ * @param {string=} label  names the page in the printout (default "page")
+ * @param {string=} base   the app's address, for the same-origin test (default BASE)
+ * @returns {{label: string, consoleErrors: string[], pageErrors: string[], failedRequests: string[]}}
+ */
+function watchPage(page, label, base) {
+  const c = { label: label || 'page', consoleErrors: [], pageErrors: [], failedRequests: [] };
+  const home = base || BASE;
+  page.on('console', m => {
+    const t = m.text();
+    if (m.type() === 'error' || (m.type() === 'warning' && t.startsWith('toolbox:'))) c.consoleErrors.push(t);
+  });
+  page.on('pageerror', e => c.pageErrors.push(e.message));
+  page.on('requestfailed', r => c.failedRequests.push(`${r.method()} ${r.url()} failed: ${(r.failure() || {}).errorText}`));
+  page.on('response', r => {
+    if (r.status() >= 400 && isSameOrigin(r.url(), home)) c.failedRequests.push(`${r.request().method()} ${r.url()} -> ${r.status()}`);
+  });
+  return c;
+}
+
 /** Thrown by `must` after it records the failed step: ends a journey whose setup did not happen. */
 class SetupFailed extends Error {}
 
@@ -24,13 +79,15 @@ class SetupFailed extends Error {}
  * `attempt(what, action)` awaits `action` and, when it throws, records a failed check "could not
  * <what>" and carries on (returns whether it worked); `must(what, action)` does the same but then
  * throws SetupFailed, so a journey whose setup failed ends instead of checking the wrong state;
- * `finish()` prints the "n/m checks passed" line run.sh reads and returns the exit code
+ * `watch(page, label)` starts a `watchPage` collector whose findings `finish()` prints when any check
+ * failed; `finish()` prints the "n/m checks passed" line run.sh reads and returns the exit code
  * (1 when any check failed, else 0).
  * @returns {{check: function(string, boolean, string=): void, attempt: function(string, Promise): Promise<boolean>,
- *            must: function(string, Promise): Promise<void>, results: Array, finish: function(): number}}
+ *            must: function(string, Promise): Promise<void>, watch: function(object, string=): object, results: Array, finish: function(): number}}
  */
 function checker() {
   const results = [];
+  const watched = [];
   const check = (name, pass, detail) => {
     results.push({ name, pass, detail });
     console.log((pass ? 'PASS  ' : 'FAIL  ') + name + (detail ? '   [' + detail + ']' : ''));
@@ -44,12 +101,14 @@ function checker() {
   const must = async (what, action) => {
     if (!await attempt(what, action)) throw new SetupFailed(`setup failed: could not ${what}`);
   };
+  const watch = (page, label) => { const c = watchPage(page, label); watched.push(c); return c; };
   const finish = () => {
     const failed = results.filter(r => !r.pass).length;
+    if (failed) for (const l of formatDiagnostics(watched)) console.log(l);
     console.log(`\n${results.length - failed}/${results.length} checks passed`);
     return failed ? 1 : 0;
   };
-  return { check, attempt, must, results, finish };
+  return { check, attempt, must, watch, results, finish };
 }
 
 /**
@@ -100,4 +159,4 @@ const quietOverlays = ctx => ctx.addInitScript(id => {
   }
 }, currentWhatsNewId());
 
-module.exports = { SetupFailed, BASE, APP_BUNDLE, escapeRegExp, checker, phoneContext, quietOverlays, currentWhatsNewId };
+module.exports = { formatDiagnostics, isSameOrigin, watchPage, SetupFailed, BASE, APP_BUNDLE, escapeRegExp, checker, phoneContext, quietOverlays, currentWhatsNewId };
