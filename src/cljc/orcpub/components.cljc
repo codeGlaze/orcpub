@@ -102,17 +102,21 @@
 
 (defn labeled-checkbox
   "`label` beside a tick box, the two one checkbox control: clicked, or Space or Enter on it, calls
-   `on-click`. Checked when `selected?`, dimmed and skipped when `disabled?`."
-  [label selected? disabled? on-click]
+   `on-click`. Checked when `selected?`, dimmed and skipped when `disabled?`. The optional
+   `row-class` (a string such as \"m-b-10 f-s-14\") is added to the row's own classes, so a caller
+   sets the row's margin or text size; nil leaves the row as it is."
+  ([label selected? disabled? on-click] (labeled-checkbox label selected? disabled? on-click nil))
+  ([label selected? disabled? on-click row-class]
   [:div.flex.align-items-c.pointer.checkbox-row
    (cond-> {:on-click on-click
             :role "checkbox"
             :aria-checked (str (boolean selected?))
             :tab-index (if disabled? -1 0)}
+     row-class (assoc :class row-class)
      disabled? (assoc :aria-disabled "true")
      (not disabled?) (assoc :on-key-down press-to-click))
    [checkbox-mark selected? disabled?]
-   [:span.m-l-5 label]])
+   [:span.m-l-5 label]]))
 
 (defn selection-item [key name selected?]
   [:option.builder-dropdown-item

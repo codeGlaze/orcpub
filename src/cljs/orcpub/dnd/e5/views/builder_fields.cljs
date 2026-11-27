@@ -113,13 +113,6 @@
     :type :number
     :maxLength (:number branding/field-limits)}])
 
-(defn labeled-checkbox
-  "A checkbox (ticked when `selected?`) with `label` beside it. Returns hiccup."
-  [label selected?]
-  [:div.flex.align-items-c.pointer.m-b-10
-   (comps/checkbox selected? false label)
-   [:span.m-l-5.f-s-14 label]])
-
 (defn with-help
   "`row` with a ? appended to it, and the line that ? opens beneath the whole row.
 
@@ -151,8 +144,7 @@
   [:div.m-b-5
    [with-help
     [:div.flex.align-items-c
-     [:div.pointer {:on-click on-click}
-      [labeled-checkbox label selected?]]]
+     [comps/labeled-checkbox label selected? false on-click "m-b-10 f-s-14"]]
     help]])
 
 (defn option-group

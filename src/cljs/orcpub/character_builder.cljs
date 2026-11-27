@@ -439,8 +439,8 @@
                            options)]
     [:div
      [:div.m-b-5
-      {:on-click #(dispatch [::events5e/toggle-class-source-suffix])}
-      [builder-fields/labeled-checkbox "Show homebrew source on class names" show-suffix?]]
+      [comps/labeled-checkbox "Show homebrew source on class names" show-suffix? false
+       #(dispatch [::events5e/toggle-class-source-suffix]) "m-b-10 f-s-14"]]
      [:div
       (doall
        (map-indexed

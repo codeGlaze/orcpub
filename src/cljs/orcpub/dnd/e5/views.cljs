@@ -55,7 +55,7 @@
             [orcpub.dnd.e5.views-shared :as views-shared]
             [orcpub.dnd.e5.views.pdf-options :as pdf-options]
             [orcpub.dnd.e5.views.builder-fields :refer [event-value dropdown labeled-dropdown
-                                                        labeled-checkbox with-help
+                                                        with-help
                                                         base-builder-field
                                                         input-builder-field textarea-field
                                                         number-field]]
@@ -4746,9 +4746,7 @@
      children (concat children))))
 
 (defn attunement-value [attunement key name]
-  [:div
-   {:on-click (make-event-handler ::mi/toggle-attunement-value key)}
-   [labeled-checkbox name ((set attunement) key)]])
+  [comps/labeled-checkbox name ((set attunement) key) false (make-event-handler ::mi/toggle-attunement-value key) "m-b-10 f-s-14"])
 
 (defn attunement-selector [attunement]
   (base-builder-field
@@ -4760,7 +4758,7 @@
      [:span.f-s-24.f-w-b.m-l-5 "Attunement"]]
     (when attunement
       [:div
-       [labeled-checkbox "Any" (= #{:any} (set attunement))]
+       [comps/labeled-checkbox "Any" (= #{:any} (set attunement)) false nil "m-b-10 f-s-14"]
        [:div.flex.flex-wrap
         [:div.flex-grow-1
          (base-builder-field
@@ -4809,9 +4807,7 @@
           (map
            (fn [{:keys [:key :name]}]
              ^{:key key}
-             [:div
-              {:on-click (make-event-handler ::mi/toggle-subtype key)}
-              [labeled-checkbox name @(subscribe [::mi/has-subtype? key])]])
+             [comps/labeled-checkbox name @(subscribe [::mi/has-subtype? key]) false (make-event-handler ::mi/toggle-subtype key) "m-b-10 f-s-14"])
            (concat
             [{:name "All"
               :key :all}]
@@ -4846,9 +4842,7 @@
           (map
            (fn [{:keys [key name]}]
              ^{:key key}
-             [:div
-              {:on-click (make-event-handler ::mi/toggle-subtype key)}
-              [labeled-checkbox name @(subscribe [::mi/has-subtype? key])]])
+             [comps/labeled-checkbox name @(subscribe [::mi/has-subtype? key]) false (make-event-handler ::mi/toggle-subtype key) "m-b-10 f-s-14"])
            (concat
             [{:name "Custom" :key :other}
              {:name "All" :key :all}
@@ -4862,36 +4856,16 @@
        [:div.main-text-color.m-b-10.m-t-10
         [:span.f-s-18.f-w-b "Base Weapon Details"]
         [:div.flex.flex-wrap.m-t-10
-         [:div
-          {:on-click (make-event-handler ::mi/toggle-item-finesse?)}
-          [labeled-checkbox "Finesse?" @(subscribe [::mi/item-finesse?])]]
-         [:div.m-l-10
-          {:on-click (make-event-handler ::mi/toggle-item-versatile?)}
-          [labeled-checkbox "Versatile?" versatile?]]
-         [:div.m-l-10
-          {:on-click (make-event-handler ::mi/toggle-item-reach?)}
-          [labeled-checkbox "Reach?" @(subscribe [::mi/item-reach?])]]
-         [:div.m-l-10
-          {:on-click (make-event-handler ::mi/toggle-item-two-handed?)}
-          [labeled-checkbox "Two-Handed?" @(subscribe [::mi/item-two-handed?])]]
-         [:div.m-l-10
-          {:on-click (make-event-handler ::mi/toggle-item-thrown?)}
-          [labeled-checkbox "Thrown?" @(subscribe [::mi/item-thrown?])]]
-         [:div.m-l-10
-          {:on-click (make-event-handler ::mi/toggle-item-heavy?)}
-          [labeled-checkbox "Heavy?" @(subscribe [::mi/item-heavy?])]]
-         [:div.m-l-10
-          {:on-click (make-event-handler ::mi/toggle-item-light?)}
-          [labeled-checkbox "Light?" @(subscribe [::mi/item-light?])]]
-         [:div.m-l-10
-          {:on-click (make-event-handler ::mi/toggle-item-ammunition?)}
-          [labeled-checkbox "Ammunition?" @(subscribe [::mi/item-ammunition?])]]
-         [:div.m-l-10
-          {:on-click (make-event-handler ::mi/toggle-item-special?)}
-          [labeled-checkbox "Special?" @(subscribe [::mi/item-special?])]]
-         [:div.m-l-10
-          {:on-click (make-event-handler ::mi/toggle-item-loading?)}
-          [labeled-checkbox "Loading?" @(subscribe [::mi/item-loading?])]]]
+         [comps/labeled-checkbox "Finesse?" @(subscribe [::mi/item-finesse?]) false (make-event-handler ::mi/toggle-item-finesse?) "m-b-10 f-s-14"]
+         [comps/labeled-checkbox "Versatile?" versatile? false (make-event-handler ::mi/toggle-item-versatile?) "m-b-10 f-s-14 m-l-10"]
+         [comps/labeled-checkbox "Reach?" @(subscribe [::mi/item-reach?]) false (make-event-handler ::mi/toggle-item-reach?) "m-b-10 f-s-14 m-l-10"]
+         [comps/labeled-checkbox "Two-Handed?" @(subscribe [::mi/item-two-handed?]) false (make-event-handler ::mi/toggle-item-two-handed?) "m-b-10 f-s-14 m-l-10"]
+         [comps/labeled-checkbox "Thrown?" @(subscribe [::mi/item-thrown?]) false (make-event-handler ::mi/toggle-item-thrown?) "m-b-10 f-s-14 m-l-10"]
+         [comps/labeled-checkbox "Heavy?" @(subscribe [::mi/item-heavy?]) false (make-event-handler ::mi/toggle-item-heavy?) "m-b-10 f-s-14 m-l-10"]
+         [comps/labeled-checkbox "Light?" @(subscribe [::mi/item-light?]) false (make-event-handler ::mi/toggle-item-light?) "m-b-10 f-s-14 m-l-10"]
+         [comps/labeled-checkbox "Ammunition?" @(subscribe [::mi/item-ammunition?]) false (make-event-handler ::mi/toggle-item-ammunition?) "m-b-10 f-s-14 m-l-10"]
+         [comps/labeled-checkbox "Special?" @(subscribe [::mi/item-special?]) false (make-event-handler ::mi/toggle-item-special?) "m-b-10 f-s-14 m-l-10"]
+         [comps/labeled-checkbox "Loading?" @(subscribe [::mi/item-loading?]) false (make-event-handler ::mi/toggle-item-loading?) "m-b-10 f-s-14 m-l-10"]]
         [:div.flex.flex-wrap
          [:div.m-t-10
           [labeled-dropdown
@@ -5058,9 +5032,7 @@
      (map
       (fn [type-kw]
         ^{:key type-kw}
-        [:div
-         {:on-click #(dispatch [toggle-event type-kw])}
-         [labeled-checkbox (common/safe-capitalize-kw type-kw) @(subscribe [has-sub type-kw])]])
+        [comps/labeled-checkbox (common/safe-capitalize-kw type-kw) @(subscribe [has-sub type-kw]) false #(dispatch [toggle-event type-kw]) "m-b-10 f-s-14"])
       item-kws))]))
 
 (defn item-damage-resistances []
