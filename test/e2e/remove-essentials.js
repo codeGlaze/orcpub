@@ -1,3 +1,4 @@
+// Needs: ledger (the Data View page's own script, ledger.js; run.sh builds it when missing or stale).
 // What the app does with a character that has lost its class, or its ability scores, through
 // Data View (character-rescue.md): the popup Data View shows first says what follows, and the app
 // then does that without breaking.
