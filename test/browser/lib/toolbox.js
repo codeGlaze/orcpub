@@ -64,7 +64,9 @@ function watchPage(page, label, base) {
     if (m.type() === 'error' || (m.type() === 'warning' && t.startsWith('toolbox:'))) c.consoleErrors.push(t);
   });
   page.on('pageerror', e => c.pageErrors.push(e.message));
-  page.on('requestfailed', r => c.failedRequests.push(`${r.method()} ${r.url()} failed: ${(r.failure() || {}).errorText}`));
+  page.on('requestfailed', r => {
+    if (isSameOrigin(r.url(), home)) c.failedRequests.push(`${r.method()} ${r.url()} failed: ${(r.failure() || {}).errorText}`);
+  });
   page.on('response', r => {
     if (r.status() >= 400 && isSameOrigin(r.url(), home)) c.failedRequests.push(`${r.request().method()} ${r.url()} -> ${r.status()}`);
   });
@@ -79,8 +81,9 @@ class SetupFailed extends Error {}
  * `attempt(what, action)` awaits `action` and, when it throws, records a failed check "could not
  * <what>" and carries on (returns whether it worked); `must(what, action)` does the same but then
  * throws SetupFailed, so a journey whose setup failed ends instead of checking the wrong state;
- * `watch(page, label)` starts a `watchPage` collector whose findings `finish()` prints when any check
- * failed; `finish()` prints the "n/m checks passed" line run.sh reads and returns the exit code
+ * `watch(page, label)` starts a `watchPage` collector; `finish()` records one failed check per watched
+ * page that has findings ("diagnostics: <label> has N console errors, page errors or failed requests")
+ * and prints their lines; `finish()` prints the "n/m checks passed" line run.sh reads and returns the exit code
  * (1 when any check failed, else 0).
  * @returns {{check: function(string, boolean, string=): void, attempt: function(string, Promise): Promise<boolean>,
  *            must: function(string, Promise): Promise<void>, watch: function(object, string=): object, results: Array, finish: function(): number}}
@@ -103,8 +106,12 @@ function checker() {
   };
   const watch = (page, label) => { const c = watchPage(page, label); watched.push(c); return c; };
   const finish = () => {
+    for (const c of watched) {
+      const n = c.consoleErrors.length + c.pageErrors.length + c.failedRequests.length;
+      if (n) check(`diagnostics: ${c.label} has ${n} console errors, page errors or failed requests`, false, 'listed below');
+    }
     const failed = results.filter(r => !r.pass).length;
-    if (failed) for (const l of formatDiagnostics(watched)) console.log(l);
+    for (const l of formatDiagnostics(watched)) console.log(l);
     console.log(`\n${results.length - failed}/${results.length} checks passed`);
     return failed ? 1 : 0;
   };

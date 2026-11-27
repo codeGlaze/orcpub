@@ -70,7 +70,7 @@ const duplicateIds = page => page.evaluate(() => {
   const ctx = await phoneContext(browser);
   await quietOverlays(ctx);
   const page = await ctx.newPage();
-  const w = watch(page, 'phone page');
+  watch(page, 'phone page');
   await page.goto(`${BASE}/pages/dnd/5e/character-builder`, { waitUntil: 'domcontentloaded' });
   await must('see the builder tabs', builder.tab(page, 'Options').waitFor({ timeout: 60000 }));
 
@@ -90,7 +90,6 @@ const duplicateIds = page => page.evaluate(() => {
   check('the sheet tab ids carry the sheet\'s scope (the character id, or "new")',
         sheetIds.length > 0 && sheetIds.every(i => /^sheet-tab-(new|\d+)-/.test(i)), sheetIds.join(' '));
 
-  check('no page errors', w.pageErrors.length === 0, w.pageErrors.slice(0, 2).join(' | '));
   await browser.close();
   process.exit(finish());
 })().catch(e => {
