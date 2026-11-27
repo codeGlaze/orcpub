@@ -24,13 +24,6 @@
               (str (name k) ": " (if (keyword? v) (name v) v)))
             style))))
 
-(defn svg-icon-2
-  "An <img> of /image/<icon-name>.svg with the svg-icon class. `theme` is accepted and ignored.
-   Returns hiccup."
-  [icon-name & [theme]]
-  [:img.svg-icon
-   {:src (str "/image/" icon-name ".svg")}])
-
 (defn splash-page-button
   "Render a splash page button. If handler is provided, uses on-click;
    otherwise resolves route (keyword = path-for, string = raw href)."
@@ -52,7 +45,8 @@
                     :justify-content :space-around
                     :font-weight :bold})}
     [:div
-     (svg-icon-2 icon 64 "dark")
+     ;; The splash page is dark in both themes; index.clj's CSS sizes the icon (64 px, 32 on phones).
+     (comps/themed-icon icon :css "dark-theme")
      [:div
       [:span.splash-button-title-prefix {:translate "no" :lang "en"} "D&D 5e "] [:span title]]]]])
 
