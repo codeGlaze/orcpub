@@ -4,7 +4,7 @@
 **PR into:** `integration`, when the owner says. **Worktree:** `/home/codeglaze/projects/orcpub-toolbox`.
 **KB:** [plan-browser-toolbox.md](../../docs/kb/plan-browser-toolbox.md) (the steps); the controls audit is in [monolith-decomposition-plan.md](../../docs/kb/monolith-decomposition-plan.md), "Shared controls and duplicates".
 
-## State (updated 2026-11-27)
+## State (updated 2026-11-27, later)
 
 One branch, one PR; each plan step is commits here (owner, 2026-11-27). Steps are numbered as in the plan. All below is pushed unless it says otherwise.
 
@@ -19,13 +19,21 @@ One branch, one PR; each plan step is commits here (owner, 2026-11-27). Steps ar
   difference (script in the old chat's scratchpad, not kept: re-measure with a bounding-box loop
   over `.checkbox` rows). The phone PDF options panel was not reached (Export is hidden at phone
   width). New: `builder_checkboxes_e2e.js`, `places/item_builder.js`.
-- **Open, fix first (a failing suite is never "pre-existing"):** `test/browser/spell_layout_pdf_e2e.js`
-  fails 2 of 24 the same way before and after item 1 (twice, so not flaky): "an emblem picker for
-  each casting class: 0 found", then a 30 s timeout waiting for a "Change" span after clicking
-  "Print Spellbook". Cause unknown. That suite reads `ORCPUB_E2E_URL`, not `E2E_PORT` (set both, or
-  move it onto `toolbox.js`'s `BASE`). Check whether it passes on `origin/integration` before
-  blaming this branch.
-- **Next:** that fix, then 5c items 2-5 (plan), then 6 (place descriptors and the census), 7-9.
+- Fixed (`8f0aa445c`, not yet pushed): `spell_layout_pdf_e2e.js` looked for a `span` "Change";
+  `0ef820d04` (also on `integration`) made the emblem picker's Change a button. It now finds the
+  button by role and reads `toolbox.js`'s `BASE`. 34/34.
+- Step 5c item 2 (`5ef54a79e`, test `3eb2fb518`, not yet pushed): `comps/checkbox-grid` takes cells
+  `{:key :label :checked? :on-click}`; views.cljs has `checkbox-section`, `path-cells`, `value-cells`,
+  `flag-cell`; 29 section functions keep their names and arguments. Measured 1892 rows on 9 builders at
+  1920 and phone, 0 px difference. `builder_checkboxes_e2e.js` covers the feat builder's grids.
+- Step 5c item 3 (caret): carets measured before the change (builders, character builder, spells,
+  monsters, magic items); no code yet. Design: `comps/caret [open? {:kind :caret|:angle|:chevron :class}]`,
+  `aria-hidden` on all.
+- **Measuring:** a probe that records the boxes of a selector on 15 pages at 1920 and phone, run through
+  `run.sh` with `NODE_PATH=$PWD/scripts/e2e/node_modules MEASURE_SEL=... MEASURE_OUT=...`; it is in the
+  session scratchpad, not kept. Save it to `scripts/` here if it is used again.
+- **Next:** full check set and push (owner to say when), then 5c items 3-5, then 6 (place descriptors and
+  the census), 7-9.
 
 ## Owner decisions
 
