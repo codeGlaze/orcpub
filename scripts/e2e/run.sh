@@ -149,13 +149,15 @@ if [ "$NEEDS_LEDGER" = 1 ]; then
   LEDGER_JS="$(sed -n 's/.*:output-to *"\([^"]*\)".*/\1/p' ledger.cljs.edn)"
   LEDGER_DIRS="$(sed -n 's/.*:watch-dirs *\[\([^]]*\)\].*/\1/p' ledger.cljs.edn | tr -d '"')"
   [ -n "$LEDGER_JS" ] && [ -n "$LEDGER_DIRS" ] || fail "could not read :output-to and :watch-dirs from ledger.cljs.edn"
+  LEDGER_EXTERNS="$(sed -n 's/.*:externs *\[\([^]]*\)\].*/\1/p' ledger.cljs.edn | tr -d '"')"
+  for f in $LEDGER_EXTERNS; do [ -f "$f" ] || fail "ledger.cljs.edn lists the extern $f, which does not exist"; done
   LEDGER_WHY=""
   if [ ! -f "$LEDGER_JS" ]; then LEDGER_WHY="$LEDGER_JS is missing"
   else
     # shellcheck disable=SC2086
     LEDGER_NEWER="$({ newer_sources "$LEDGER_JS" $LEDGER_DIRS
-      for f in ledger.cljs.edn project.clj $(sed -n 's/.*:externs *\[\([^]]*\)\].*/\1/p' ledger.cljs.edn | tr -d '"'); do
-        [ -f "$f" ] && [ "$f" -nt "$LEDGER_JS" ] && echo "$f"; done; } | head -5)"
+      for f in ledger.cljs.edn project.clj $LEDGER_EXTERNS; do
+        [ "$f" -nt "$LEDGER_JS" ] && echo "$f"; done; } | head -5)"
     [ -n "$LEDGER_NEWER" ] && LEDGER_WHY="the sources changed since it was built: $(echo $LEDGER_NEWER)"
   fi
   if [ -n "$LEDGER_WHY" ]; then
