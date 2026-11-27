@@ -78,15 +78,16 @@ class SetupFailed extends Error {}
 
 /**
  * Makes a checker: `check(name, pass, detail)` records and prints one PASS or FAIL line;
- * `attempt(what, action)` awaits `action` and, when it throws, records a failed check "could not
+ * `attempt(what, action)` calls `action` (a function returning a promise, so a synchronous throw is
+ * caught too; an already started promise is still accepted) inside its try, awaits it and, when it throws, records a failed check "could not
  * <what>" and carries on (returns whether it worked); `must(what, action)` does the same but then
  * throws SetupFailed, so a journey whose setup failed ends instead of checking the wrong state;
  * `watch(page, label)` starts a `watchPage` collector; `finish()` records one failed check per watched
  * page that has findings ("diagnostics: <label> has N console errors, page errors or failed requests")
  * and prints their lines; `finish()` prints the "n/m checks passed" line run.sh reads and returns the exit code
  * (1 when any check failed, else 0).
- * @returns {{check: function(string, boolean, string=): void, attempt: function(string, Promise): Promise<boolean>,
- *            must: function(string, Promise): Promise<void>, watch: function(object, string=): object, results: Array, finish: function(): number}}
+ * @returns {{check: function(string, boolean, string=): void, attempt: function(string, (function(): Promise)|Promise): Promise<boolean>,
+ *            must: function(string, (function(): Promise)|Promise): Promise<void>, watch: function(object, string=): object, results: Array, finish: function(): number}}
  */
 function checker() {
   const results = [];
@@ -96,7 +97,7 @@ function checker() {
     console.log((pass ? 'PASS  ' : 'FAIL  ') + name + (detail ? '   [' + detail + ']' : ''));
   };
   const attempt = async (what, action) => {
-    try { await action; return true; } catch (e) {
+    try { await (typeof action === 'function' ? action() : action); return true; } catch (e) {
       check(`could not ${what}`, false, String(e.message).split('\n')[0]);
       return false;
     }
