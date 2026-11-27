@@ -3081,7 +3081,7 @@ _plan-669-merge-verification · plan 669 merge verification_
 
 _plan-browser-toolbox · plan browser toolbox_
 
-**topics:** 2026-11-26, accessible, basics, census, codex, fixtures, journey, page-load-budget, pointer, recipes, role, screen, selector, shims, suite, suites, toolbox, viewport
+**topics:** 2026-11-26, 2026-11-27, accessible, census, codex, journey, page-load-budget, preconditions, recipes, role, roving, screen, selector, suite, suites, tabs, toolbox, viewport
 
 - The problem, measured
 - What it is
@@ -3829,7 +3829,7 @@ _spell-granting-across-silos · spell granting across silos_
 
 _spell-selection-source-fix · spell selection source fix_
 
-**topics:** bom, built-ins, cantrips, codespace, continue, error-handling-import-validation, homebrew-class-spellcasting, import, name-to-kw-audit, on-branch, ooms, pak, phase, poisoned, reconciler, remediation, spell-selection, toggle
+**topics:** bom, built-ins, cantrips, codespace, error-handling-import-validation, homebrew-class-spellcasting, import, name-to-kw-audit, on-branch, ooms, pak, phase, poisoned, reconciler, remediation, sorcerer, spell-selection, toggle
 
 - The bug (one sentence)
 - Feature changes

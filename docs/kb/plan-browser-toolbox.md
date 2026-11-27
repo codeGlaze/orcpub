@@ -1,7 +1,8 @@
 # Plan: a browser-test toolbox
 
-**Status: plan 1.2, revised 2026-11-26 after two second opinions (below). Planned 2026-11-26 (owner: "exactly what I've been pushing for"). Branch
-`test/browser-toolbox`, cut from `integration` at `b14a515e4`. Nothing built yet.**
+**Status: plan 1.3, revised 2026-11-27 after a third second opinion (below). Planned 2026-11-26 (owner: "exactly what I've been pushing for"). Branch
+`test/browser-toolbox`, cut from `integration` at `b14a515e4`. Steps 1-3 built and pushed (`c7de2f67a`); the rest
+in progress. The whole toolbox is one branch and one PR, each step a commit (owner, 2026-11-27).**
 
 ## The problem, measured
 
@@ -116,20 +117,28 @@
 
 ## Order of work
 
-**First PR: prove it on one suite.**
-1. `toolbox.js` with the basics, plus a small table test for its `checker`.
-2. Accessible names for the builder tabs, the class dropdown and the sheet controls one suite uses.
-3. Map entries for just those controls, and `weapons_table_e2e.js` moved onto them. It changed 98
-   selector lines since 2026-08-01, the most of any sheet suite (`inventory_kits_sheet_e2e.js` is
-   next with 64). Show the payoff: rename a label in a scratch edit and compare how fast the old
-   and new versions point at it.
+One branch, one PR; each step is one or more commits on `test/browser-toolbox`. The PR opens when
+the owner says.
 
-**Later PRs, only after the first shows the payoff:**
-4. Recipes and two fixtures: a level-3 Fighter (API), and a homebrew pack (local storage).
-5. The census for the mapped places, seen failing on the same scratch rename.
-6. More places: header, Data View, My Content, auth, reference pages. Move the suites with the
+1. Done: `toolbox.js` with the basics, plus a small table test for its `checker`.
+2. Done: accessible names for the builder tabs and the sheet's section tabs.
+3. Done: map entries for those controls, and `weapons_table_e2e.js` moved onto them (it changed
+   98 selector lines since 2026-08-01, the most of any sheet suite). Payoff shown: with the icon
+   changed, the old suite timed out after 75 s and the new one passed; with the label renamed,
+   the new one named the missing tab.
+4. Third-review fixes: escape names before building a `RegExp`; a `must()` beside `attempt()`
+   so failed setup ends the journey; no swallowed waits (`.catch(() => {})` becomes a check);
+   `quietOverlays` reports its errors; the toolbox collects console errors and failed requests
+   and prints them with a failure.
+5. The full tabs pattern: roving `tabindex`, Left/Right/Home/End, `aria-controls` and
+   `role=tabpanel`.
+6. Place descriptors: each entry carries its locator, route, preconditions and expected count.
+   The census checks the mapped places and says which kind of failure it saw: missing, wrong count,
+   hidden, covered, or setup failed. It is seen failing on a scratch rename.
+7. Recipes and two fixtures: a level-3 Fighter (API), and a homebrew pack (local storage).
+8. More places: header, Data View, My Content, auth, reference pages. Move the suites with the
    most selector churn, timing each before and after.
-7. KB page, README and the `agent-setup.sh` pointer. The pointer change needs the owner's yes
+9. KB page, README and the `agent-setup.sh` pointer. The pointer change needs the owner's yes
    for that push.
 
 ## What it is not
@@ -157,6 +166,15 @@ Checked and not taken:
   `data-part`, so the owner's plain-looking name stays unless the owner prefers otherwise.
 
 It could not read git history, so the churn counts above are ours.
+
+Codex reviewed the built steps 1-3 (2026-11-27). Checked against the code and accepted:
+- `weapons.row` builds a `RegExp` from a name without escaping it;
+- `attempt()` lets a journey continue after its setup failed;
+- four waits end in `.catch(() => {})`, and `quietOverlays`' init script has an empty catch;
+- a failure prints no console errors or failed requests;
+- `role=tab` without roving focus, arrow keys and `tabpanel` is part of the pattern only;
+- places should be descriptors (route, preconditions, count) before more suites move onto them.
+Not taken: its "smaller first PR". Steps go in commits, not in a series of PRs (owner, 2026-11-27).
 
 Corrected in 1.0: the "hard-wired :8890" trap is in suites that build their own base, not in the helpers.
 
