@@ -92,6 +92,40 @@ Cline 4.1.26 in WSL, 2026-11-23. Re-test after a Cline update that mentions hook
   model's judgement. Switching a planned task to Act mode runs the plan without asking.
 - A task's working folder is the VS Code window's folder: open the worktree the task belongs to.
 
+## Cline plugin payloads
+
+Read from Cline 4.1.28's installed code (`dist/plugin-runtime/node_modules/@cline/`), 2026-11-27;
+the approval and blocking results were run on 4.1.26 the same day. The guard
+(`scripts/cline/orcpub-guard.js`) is built on these; re-read them after a Cline update.
+
+- **Approval is per command.** `beforeTool` returning `{policy: {autoApprove: true}}` runs that
+  call with no dialog; returning nothing shows Cline's Approve dialog, for that call only. Cline
+  approves when `policy.autoApprove === true` or the global auto-approve setting covers the tool
+  kind, so with global command auto-approve on, a plugin cannot make Cline ask.
+- **Context:** `{snapshot, tool, toolCall, input}`. The tool name is `tool.name`
+  (`toolCall.name` is empty). A returned `input` replaces the call's input.
+- **No folder in the context:** `snapshot` holds `conversationId` (`conv_<n>_<x>`), not a cwd, and
+  it is not the session folder's id (`<n>_<x>` under `~/.cline/data/sessions/`), so a session-file
+  lookup by it finds nothing. A plugin may export `setup(api, {workspaceInfo})`: its `rootPath` was
+  the window's folder in the demo (2026-11-27), and the guard used it.
+- **The command auto-approve switch is `actions.executeSafeCommands`** in
+  `~/.cline/data/globalState.json` (Cline's approval check reads only that one for commands);
+  `executeAllCommands` can stay `true` while the "Execute commands" box is off.
+- **Plugins load at the first task after a restart:** a file added or removed later is not seen
+  until VS Code restarts (a removed one fails "Unknown sandbox plugin id").
+- **`git log` hangs in Cline's terminal:** it is a terminal, so git starts its pager and waits;
+  after 300 seconds Cline proceeds and leaves it running. `git --no-pager`, or `GIT_PAGER=cat` in
+  the shell when `CLINE_ACTIVE` is set, avoids it.
+- **"Proceed While Running"** belongs to a command already running (state
+  `foreground_command_running`): it lets Cline continue without that command's output. It is not a
+  tool call, so plugins never see it.
+- **Tools that run or write:** `run_commands` (input a string, a list, or `{commands}`), `bash`
+  (`{command}`), `editor` (`{path, ...}`), `edit`, `write`, and `apply_patch` (file names inside
+  the patch text: `*** Update File: <path>`). Edit auto-approve covers the four write tools.
+- **Cline chains commands:** 105 of 118 commands in 10 review tasks were chained, 63 began with
+  `cd`. The guard's replay of them (`scripts/cline/replay-commands.json`) asks on 27 (22.9%); the
+  rest are loops, `$VAR`, subshells and here-docs, which it does not parse.
+
 ## Models
 
 What each model is good and bad at here, from tests and the claim log. Rules for every agent stay

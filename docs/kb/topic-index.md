@@ -282,12 +282,13 @@ _account-flows · account flows_
 
 _agent-harnesses · agent harnesses_
 
-**topics:** bot, claude, cline, com, configuration, copilot, customization, harness, hook, hooks, https, plugins, sdk, skill, skills, stdout, task, taskcomplete
+**topics:** auto-approve, bot, claude, cline, com, command, commands, configuration, copilot, customization, hooks, https, plugins, sdk, skill, skills, task, taskcomplete
 
 - Rules files
 - Skills
 - Hooks
 - Cline in VS Code, tested
+- Cline plugin payloads
 - Models
 - Writing instructions that get followed
 - Corrections made on the way (2026-11-22)
@@ -1949,7 +1950,7 @@ _folder-hardening · folder hardening_
 
 _fonts · fonts_
 
-**topics:** 118, csp, external, fonts, google, greek, hebrew, hosts, latin, latin-ext, ofl, redistribution, sandboxed, sans, self-hosted, subset, subsets, visitor
+**topics:** csp, external, fonts, google, greek, hebrew, hosts, latin, latin-ext, ofl, redistribution, sandboxed, sans, self-hosted, sil, subset, subsets, visitor
 
 - Why
 - What is checked in
@@ -2720,7 +2721,7 @@ _name-to-kw-audit · name to kw audit_
 
 _namespace-architecture · namespace architecture_
 
-**topics:** 148, 2026-09-15, anomalies, constants, crud, csp, handlers, helpers, html5history, http-fx-patterns, namespace, namespaces, nonce, revision, server-rendered, shell, side-effect, specs
+**topics:** 148, 2026-09-15, anomalies, constants, corrections, crud, csp, handlers, helpers, html5history, http-fx-patterns, namespace, namespaces, nonce, revision, server-rendered, side-effect, specs
 
 - Directory Layout
 - Entry Points
