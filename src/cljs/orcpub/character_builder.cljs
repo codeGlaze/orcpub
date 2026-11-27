@@ -214,7 +214,7 @@
   [:button.planned-toggle.orange {:class class-name :aria-expanded @open?
                                   :on-click #(swap! open? not)}
    text
-   [:i.fa {:class (if @open? "fa-angle-up" "fa-angle-down") :aria-hidden true}]])
+   [comps/caret @open? {:kind :angle}]])
 
 (defn- choice-line
   "One row of the Choices list: `section`, the picked `names` and their `status`, with a Clear
@@ -2300,8 +2300,7 @@
              [:i.fa.fa-exclamation-triangle.f-s-18]]
             [:span.m-l-10.orange.f-w-b
              (str "Missing Content (" (:missing-count report) ")")]
-            [:i.fa.m-l-5
-             {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]]
+            [comps/caret @expanded? {:class "m-l-5"}]]
            (when @expanded?
              [:div#missing-content-details.bg-warning.p-10.m-t-5
               [:div.f-s-14.m-b-10.main-text-color

@@ -1924,8 +1924,7 @@
   [:span.orange.underline.pointer
    {:on-click on-click}
    [:span (if expanded? "hide" "details")]
-   [:i.fa.m-l-5
-    {:class (if expanded? "fa-caret-up" "fa-caret-down")}]])
+   [comps/caret expanded? {:class "m-l-5"}]])
 
 (defn spellcaster-levels-table []
   (let [expanded? (r/atom false)]
@@ -2034,8 +2033,7 @@
                    [:td.p-10 (spell-slots (inc level))])
                  (range (apply max (keys spell-slots)))))
                [:td.p-r-5
-                [:i.fa.orange
-                 {:class (if @checkboxes-expanded? "fa-caret-up" "fa-caret-down")}]]])]]]
+                [comps/caret @checkboxes-expanded? {:class "orange"}]]])]]]
          (when @checkboxes-expanded?
            [:div.bg-light.p-5
             (doall
@@ -2163,8 +2161,7 @@
                         :text (common/bonus-str mod))
            (common/bonus-str mod))])
       [:td.p-l-10.p-b-5.p-t-5.pointer.orange
-       [:i.fa
-        {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]
+       [comps/caret expanded?]]]
      (when expanded?
        [:tr {:style expanded-spell-background-style}
         [:td {:col-span 6}
@@ -3008,8 +3005,7 @@
                    [:div.orange
                     #_(if (not mobile?)
                         [:span.underline (if expanded? "less" "more")])
-                    [:i.fa.m-l-5
-                     {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]])))]]]]))))
+                    [comps/caret expanded? {:class "m-l-5"}]]]])))]]]]))))
 
 (defn section-header [icon title]
   [:div.flex.align-items-c
@@ -3372,7 +3368,7 @@
          :on-click (fn [e] (.stopPropagation e) (swap! state update :open? not))}
         [:span.weapon-name nm]
         hand-pill
-        [:i.fa.weapon-caret {:class (if open? "fa-caret-up" "fa-caret-down") :aria-hidden true}]]
+        [comps/caret open? {:class "weapon-caret"}]]
        (if (and (or hands (seq item-toggles)) (not controls-below?))
          [:div.weapon-grey-line
           [:span kind]
@@ -3747,8 +3743,7 @@
             [:div.orange
              #_(if (not mobile?)
                  [:span.underline (if expanded? "less" "more")])
-             [:i.fa.m-l-5
-              {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]]
+             [comps/caret expanded? {:class "m-l-5"}]]]]
           (when (and (not mobile?) (= item-kw @cast-open))
             [:tr.cast-row
              [:td {:col-span 3}
@@ -4546,8 +4541,7 @@
             [:span (if @show-selections?
                      "hide selections"
                      "show selections")]
-            [:i.fa.m-l-5
-             {:class (if @show-selections? "fa-caret-up" "fa-caret-down")}]]
+            [comps/caret @show-selections? {:class "m-l-5"}]]
            (when @show-selections?
              [character-selections id])]]]))))
 
@@ -6194,7 +6188,7 @@
         [:span.orange.pointer.f-s-18.m-l-5
          {:on-click #(swap! expanded? not)}
          [:i.fa.fa-question-circle.m-r-2]
-         [:i.fa {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]]]
+         [comps/caret @expanded?]]]
        (when @expanded?
          [:div.bg-light.f-s-18
           help])])))
@@ -8279,9 +8273,7 @@
                                        [svg-icon (get-in opt/conditions-map [type :icon]) 36]])
                                     conditions))]]))
                             (range num)))]])]
-                     [:i.fa {:class (if (get @expanded-rows path)
-                                           "fa-caret-up"
-                                           "fa-caret-down")}]]
+                     [comps/caret (get @expanded-rows path)]]
                     (when (get @expanded-rows path)
                       (if character
                         [character-display (:db/id character) false (if mobile? 1 2)]
@@ -8632,8 +8624,7 @@
              (when (pos? disabled-n)
                [:span.m-l-10.f-s-12.opacity-5 (str "· " disabled-n " disabled")])]
             [:div.orange.pointer
-             [:i.fa.m-r-5
-              {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]
+             [comps/caret @expanded? {:class "m-r-5"}]
              [:span.underline (if @expanded? "collapse" "expand")]]]
            (when @expanded?
              [:div.bg-lighter.p-10
@@ -8805,8 +8796,7 @@
               (when (pos? benign)
                 [:span.lib-badge.lib-badge-benign [:span.lib-dot] (str benign " off")])])]
           [:div.orange
-           [:i.fa.m-r-5
-            {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]
+           [comps/caret @expanded? {:class "m-r-5"}]
            [:span.pointer.underline (if @expanded? "collapse" "expand")]]]
          (when @expanded?
            [:div.bg-lighter.p-10
@@ -10049,8 +10039,7 @@
         (when (not= @(subscribe [:device-type]) :mobile) [:span.underline (if expanded?
                                                             "collapse"
                                                             "open")])
-        [:i.fa.m-l-5
-         {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]
+        [comps/caret expanded? {:class "m-l-5"}]]]
       (when expanded?
         [expanded-character-list-item id owner username char-page-route])]]))
 
@@ -10113,8 +10102,7 @@
                         (.stopPropagation e)
                         (reset! confirm-delete? true))}
            "delete"]
-          [:i.fa.m-l-10.orange
-           {:class (if folder-expanded? "fa-caret-up" "fa-caret-down")}]])]
+          [comps/caret folder-expanded? {:class "m-l-10 orange"}]])]
       (when @confirm-delete?
         [:div.p-20.flex.justify-cont-end
          [:div
@@ -10197,7 +10185,7 @@
            [:button.form-button
             {:on-click (fn [e] (.stopPropagation e) (swap! classes-open? not))}
             (str "Classes" (when (seq class-filters) (str " (" (count class-filters) ")")))
-            [:i.fa.m-l-5 {:class (if @classes-open? "fa-caret-up" "fa-caret-down")}]]
+            [comps/caret @classes-open? {:class "m-l-5"}]]
            (when @classes-open?
              [:div.filter-dropdown.main-text-color
               {:style {:min-width "160px"}}
@@ -10217,7 +10205,7 @@
            [:button.form-button
             {:on-click (fn [e] (.stopPropagation e) (swap! levels-open? not))}
             (str "Levels" (when (seq level-filters) (str " (" (count level-filters) ")")))
-            [:i.fa.m-l-5 {:class (if @levels-open? "fa-caret-up" "fa-caret-down")}]]
+            [comps/caret @levels-open? {:class "m-l-5"}]]
            (when @levels-open?
              [:div.filter-dropdown.main-text-color
               {:style {:min-width "120px"}}
@@ -10472,8 +10460,7 @@
                              (when (not= device-type :mobile) [:span.underline (if expanded?
                                                                                "collapse"
                                                                                "open")])
-                             [:i.fa.m-l-5
-                              {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]
+                             [comps/caret expanded? {:class "m-l-5"}]]]
                            (when expanded?
                              [:div
                               {:style character-display-style}

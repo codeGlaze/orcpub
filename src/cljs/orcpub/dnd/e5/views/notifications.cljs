@@ -4,7 +4,8 @@
    app-header mount reads :message-shown?/:message/:message-type and renders `message`. Severity
    styling is in styles/core.clj (.message + .tone-error/.tone-warning/.tone-success for the banner,
    .bg-warning for the callout)."
-  (:require [re-frame.core :refer [subscribe dispatch]]
+  (:require [orcpub.components :as comps]
+            [re-frame.core :refer [subscribe dispatch]]
             [clojure.string :as s]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.character :as char]
@@ -114,8 +115,7 @@
                           (some? expanded) (assoc :aria-expanded expanded))
                         body
                         (when (some? expanded)
-                          [:i.fa.m-l-5 {:class (if expanded "fa-angle-up" "fa-angle-down")
-                                        :aria-hidden true}])]
+                          [comps/caret expanded {:kind :angle :class "m-l-5"}])]
                  :else [:button.form-button {:on-click on-click} body])
                {:key label})))]
      (if actions-below? (into [:div.callout-actions] buttons) buttons))

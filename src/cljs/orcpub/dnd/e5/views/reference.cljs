@@ -260,8 +260,7 @@
             [:span.underline (if expanded?
                                "collapse"
                                "open")])
-          [:i.fa.m-l-5
-           {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]
+          [comps/caret expanded? {:class "m-l-5"}]]]
         (when expanded?
           [:div.p-10
            {:style views/character-display-style}
@@ -370,8 +369,7 @@
      [:span.underline (if @filters-expanded?
                         "hide"
                         "filters")])
-   [:i.fa.m-l-5
-    {:class (if @filters-expanded? "fa-caret-up" "fa-caret-down")}]])
+   [comps/caret @filters-expanded? {:class "m-l-5"}]])
 
 (defn monster-list
   "The Monsters page: text filter, trait filters and the filtered list."
@@ -421,8 +419,7 @@
         (when (not= device-type :mobile) [:span.underline (if expanded?
                                                           "collapse"
                                                           "open")])
-        [:i.fa.m-l-5
-         {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]
+        [comps/caret expanded? {:class "m-l-5"}]]]
       (when expanded?
         [:div.p-10
          {:style views/character-display-style}
@@ -485,8 +482,7 @@
         (when (not= device-type :mobile) [:span.underline (if expanded?
                                                           "collapse"
                                                           "open")])
-        [:i.fa.m-l-5
-         {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]
+        [comps/caret expanded? {:class "m-l-5"}]]]
       (when expanded?
         [:div.p-10
          {:style views/character-display-style}

@@ -287,6 +287,15 @@
 
 (def text-color "#484848")
 
+(defn caret
+  "The open/closed icon of a toggle: up while `open?`, down while closed, hidden from screen
+   readers (the toggle's own text names it). `opts` may give :kind, :caret (the default) or
+   :angle, and :class, extra classes as a string. Returns hiccup: an <i> icon."
+  ([open?] (caret open? nil))
+  ([open? {:keys [kind class]}]
+   (let [[up down] (if (= kind :angle) ["fa-angle-up" "fa-angle-down"] ["fa-caret-up" "fa-caret-down"])]
+     [:i.fa {:class (str (if open? up down) (when class (str " " class))) :aria-hidden true}])))
+
 (defn expand-button
   "An orange underlined toggle with a caret: `collapse-text` while `expanded?` (an atom) is false,
    `expand-text` while true. A click flips the atom and stops there."
@@ -296,8 +305,7 @@
                 (swap! expanded? not)
                 #?(:cljs (.stopPropagation e)))}
    [:span.underline.orange.p-0.m-r-2 (if @expanded? expand-text collapse-text)]
-   [:i.fa.orange
-    {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]])
+   [caret @expanded? {:class "orange"}]])
 
 (defn show-info-button
   "The \"show info\" / \"hide info\" toggle for an option's help, flipping `expanded?` (an atom)."

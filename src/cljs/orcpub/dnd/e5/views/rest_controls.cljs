@@ -1,7 +1,8 @@
 (ns orcpub.dnd.e5.views.rest-controls
   "The Rest box: short and long rests, the time of day and Now, the question after a rest, and the
    result line with Undo. Design: handoff-rest-controls.md; the engine is orcpub.dnd.e5.rests."
-  (:require [clojure.string :as s]
+  (:require [orcpub.components :as comps]
+            [clojure.string :as s]
             [reagent.core :as r]
             [re-frame.core :refer [subscribe dispatch]]
             [orcpub.entity :as entity]
@@ -119,7 +120,7 @@
              {:type "button" :aria-expanded @labels?
               :on-click (fn [] (swap! labels? not)
                           (try (.setItem js/localStorage "orcpub:rest-labels" (if @labels? "1" "0")) (catch :default _ nil)))}
-             "Labels" [:i.fa {:class (if @labels? "fa-caret-up" "fa-caret-down")}]])]
+             "Labels" [comps/caret @labels?]])]
          (cond
            (not time?) (into [:div.rest-row.rests-only] rest-buttons)
            @labels? [:<>

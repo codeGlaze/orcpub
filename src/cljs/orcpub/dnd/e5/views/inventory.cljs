@@ -565,7 +565,7 @@
           [:button.kit-summary {:on-click toggle :aria-expanded @open?}
            [:div.kit-name-line
             [:span.kit-name.f-w-b.f-s-16 (str name (when (> pack-count 1) (str " \u00d7" pack-count)))]
-            [:i.fa.m-l-5.f-s-12 {:class (if @open? "fa-caret-up" "fa-caret-down") :aria-hidden true}]]
+            [comps/caret @open? {:class "m-l-5 f-s-12"}]]
            [contents tracked budget]]
           (when low?
             [:button.form-button.kit-restock
