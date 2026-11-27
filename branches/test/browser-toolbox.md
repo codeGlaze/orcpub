@@ -31,8 +31,10 @@ One branch, one PR; each plan step is commits here (owner, 2026-11-27). Steps ar
     and builder-field-cue in builder_fields.cljs. 387 fields, 0 px.
   - 5c item 5 `ccce7e06c`: `comps/event-value`, `comps/on-enter`, public `comps/press-to-click` (both What's New
     pills), `switch-attrs` on the newsletter and Manage inventory switches; dead input styles gone.
-    Not done: svg-icon-2 onto themed-icon (its caller passes 64 as the theme; the change would size the icon:
-    a visible change, ask first). validation-messages is live (item builder), not dead.
+    validation-messages is live (item builder), not dead.
+  - `8430cbdb6` (owner yes, 2026-11-27): svg-icon-2 gone; the splash buttons call `(comps/themed-icon icon :css "dark-theme")`.
+    `themed-icon` size `:css` writes no inline size, because index.clj CSS sizes `.splash-button .svg-icon` (64, 32 under 768 px).
+    Home page in both themes, desktop, phone and server-rendered: 14 icons each, byte-identical screenshots.
 - **Failing, older than this work:** `inventory_kits_sheet_e2e.js` fails "its sheet shows the kit as saved:
   Torch 9/10" then times out on "One fewer", identically at `592468dab`, `69d4aade0` and `ccce7e06c` (3 runs).
   Cause not traced. Check `origin/integration` and `feature/inventory-kits` first.
