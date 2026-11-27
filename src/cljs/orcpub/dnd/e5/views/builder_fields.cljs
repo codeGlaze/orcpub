@@ -1,7 +1,10 @@
 (ns orcpub.dnd.e5.views.builder-fields
   "The labelled fields the homebrew builders and the PDF options are made of: text, number and
    long-text inputs and a dropdown, each under a field label, and checkboxes with a ? help line."
-  (:require [reagent.core :as r]
+  (:require [clojure.string :as s]
+            [reagent.core :as r]
+            [re-frame.core :refer [subscribe dispatch]]
+            [orcpub.common :as common]
             [orcpub.components :as comps]
             [orcpub.fork.branding :as branding]))
 
@@ -155,3 +158,49 @@
   (into [:div.m-b-16
          [:div.option-group-title title]]
         children))
+
+(defn builder-field-cue
+  "Cue class for a required field (or a set of related keys) rendered by a
+   component other than the text inputs — reads the same :builder-field-errors
+   map. Red if any related key is invalid, amber if any is missing."
+  [field-or-keys]
+  (let [errors @(subscribe [:builder-field-errors])
+        ks (if (coll? field-or-keys) field-or-keys [field-or-keys])
+        statuses (keep #(get errors %) ks)]
+    (cond
+      (some #{:invalid} statuses) " builder-field-invalid"
+      (some #{:missing} statuses) " builder-field-unfilled"
+      :else "")))
+
+(defn builder-input-field
+  "A homebrew builder's text field: `title` over an input showing `prop` of `item`, each edit
+   dispatching [prop-event prop value] and clearing the field's save cue. Amber or red when the
+   last save found it empty or rejected; red while a :name does not start with a letter.
+   Optional class-names (on the wrapper) and input type. Returns hiccup."
+  [title prop item prop-event & [class-names type]]
+  (let [v (prop item)
+        ;; Live: a name that's present but doesn't start with a letter is wrong
+        ;; the instant it's typed — flag it red immediately, before any save.
+        live-invalid? (and (= prop :name)
+                           (string? v) (not (s/blank? v))
+                           (not (common/starts-with-letter? v)))
+        cue (cond
+              live-invalid? " builder-field-invalid"
+              :else (case (get @(subscribe [:builder-field-errors]) prop)
+                      :missing " builder-field-unfilled"
+                      :invalid " builder-field-invalid"
+                      ""))]
+    [:div.flex-grow-1
+     {:class class-names
+      :name prop}
+     [input-builder-field
+      [:span.f-w-b title]
+      v
+      #(do (dispatch [prop-event prop %])
+           (dispatch [:clear-builder-field-error prop]))
+      {:class (str "input h-40" cue)
+       :type type
+       :maxLength (:text branding/field-limits)}]
+     (when live-invalid?
+       [:div.f-s-12.m-t-2 {:style {:color "#d9534f"}}
+        "Name must start with a letter."])]))

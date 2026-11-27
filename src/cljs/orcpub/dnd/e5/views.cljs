@@ -58,6 +58,7 @@
                                                         with-help
                                                         base-builder-field
                                                         input-builder-field textarea-field
+                                                        builder-input-field builder-field-cue
                                                         number-field]]
             [orcpub.dnd.e5.views.charges-builder :as charges-builder]
             [orcpub.dnd.e5.views.rest-controls :as rest-controls]
@@ -5099,91 +5100,28 @@
     [:div.flex-grow-1
      [item-condition-immunities]]]])
 
-(defn builder-field-cue
-  "Cue class for a required field (or a set of related keys) rendered by a
-   component other than the text inputs — reads the same :builder-field-errors
-   map. Red if any related key is invalid, amber if any is missing."
-  [field-or-keys]
-  (let [errors @(subscribe [:builder-field-errors])
-        ks (if (coll? field-or-keys) field-or-keys [field-or-keys])
-        statuses (keep #(get errors %) ks)]
-    (cond
-      (some #{:invalid} statuses) " builder-field-invalid"
-      (some #{:missing} statuses) " builder-field-unfilled"
-      :else "")))
+(def input-field-events
+  "The event each homebrew builder's text fields set a prop with, by builder kind."
+  {:spell ::spells/set-spell-prop
+   :monster ::monsters/set-monster-prop
+   :encounter ::encounters/set-encounter-prop
+   :language ::langs/set-language-prop
+   :invocation ::classes/set-invocation-prop
+   :boon ::classes/set-boon-prop
+   :selection ::selections/set-selection-prop
+   :background ::bg/set-background-prop
+   :race ::races/set-race-prop
+   :subrace ::races/set-subrace-prop
+   :subclass ::classes/set-subclass-prop
+   :class ::classes/set-class-prop
+   :feat ::feats/set-feat-prop})
 
-(defn builder-input-field [title prop item prop-event & [class-names type]]
-  ;; Flag a required field that failed the last save: amber if it was empty,
-  ;; red if it was filled but rejected (e.g. a name not starting with a letter).
-  ;; Editing the field clears its own save-cue.
-  (let [v (prop item)
-        ;; Live: a name that's present but doesn't start with a letter is wrong
-        ;; the instant it's typed — flag it red immediately, before any save.
-        live-invalid? (and (= prop :name)
-                           (string? v) (not (s/blank? v))
-                           (not (common/starts-with-letter? v)))
-        cue (cond
-              live-invalid? " builder-field-invalid"
-              :else (case (get @(subscribe [:builder-field-errors]) prop)
-                      :missing " builder-field-unfilled"
-                      :invalid " builder-field-invalid"
-                      ""))]
-    [:div.flex-grow-1
-     {:class class-names
-      :name prop}
-     [input-builder-field
-      [:span.f-w-b title]
-      v
-      #(do (dispatch [prop-event prop %])
-           (dispatch [:clear-builder-field-error prop]))
-      {:class (str "input h-40" cue)
-       :type type
-       :maxLength (:text branding/field-limits)}]
-     (when live-invalid?
-       [:div.f-s-12.m-t-2 {:style {:color "#d9534f"}}
-        "Name must start with a letter."])]))
-
-#_(defn item-input-field [title prop item & [class-names]]
-  (builder-input-field title prop item ::mi/set-item-name class-names))
-
-(defn spell-input-field [title prop spell & [class-names]]
-  (builder-input-field title prop spell ::spells/set-spell-prop class-names))
-
-(defn monster-input-field [title prop monster & [class-names type]]
-  (builder-input-field title prop monster ::monsters/set-monster-prop class-names type))
-
-(defn encounter-input-field [title prop encounter & [class-names type]]
-  (builder-input-field title prop encounter ::encounters/set-encounter-prop class-names type))
-
-(defn language-input-field [title prop language & [class-names]]
-  (builder-input-field title prop language ::langs/set-language-prop class-names))
-
-(defn invocation-input-field [title prop invocation & [class-names]]
-  (builder-input-field title prop invocation ::classes/set-invocation-prop class-names))
-
-(defn boon-input-field [title prop boon & [class-names]]
-  (builder-input-field title prop boon ::classes/set-boon-prop class-names))
-
-(defn selection-input-field [title prop selection & [class-names]]
-  (builder-input-field title prop selection ::selections/set-selection-prop class-names))
-
-(defn background-input-field [title prop bg & [class-names]]
-  (builder-input-field title prop bg ::bg/set-background-prop class-names))
-
-(defn race-input-field [title prop race & [class-names]]
-  (builder-input-field title prop race ::races/set-race-prop class-names))
-
-(defn subrace-input-field [title prop subrace & [class-names]]
-  (builder-input-field title prop subrace ::races/set-subrace-prop class-names))
-
-(defn subclass-input-field [title prop subclass & [class-names]]
-  (builder-input-field title prop subclass ::classes/set-subclass-prop class-names))
-
-(defn class-input-field [title prop class & [class-names]]
-  (builder-input-field title prop class ::classes/set-class-prop class-names))
-
-(defn feat-input-field [title prop feat & [class-names]]
-  (builder-input-field title prop feat ::feats/set-feat-prop class-names))
+(defn homebrew-input-field
+  "A homebrew builder's text field for `prop` of `item`, set through the `kind` builder's event in
+   `input-field-events`. Args: kind, title, prop, item, and optional class-names and input type.
+   Returns hiccup (builder-input-field)."
+  [kind title prop item & [class-names type]]
+  (builder-input-field title prop item (input-field-events kind) class-names type))
 
 (defn component-checkbox [component spell]
   [:span.m-r-20.m-b-10
@@ -5871,7 +5809,7 @@
         plugins @(subscribe [::e5/plugins])]
     [:div.p-20.main-text-color
      [:div.m-b-20.flex.flex-wrap
-      [feat-input-field
+      [homebrew-input-field :feat
        "Name"
        :name
        feat]
@@ -6503,7 +6441,7 @@
     [:div.p-20.main-text-color
      [:div.flex.flex-wrap
       [:div.m-b-20.flex-grow-1
-       [class-input-field
+       [homebrew-input-field :class
         "Name"
         :name
         class]]
@@ -6540,7 +6478,7 @@
          :value (:subclass-level class)
          :on-change #(dispatch [::classes/set-class-prop :subclass-level (js/parseInt %)])}]]
       [:div.flex-grow-1
-       [class-input-field
+       [homebrew-input-field :class
         "Subclass Title"
         :subclass-title
         class
@@ -6552,7 +6490,7 @@
          {:value (get class :subclass-help)
           :on-change #(dispatch [::classes/set-class-prop :subclass-help %])}]]
      [:div.m-b-20
-      [class-input-field
+      [homebrew-input-field :class
        "Subclass Flavor"
        :subclass-help
        class]]
@@ -6806,7 +6744,7 @@
     [:div.p-20.main-text-color
      [:div.flex.flex-wrap
       [:div.m-b-20
-       [subclass-input-field
+       [homebrew-input-field :subclass
         "Name"
         :name
         subclass]]
@@ -6962,7 +6900,7 @@
     [:div.p-20.main-text-color
      [:div.flex.flex-wrap
       [:div.m-b-20
-       [subrace-input-field
+       [homebrew-input-field :subrace
         "Name"
         :name
         subrace]]
@@ -7260,7 +7198,7 @@
   (let [race @(subscribe [::races/builder-item])]
     [:div.p-20.main-text-color
      [:div.m-b-20.flex.flex-wrap
-      [race-input-field
+      [homebrew-input-field :race
        "Name"
        :name
        race]
@@ -7415,7 +7353,7 @@
   (let [background @(subscribe [::bg/builder-item])]
     [:div.p-20.main-text-color
      [:div.m-b-20.flex.flex-wrap
-      [background-input-field
+      [homebrew-input-field :background
        "Name"
        :name
        background]
@@ -7484,7 +7422,7 @@
         has-empty? (some #(s/blank? (:name %)) options)]
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
-      [selection-input-field
+      [homebrew-input-field :selection
        "Name"
        :name
        selection
@@ -7562,7 +7500,7 @@
   (let [language @(subscribe [::langs/builder-item])]
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
-      [language-input-field
+      [homebrew-input-field :language
        "Name"
        :name
        language
@@ -7583,7 +7521,7 @@
   (let [boon @(subscribe [::classes/boon-builder-item])]
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
-      [boon-input-field
+      [homebrew-input-field :boon
        "Name"
        :name
        boon
@@ -7604,7 +7542,7 @@
   (let [invocation @(subscribe [::classes/invocation-builder-item])]
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
-      [invocation-input-field
+      [homebrew-input-field :invocation
        "Name"
        :name
        invocation
@@ -7648,7 +7586,7 @@
         @(subscribe [::monsters/builder-item])]
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
-      [monster-input-field
+      [homebrew-input-field :monster
        "Name"
        :name
        monster
@@ -7699,7 +7637,7 @@
                   (range 5 25))
          :value (or armor-class 10)
          :on-change #(dispatch [::monsters/set-monster-prop :armor-class (js/parseInt %)])}]]
-      [monster-input-field
+      [homebrew-input-field :monster
        "Armor Notes"
        :armor-notes
        monster
@@ -7740,7 +7678,7 @@
          #(let [v (js/parseInt %)]
             (dispatch [::monsters/set-monster-path-prop [:hit-points :modifier] (when (not (js/isNaN v)) v)]))
          {:class "input h-40"}]]
-      [monster-input-field
+      [homebrew-input-field :monster
        "Speed"
        :speed
        monster
@@ -7805,7 +7743,7 @@
       [:div [option-damage-resistance monster ::monsters/toggle-monster-map-prop]]
       [:div [option-damage-immunity monster ::monsters/toggle-monster-map-prop]]
       [:div [option-condition-immunity monster ::monsters/toggle-monster-map-prop]]
-      [monster-input-field
+      [homebrew-input-field :monster
        "Senses"
        :senses
        monster
@@ -8347,7 +8285,7 @@
   (let [{:keys [creatures] :as encounter} @(subscribe [::encounters/builder-item])]
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
-      [encounter-input-field
+      [homebrew-input-field :encounter
        "Name"
        :name
        encounter
@@ -8372,7 +8310,7 @@
   (let [{:keys [:level :school] :as spell} @(subscribe [::spells/builder-item])]
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
-      [spell-input-field
+      [homebrew-input-field :spell
        "Name"
        :name
        spell
@@ -8419,8 +8357,8 @@
          false
          #(dispatch [::spells/toggle-spell-prop :attack-roll?])]]]]
      [:div.flex.w-100-p.flex-wrap
-      [spell-input-field "Casting Time" :casting-time spell "m-b-20"]
-      [spell-input-field "Range" :range spell "m-l-5 m-b-20"]]
+      [homebrew-input-field :spell "Casting Time" :casting-time spell "m-b-20"]
+      [homebrew-input-field :spell "Range" :range spell "m-l-5 m-b-20"]]
      [:div [:h2.f-s-24.f-w-b.m-b-10 "Components"]]
      [:div.flex.w-100-p.flex-wrap
       [component-checkbox :verbal spell]
@@ -8431,7 +8369,7 @@
        {:value (get-in spell [:components :material-component])
         :on-change #(dispatch [::spells/set-material-component %])}]]
      [:div.m-b-20
-      [spell-input-field "Duration" :duration spell "m-b-20"]]
+      [homebrew-input-field :spell "Duration" :duration spell "m-b-20"]]
      [:div.w-100-p
       [:div.f-s-24.f-w-b
        "Description"]
