@@ -72,13 +72,13 @@ const duplicateIds = page => page.evaluate(() => {
   const page = await ctx.newPage();
   watch(page, 'phone page');
   await page.goto(`${BASE}/pages/dnd/5e/character-builder`, { waitUntil: 'domcontentloaded' });
-  await must('see the builder tabs', builder.tab(page, 'Options').waitFor({ timeout: 60000 }));
+  await must('see the builder tabs', () => builder.tab(page, 'Options').waitFor({ timeout: 60000 }));
 
   await tablistChecks(page, 'builder', page.getByRole('tablist', { name: 'Builder sections' }),
                       '[role=tablist][aria-label="Builder sections"]',
                       '#builder-tabpanel', 'Options', 'Description', 'Details');
-  await must('open the builder\'s Details tab', builder.tab(page, 'Details').click({ timeout: 20000 }));
-  await must('see the sheet tabs', sheetTabs.sectionTab(page, 'Combat').waitFor({ timeout: 20000 }));
+  await must('open the builder\'s Details tab', () => builder.tab(page, 'Details').click({ timeout: 20000 }));
+  await must('see the sheet tabs', () => sheetTabs.sectionTab(page, 'Combat').waitFor({ timeout: 20000 }));
   await tablistChecks(page, 'sheet', page.getByRole('tablist', { name: 'Character sheet sections' }),
                       '[role=tablist][aria-label="Character sheet sections"]',
                       '[role=tabpanel][id^=sheet-tabpanel-]', 'Summary', 'Combat', 'Equipment');

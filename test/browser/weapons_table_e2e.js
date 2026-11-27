@@ -139,173 +139,171 @@ async function layout(page, theme) {
                              null, { timeout: 60000 });
   await load(page);
   // a phone shows the sheet under the Details tab, its sections behind icon tabs
-  await must('open the builder\'s Details tab', builder.tab(page, 'Details').click({ timeout: 20000 }));
-  await must('open the sheet\'s Combat tab', sheetTabs.sectionTab(page, 'Combat').click({ timeout: 20000 }));
+  await must('open the builder\'s Details tab', () => builder.tab(page, 'Details').click({ timeout: 20000 }));
+  await must('open the sheet\'s Combat tab', () => sheetTabs.sectionTab(page, 'Combat').click({ timeout: 20000 }));
   const section = weapons.section(page);
   await must('see the Weapons table under the Combat tab', () => section.waitFor({ timeout: 20000 }));
-  {
-    const row = name => weapons.row(page, name);
-    await eightRows(weapons.section(page), must);
-    await layout(page, 'dark');
-    check('no reason pill while the off hand is free', await page.locator(W.reason).count() === 0);
+  const row = name => weapons.row(page, name);
+  await eightRows(weapons.section(page), must);
+  await layout(page, 'dark');
+  check('no reason pill while the off hand is free', await page.locator(W.reason).count() === 0);
 
-    const strip = async name => (await row(name).locator(W.hitStrip).innerText()).trim();
-    check('a weapon the wizard is not proficient with says "no prof"', await strip('Longsword') === 'no prof');
-    check('one it is proficient with says "hit"', await strip('Dagger') === 'hit');
-    check('the Net gets the no-roll tile', await row('Net').locator(W.noRoll).count() === 1);
-    check('Frost Brand shows its +1d6 on the damage tile',
-          /\+1d6/.test(await row('Frost Brand, Rapier').locator(W.damageTile).innerText()));
-    check('Holy Avenger has a "vs fiends and undead" line with +2d10 radiant',
-          /vs fiends and undead[\s\S]*\+2d10 radiant/i.test(await row('Holy Avenger, Longsword').innerText()));
+  const strip = async name => (await row(name).locator(W.hitStrip).innerText()).trim();
+  check('a weapon the wizard is not proficient with says "no prof"', await strip('Longsword') === 'no prof');
+  check('one it is proficient with says "hit"', await strip('Dagger') === 'hit');
+  check('the Net gets the no-roll tile', await row('Net').locator(W.noRoll).count() === 1);
+  check('Frost Brand shows its +1d6 on the damage tile',
+        /\+1d6/.test(await row('Frost Brand, Rapier').locator(W.damageTile).innerText()));
+  check('Holy Avenger has a "vs fiends and undead" line with +2d10 radiant',
+        /vs fiends and undead[\s\S]*\+2d10 radiant/i.test(await row('Holy Avenger, Longsword').innerText()));
 
-    const flame = row('Flame Tongue, Longsword');
-    check('on a phone, Flame Tongue\'s two switches move under the row',
-          await flame.locator(W.linesSwitch).count() === 2);
-    check('Flame Tongue starts unlit: nothing extra on its tile',
-          !/\+2d6/.test(await flame.locator(W.damageTile).innerText()));
-    await flame.getByRole('radio', { name: 'Ablaze' }).click();
-    const shows = (loc, text) => loc.filter({ hasText: text }).waitFor({ timeout: 5000 }).then(() => true, () => false);
-    check('Ablaze puts +2d6 on the tile', await shows(flame.locator(W.damageTile), '+2d6'));
-    await flame.locator(W.damageTile).click();
-    const sheet = page.locator(W.sheet);
-    check('and the damage roll includes the fire, in the result sheet',
-          await shows(sheet, 'fire \u00B7 ablaze') && await shows(sheet, 'Total damage'));
-    await attempt('press Done', weapons.done(page).click({ timeout: 5000 }));
-    check('Done closes the sheet', await sheet.waitFor({ state: 'detached', timeout: 5000 }).then(() => true, () => false));
+  const flame = row('Flame Tongue, Longsword');
+  check('on a phone, Flame Tongue\'s two switches move under the row',
+        await flame.locator(W.linesSwitch).count() === 2);
+  check('Flame Tongue starts unlit: nothing extra on its tile',
+        !/\+2d6/.test(await flame.locator(W.damageTile).innerText()));
+  await flame.getByRole('radio', { name: 'Ablaze' }).click();
+  const shows = (loc, text) => loc.filter({ hasText: text }).waitFor({ timeout: 5000 }).then(() => true, () => false);
+  check('Ablaze puts +2d6 on the tile', await shows(flame.locator(W.damageTile), '+2d6'));
+  await flame.locator(W.damageTile).click();
+  const sheet = page.locator(W.sheet);
+  check('and the damage roll includes the fire, in the result sheet',
+        await shows(sheet, 'fire \u00B7 ablaze') && await shows(sheet, 'Total damage'));
+  await attempt('press Done', () => weapons.done(page).click({ timeout: 5000 }));
+  check('Done closes the sheet', await sheet.waitFor({ state: 'detached', timeout: 5000 }).then(() => true, () => false));
 
-    // a turn: to hit, its damage, the next attack
-    const holyT = row('Holy Avenger, Longsword');
-    await holyT.locator(W.hitTile).click();
-    check('a to-hit opens the sheet with its d20', await shows(sheet, 'to hit') && await shows(sheet.locator(W.sheetD20), 'd20 ['));
-    // the d20 is a real roll: on a natural 20 (1 run in 20) both labels say Critical
-    const optionsWhy = {};
-    const optionTexts = (await sheet.locator(W.sheetOption).allInnerTexts().catch(orElse([], optionsWhy))).map(t => t.split('\n')[0]).join('|');
-    check('it offers Damage first, then vs fiends and undead',
-          /^(Critical damage|Damage)\|(Critical vs|vs) fiends and undead/.test(optionTexts), optionsWhy.text || optionTexts);
-    await attempt('pick the vs fiends and undead option', weapons.option(page, 'vs fiends and undead').click({ timeout: 5000 }));
-    check('its damage reads one line per part, then the total',
-          await shows(sheet, 'radiant \u00B7 vs fiends and undead') && await shows(sheet, 'Total damage'));
-    await attempt('roll the next attack', weapons.next(page).click({ timeout: 5000 }));
-    check('the corner tile rolls attack 2, and attack 1 folds into a row',
-          await shows(sheet.locator(W.sheetHistoryRow), 'to hit') && await shows(sheet, 'attack 2'));
-    await attempt('pick the primary damage option', weapons.primaryOption(page).click({ timeout: 5000 }));
-    check('two damaged attacks show a turn total', await shows(sheet, 'Turn total'));
-    await attempt('press the sheet\'s close button', weapons.close(page).click({ timeout: 5000 }));
-    check('the close button ends the turn too', await sheet.waitFor({ state: 'detached', timeout: 5000 }).then(() => true, () => false));
+  // a turn: to hit, its damage, the next attack
+  const holyT = row('Holy Avenger, Longsword');
+  await holyT.locator(W.hitTile).click();
+  check('a to-hit opens the sheet with its d20', await shows(sheet, 'to hit') && await shows(sheet.locator(W.sheetD20), 'd20 ['));
+  // the d20 is a real roll: on a natural 20 (1 run in 20) both labels say Critical
+  const optionsWhy = {};
+  const optionTexts = (await sheet.locator(W.sheetOption).allInnerTexts().catch(orElse([], optionsWhy))).map(t => t.split('\n')[0]).join('|');
+  check('it offers Damage first, then vs fiends and undead',
+        /^(Critical damage|Damage)\|(Critical vs|vs) fiends and undead/.test(optionTexts), optionsWhy.text || optionTexts);
+  await attempt('pick the vs fiends and undead option', () => weapons.option(page, 'vs fiends and undead').click({ timeout: 5000 }));
+  check('its damage reads one line per part, then the total',
+        await shows(sheet, 'radiant \u00B7 vs fiends and undead') && await shows(sheet, 'Total damage'));
+  await attempt('roll the next attack', () => weapons.next(page).click({ timeout: 5000 }));
+  check('the corner tile rolls attack 2, and attack 1 folds into a row',
+        await shows(sheet.locator(W.sheetHistoryRow), 'to hit') && await shows(sheet, 'attack 2'));
+  await attempt('pick the primary damage option', () => weapons.primaryOption(page).click({ timeout: 5000 }));
+  check('two damaged attacks show a turn total', await shows(sheet, 'Turn total'));
+  await attempt('press the sheet\'s close button', () => weapons.close(page).click({ timeout: 5000 }));
+  check('the close button ends the turn too', await sheet.waitFor({ state: 'detached', timeout: 5000 }).then(() => true, () => false));
 
-    const plain = row('Longsword');
-    check('with the off hand free, the longsword\'s 1H | 2H switch pulses',
-          await plain.locator(W.switchPulse).count() === 1);
-    await plain.getByRole('radio', { name: '1H' }).click();  // already chosen: a touch that changes nothing else
-    check('touching it stops the pulse',
-          await plain.locator(W.switchPulse).waitFor({ state: 'detached', timeout: 5000 }).then(() => true, () => false));
-    await plain.getByRole('radio', { name: '2H' }).click();
-    check('2H shows the longsword\'s two-handed 1d10', await shows(plain.locator(W.damageTile), '1d10+2'));
-    await plain.getByRole('radio', { name: '1H' }).click();  // back to 1H: the pulse only offers 2H
+  const plain = row('Longsword');
+  check('with the off hand free, the longsword\'s 1H | 2H switch pulses',
+        await plain.locator(W.switchPulse).count() === 1);
+  await plain.getByRole('radio', { name: '1H' }).click();  // already chosen: a touch that changes nothing else
+  check('touching it stops the pulse',
+        await plain.locator(W.switchPulse).waitFor({ state: 'detached', timeout: 5000 }).then(() => true, () => false));
+  await plain.getByRole('radio', { name: '2H' }).click();
+  check('2H shows the longsword\'s two-handed 1d10', await shows(plain.locator(W.damageTile), '1d10+2'));
+  await plain.getByRole('radio', { name: '1H' }).click();  // back to 1H: the pulse only offers 2H
 
-    const holy = row('Holy Avenger, Longsword');
-    await holy.locator(W.nameLine).click();
-    const opened = await holy.locator(W.opened).waitFor({ timeout: 5000 }).then(() => true, () => false);
-    check('tapping the name opens the row with its properties and rules',
-          opened && await shows(holy.locator(W.opened), 'Legendary (requires attunement) \u00B7 Martial melee \u00B7 Versatile (1d10)')
-          && await shows(holy.locator(W.opened), 'When you hit a fiend or an undead with it'));
+  const holy = row('Holy Avenger, Longsword');
+  await holy.locator(W.nameLine).click();
+  const opened = await holy.locator(W.opened).waitFor({ timeout: 5000 }).then(() => true, () => false);
+  check('tapping the name opens the row with its properties and rules',
+        opened && await shows(holy.locator(W.opened), 'Legendary (requires attunement) \u00B7 Martial melee \u00B7 Versatile (1d10)')
+        && await shows(holy.locator(W.opened), 'When you hit a fiend or an undead with it'));
 
-    // the shield rules
-    await load(page, true);
-    const pill = page.locator(W.reason);
-    check('a Shield shows the "Shield in off hand" pill',
-          await pill.waitFor({ timeout: 5000 }).then(() => true, () => false) && (await pill.innerText()).trim() === 'Shield in off hand');
-    const ls = row('Longsword');
-    check('1H | 2H is greyed and 2H cannot be picked',
-          await ls.locator(W.switchDisabled).count() === 1 && await ls.getByRole('radio', { name: '2H' }).isDisabled());
-    check('and the longsword is back to one-handed dice', /1d8\+2/.test(await ls.locator(W.damageTile).innerText()));
-    check('no pulse while the off hand holds a shield', await ls.locator(W.switchPulse).count() === 0);
-    await ls.locator(W.nameLine).click();
-    check('the opened longsword says why', await shows(ls, 'Two hands: needs both hands, unequip your Shield.'));
-    const bow = row('Longbow');
-    check('the two-handed longbow\'s tiles become outlines', await bow.locator(W.needsHands).count() === 2);
-    await bow.locator(W.nameLine).click();
-    check('the opened longbow says it needs both hands', await shows(bow, 'Needs both hands: your off hand holds a Shield.'));
-    await bow.locator(W.hitTile).click();
-    check('and its roll says so', await shows(page.locator(W.sheetTitle), 'Longbow (needs both hands)'));
-    await attempt('press Done', weapons.done(page).click({ timeout: 5000 }));
-    await load(page, false);
-    check('freeing the off hand removes the pill',
-          await pill.waitFor({ state: 'detached', timeout: 5000 }).then(() => true, () => false));
-    check('and brings the pulse back', await row('Longsword').locator(W.switchPulse).waitFor({ timeout: 5000 }).then(() => true, () => false));
+  // the shield rules
+  await load(page, true);
+  const pill = page.locator(W.reason);
+  check('a Shield shows the "Shield in off hand" pill',
+        await pill.waitFor({ timeout: 5000 }).then(() => true, () => false) && (await pill.innerText()).trim() === 'Shield in off hand');
+  const ls = row('Longsword');
+  check('1H | 2H is greyed and 2H cannot be picked',
+        await ls.locator(W.switchDisabled).count() === 1 && await ls.getByRole('radio', { name: '2H' }).isDisabled());
+  check('and the longsword is back to one-handed dice', /1d8\+2/.test(await ls.locator(W.damageTile).innerText()));
+  check('no pulse while the off hand holds a shield', await ls.locator(W.switchPulse).count() === 0);
+  await ls.locator(W.nameLine).click();
+  check('the opened longsword says why', await shows(ls, 'Two hands: needs both hands, unequip your Shield.'));
+  const bow = row('Longbow');
+  check('the two-handed longbow\'s tiles become outlines', await bow.locator(W.needsHands).count() === 2);
+  await bow.locator(W.nameLine).click();
+  check('the opened longbow says it needs both hands', await shows(bow, 'Needs both hands: your off hand holds a Shield.'));
+  await bow.locator(W.hitTile).click();
+  check('and its roll says so', await shows(page.locator(W.sheetTitle), 'Longbow (needs both hands)'));
+  await attempt('press Done', () => weapons.done(page).click({ timeout: 5000 }));
+  await load(page, false);
+  check('freeing the off hand removes the pill',
+        await pill.waitFor({ state: 'detached', timeout: 5000 }).then(() => true, () => false));
+  check('and brings the pulse back', await row('Longsword').locator(W.switchPulse).waitFor({ timeout: 5000 }).then(() => true, () => false));
 
-    // which weapon is in which hand
-    // one hand at a time: with no saved character these events queue a :set-character built from the
-    // character as it was, so a second event before the first lands would overwrite it
-    const wield = ev => page.evaluate(ev => re_frame.core.dispatch_sync(cljs.reader.read_string(ev)), ev);
-    const handPill = r => r.locator(W.nameLineHandPill);
-    await wield('[:orcpub.dnd.e5.character/wield-main-hand-weapon nil :dagger]');
-    check('the main-hand weapon says "main" on its name line', await shows(handPill(row('Dagger')), 'main')
-          && await handPill(row('Dagger')).getAttribute('aria-label') === 'main hand');
-    await wield('[:orcpub.dnd.e5.character/wield-off-hand-weapon nil :flame-tongue-longsword]');
-    check('the off-hand weapon says "off", its hand mirrored',
-          await shows(handPill(row('Flame Tongue, Longsword')), 'off')
-          && await handPill(row('Flame Tongue, Longsword')).locator(W.flipped).count() === 1
-          && await handPill(row('Flame Tongue, Longsword')).getAttribute('aria-label') === 'off hand');
-    check('no other weapon has a hand pill', await page.locator(W.handPill).count() === 2);
+  // which weapon is in which hand
+  // one hand at a time: with no saved character these events queue a :set-character built from the
+  // character as it was, so a second event before the first lands would overwrite it
+  const wield = ev => page.evaluate(ev => re_frame.core.dispatch_sync(cljs.reader.read_string(ev)), ev);
+  const handPill = r => r.locator(W.nameLineHandPill);
+  await wield('[:orcpub.dnd.e5.character/wield-main-hand-weapon nil :dagger]');
+  check('the main-hand weapon says "main" on its name line', await shows(handPill(row('Dagger')), 'main')
+        && await handPill(row('Dagger')).getAttribute('aria-label') === 'main hand');
+  await wield('[:orcpub.dnd.e5.character/wield-off-hand-weapon nil :flame-tongue-longsword]');
+  check('the off-hand weapon says "off", its hand mirrored',
+        await shows(handPill(row('Flame Tongue, Longsword')), 'off')
+        && await handPill(row('Flame Tongue, Longsword')).locator(W.flipped).count() === 1
+        && await handPill(row('Flame Tongue, Longsword')).getAttribute('aria-label') === 'off hand');
+  check('no other weapon has a hand pill', await page.locator(W.handPill).count() === 2);
 
-    // the + menu
-    const plus = weapons.plus;
-    check('a weapon with nothing conditional has no +', await plus(row('Frost Brand, Rapier')).count() === 0);
-    const holyRow = row('Holy Avenger, Longsword');
-    const popupWhy = {};
-    check('a weapon with a target has a +, announced as a menu',
-          await plus(holyRow).getAttribute('aria-haspopup', { timeout: 3000 }).catch(orElse(null, popupWhy)) === 'menu', popupWhy.text);
-    await attempt('focus the damage tile', weapons.damageTile(holyRow).focus({ timeout: 5000 }));
-    await page.keyboard.press('Tab');
-    const focusWhy = {};
-    const isFocused = loc => loc.evaluate(e => e === document.activeElement, null, { timeout: 3000 }).catch(orElse(false, focusWhy));
-    check('Tab goes from the damage tile to its +', await isFocused(plus(holyRow)), focusWhy.text);
-    await page.keyboard.press('Enter');
-    const focused = () => page.evaluate(() => document.activeElement && document.activeElement.textContent);
-    check('Enter opens the menu on Roll damage',
-          await holyRow.locator(W.menu).waitFor({ timeout: 5000 }).then(() => true, () => false)
-          && /^Roll damage/.test(await focused()));
-    check('on a phone it opens in the bottom sheet', await page.locator(W.menuInSheet).count() === 1);
-    if (SHOT_DIR) { await page.waitForTimeout(250); await page.screenshot({ path: `${SHOT_DIR}/weapons-plus-menu.png` }); }
-    await page.keyboard.press('ArrowDown');
-    check('Down moves to the next item', /^Roll vs fiends and undead/.test(await focused()));
-    await page.keyboard.press('Escape');
-    const closed = await holyRow.locator(W.menu).waitFor({ state: 'detached', timeout: 5000 }).then(() => true, () => false);
-    check('Esc closes the menu and returns to the +',
-          closed && await isFocused(plus(holyRow)),
-          await page.evaluate(() => document.activeElement && document.activeElement.className));
-    await holyRow.locator(W.damageTile).click({ button: 'right' });
-    check('right-click on the tile opens the menu',
-          await holyRow.locator(W.menu).waitFor({ timeout: 5000 }).then(() => true, () => false));
-    await attempt('pick Roll vs in the + menu', weapons.menuItem(holyRow, /Roll vs fiends and undead/).click({ timeout: 5000 }));
-    check('Roll vs rolls the base and the bonus',
-          await shows(page.locator(W.sheet), 'roll vs fiends and undead') &&
-          await shows(page.locator(W.sheet), 'radiant \u00B7 vs fiends and undead'));
-    await attempt('press Done', weapons.done(page).click({ timeout: 5000 }));
+  // the + menu
+  const plus = weapons.plus;
+  check('a weapon with nothing conditional has no +', await plus(row('Frost Brand, Rapier')).count() === 0);
+  const holyRow = row('Holy Avenger, Longsword');
+  const popupWhy = {};
+  check('a weapon with a target has a +, announced as a menu',
+        await plus(holyRow).getAttribute('aria-haspopup', { timeout: 3000 }).catch(orElse(null, popupWhy)) === 'menu', popupWhy.text);
+  await attempt('focus the damage tile', () => weapons.damageTile(holyRow).focus({ timeout: 5000 }));
+  await page.keyboard.press('Tab');
+  const focusWhy = {};
+  const isFocused = loc => loc.evaluate(e => e === document.activeElement, null, { timeout: 3000 }).catch(orElse(false, focusWhy));
+  check('Tab goes from the damage tile to its +', await isFocused(plus(holyRow)), focusWhy.text);
+  await page.keyboard.press('Enter');
+  const focused = () => page.evaluate(() => document.activeElement && document.activeElement.textContent);
+  check('Enter opens the menu on Roll damage',
+        await holyRow.locator(W.menu).waitFor({ timeout: 5000 }).then(() => true, () => false)
+        && /^Roll damage/.test(await focused()));
+  check('on a phone it opens in the bottom sheet', await page.locator(W.menuInSheet).count() === 1);
+  if (SHOT_DIR) { await page.waitForTimeout(250); await page.screenshot({ path: `${SHOT_DIR}/weapons-plus-menu.png` }); }
+  await page.keyboard.press('ArrowDown');
+  check('Down moves to the next item', /^Roll vs fiends and undead/.test(await focused()));
+  await page.keyboard.press('Escape');
+  const closed = await holyRow.locator(W.menu).waitFor({ state: 'detached', timeout: 5000 }).then(() => true, () => false);
+  check('Esc closes the menu and returns to the +',
+        closed && await isFocused(plus(holyRow)),
+        await page.evaluate(() => document.activeElement && document.activeElement.className));
+  await holyRow.locator(W.damageTile).click({ button: 'right' });
+  check('right-click on the tile opens the menu',
+        await holyRow.locator(W.menu).waitFor({ timeout: 5000 }).then(() => true, () => false));
+  await attempt('pick Roll vs in the + menu', () => weapons.menuItem(holyRow, /Roll vs fiends and undead/).click({ timeout: 5000 }));
+  check('Roll vs rolls the base and the bonus',
+        await shows(page.locator(W.sheet), 'roll vs fiends and undead') &&
+        await shows(page.locator(W.sheet), 'radiant \u00B7 vs fiends and undead'));
+  await attempt('press Done', () => weapons.done(page).click({ timeout: 5000 }));
 
-    await loadMagic(page, [':holy-avenger-longsword', ':javelin-of-lightning']);
-    const jav = row('Javelin of Lightning');
-    await must('see the Javelin of Lightning row', () => jav.waitFor({ timeout: 5000 }));
-    await must('open the javelin\'s + menu', () => plus(jav).click({ timeout: 5000 }));
-    const use = weapons.menuItem(jav, /\+4d6 lightning/);
-    check('the last row\'s menu opens upward',
-          await jav.locator(W.menuUp).waitFor({ timeout: 5000 }).then(() => true, () => false));
-    await must('use the javelin', () => use.click({ timeout: 5000 }));
-    check('a once-per-dawn use rolls', await shows(page.locator(W.sheet), 'lightning'));
-    await attempt('press Done', weapons.done(page).click({ timeout: 5000 }));
-    await must('open the javelin\'s + menu again', () => plus(jav).click({ timeout: 5000 }));
-    const usedWhy = {};
-    check('and then reads "used"', await shows(use, 'used')
-          && await use.getAttribute('aria-disabled', { timeout: 3000 }).catch(orElse(null, usedWhy)) === 'true', usedWhy.text);
-    await page.keyboard.press('Escape');
-    await load(page, false);
-    await attempt('see 8 weapon rows after the reload', page.waitForFunction(sel => document.querySelectorAll(sel).length === 8, W.row, { timeout: 5000 }));
+  await loadMagic(page, [':holy-avenger-longsword', ':javelin-of-lightning']);
+  const jav = row('Javelin of Lightning');
+  await must('see the Javelin of Lightning row', () => jav.waitFor({ timeout: 5000 }));
+  await must('open the javelin\'s + menu', () => plus(jav).click({ timeout: 5000 }));
+  const use = weapons.menuItem(jav, /\+4d6 lightning/);
+  check('the last row\'s menu opens upward',
+        await jav.locator(W.menuUp).waitFor({ timeout: 5000 }).then(() => true, () => false));
+  await must('use the javelin', () => use.click({ timeout: 5000 }));
+  check('a once-per-dawn use rolls', await shows(page.locator(W.sheet), 'lightning'));
+  await attempt('press Done', () => weapons.done(page).click({ timeout: 5000 }));
+  await must('open the javelin\'s + menu again', () => plus(jav).click({ timeout: 5000 }));
+  const usedWhy = {};
+  check('and then reads "used"', await shows(use, 'used')
+        && await use.getAttribute('aria-disabled', { timeout: 3000 }).catch(orElse(null, usedWhy)) === 'true', usedWhy.text);
+  await page.keyboard.press('Escape');
+  await load(page, false);
+  await attempt('see 8 weapon rows after the reload', () => page.waitForFunction(sel => document.querySelectorAll(sel).length === 8, W.row, { timeout: 5000 }));
 
-    await attempt('switch to the light theme', settings.lightTheme(page).click({ timeout: 5000 }));
-    await page.waitForTimeout(300);
-    await layout(page, 'light');
-  }
+  await attempt('switch to the light theme', () => settings.lightTheme(page).click({ timeout: 5000 }));
+  await page.waitForTimeout(300);
+  await layout(page, 'light');
   // Weapon Mastery (writing-browser-tests.md rule 6): made-up weapons enter as custom items, the
   // app's own path into the shared weapons map; only the table's own subscriptions are stood in
   await page.evaluate(() => {
@@ -340,13 +338,13 @@ async function layout(page, theme) {
     if (SHOT_DIR) {
       // a roll's message bar and the sticky header sit over the table: close one, centre the row
       const message = page.locator('.message').first();
-      if (await message.count()) await attempt('close the message bar', message.click({ timeout: 2000 }));
+      if (await message.count()) await attempt('close the message bar', () => message.click({ timeout: 2000 }));
       await mrow('Test Blade').evaluate(e => e.scrollIntoView({ block: 'center' }));
       await page.waitForTimeout(300);
       await mrow('Test Blade').screenshot({ path: `${SHOT_DIR}/weapons-mastery-band.png` });
     }
     check('an untrained dagger shows no band', await mrow('Test Knife').locator(W.masteryBand).count() === 0);
-    await attempt('open the Test Knife row', weapons.nameLine(mrow('Test Knife')).click({ timeout: 5000 }));
+    await attempt('open the Test Knife row', () => weapons.nameLine(mrow('Test Knife')).click({ timeout: 5000 }));
     check('and its opened row says it is not trained',
           await mrow('Test Knife').locator(W.opened, { hasText: 'Mastery: Nick (not trained)' })
             .waitFor({ timeout: 5000 }).then(() => true, () => false));
@@ -361,7 +359,7 @@ async function layout(page, theme) {
   await dp.goto(`${BASE}/pages/dnd/5e/character-builder`, { waitUntil: 'domcontentloaded' });
   await dp.waitForFunction(() => { try { return !!re_frame.core.dispatch_sync; } catch (e) { return false; } }, null, { timeout: 60000 });
   await load(dp, false);
-  await must('open the desktop sheet\'s Combat tab', sheetTabs.sectionTab(dp, 'Combat').click({ timeout: 10000 }));
+  await must('open the desktop sheet\'s Combat tab', () => sheetTabs.sectionTab(dp, 'Combat').click({ timeout: 10000 }));
   const dsec = dp.locator(W.sectionDesktop).filter({ visible: true }).first();
   if (await dsec.waitFor({ timeout: 20000 }).then(() => true, () => false)) {
     check('desktop: one row per weapon', await eightRows(dsec, attempt) && await dsec.locator(W.row).count() === 8,
@@ -386,7 +384,7 @@ async function layout(page, theme) {
           `${dm.hitSizes} ${dm.dmgSizes}`);
     check('desktop: headings within 2px of their tiles, and it fits', dm.off <= 2 && dm.fits, `${dm.off}`);
     check('desktop: the ctrl/shift tooltip stays', dm.tooltips > 0);
-    await attempt('ctrl-click a to-hit tile', weapons.hitTile(dsec).first().click({ modifiers: ['Control'], timeout: 5000 }));
+    await attempt('ctrl-click a to-hit tile', () => weapons.hitTile(dsec).first().click({ modifiers: ['Control'], timeout: 5000 }));
     const card = dp.locator(W.sheetCard);
     check('desktop: a ctrl-click result is a card with both dice, the unused one struck',
           await card.waitFor({ timeout: 5000 }).then(() => true, () => false)
