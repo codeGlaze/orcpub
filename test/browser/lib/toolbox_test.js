@@ -97,6 +97,24 @@ expect('the What\'s New id comes from the app', /^[a-z0-9-]+$/.test(currentWhats
   expect('must does not throw when the action works', mustOk === true);
   expect('the failed attempt and must print FAIL lines', out.filter(l => l.startsWith('FAIL  could not')).length === 2);
 
+  // a function action is called inside the try, so a synchronous throw is recorded too
+  const c2 = checker();
+  const out3 = [], orig3 = console.log;
+  console.log = (...a) => out3.push(a.join(' '));
+  let r2, threw2 = null, calls = 0;
+  try {
+    r2 = [await c2.attempt('build A', () => { throw new Error('sync boom\nmore'); }),
+          await c2.attempt('build B', () => { calls++; return Promise.resolve(1); }),
+          await c2.attempt('build C', () => Promise.reject(new Error('async boom')))];
+    try { await c2.must('build D', () => { throw new Error('sync must'); }); } catch (e) { threw2 = e; }
+  } finally { console.log = orig3; }
+  expect('attempt records a synchronous throw from a function action',
+         r2[0] === false && c2.results.some(r => r.name === 'could not build A' && !r.pass && r.detail === 'sync boom'));
+  expect('attempt calls a function action once and passes when it resolves', r2[1] === true && calls === 1);
+  expect('attempt records a rejected promise returned by a function action', r2[2] === false && c2.results.some(r => r.name === 'could not build C'));
+  expect('must records a synchronous throw and throws SetupFailed',
+         threw2 instanceof SetupFailed && c2.results.some(r => r.name === 'could not build D' && !r.pass && r.detail === 'sync must'));
+
   // diagnostics: same-origin test, formatting, the fake-page collector, and when finish prints them
   expect('isSameOrigin: same host and port', isSameOrigin('http://localhost:8893/a/b?x=1', 'http://localhost:8893'));
   expect('isSameOrigin: another port is not', !isSameOrigin('http://localhost:8890/a', 'http://localhost:8893'));
