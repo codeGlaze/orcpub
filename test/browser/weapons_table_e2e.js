@@ -74,12 +74,22 @@ const loadMagic = (page, keys) => page.evaluate(keys => {
 
 // Waits for `scope`'s table to show the loaded wizard's 8 weapons: the builder's build is debounced
 // (subs.cljs build-debounce-ms), so the first paint after `load` can still be the default character.
-// Returns whether they all arrived.
-const eightRows = async scope => {
-  await attempt('see the Flame Tongue row', scope.locator(W.name, { hasText: /^Flame Tongue, Longsword$/ }).first()
+// `step` is `must` when later checks depend on the rows (a failure ends the journey) or `attempt`
+// when they do not; returns whether they all arrived.
+const eightRows = async (scope, step) => {
+  await step('see the Flame Tongue row', () => scope.locator(W.name, { hasText: /^Flame Tongue, Longsword$/ }).first()
     .waitFor({ timeout: 5000 }));
-  return scope.locator(W.row).nth(7).waitFor({ timeout: 5000 }).then(() => true, () => false);
+  return step('see 8 weapon rows', () => scope.locator(W.row).nth(7).waitFor({ timeout: 5000 }));
 };
+
+/**
+ * Makes a `.catch` handler that turns a failed query into `fallback` and keeps the error's first
+ * line in `why.text`, so the check that reads the value can show it in its detail.
+ * @param {*} fallback  the value the query becomes
+ * @param {{text: string}} why  receives the first line of the caught error
+ * @returns {function(Error): *}
+ */
+const orElse = (fallback, why) => e => { why.text = String(e && e.message).split('\n')[0]; return fallback; };
 
 // Layout numbers for the section: widths, heading offsets, tile sizes, one-line names, tap targets.
 const measure = page => page.evaluate(W => {
@@ -132,11 +142,10 @@ async function layout(page, theme) {
   await must('open the builder\'s Details tab', builder.tab(page, 'Details').click({ timeout: 20000 }));
   await must('open the sheet\'s Combat tab', sheetTabs.sectionTab(page, 'Combat').click({ timeout: 20000 }));
   const section = weapons.section(page);
-  if (!await section.waitFor({ timeout: 20000 }).then(() => true, () => false)) {
-    check('the Combat tab shows the Weapons table', false, 'no .weapons-section');
-  } else {
+  await must('see the Weapons table under the Combat tab', () => section.waitFor({ timeout: 20000 }));
+  {
     const row = name => weapons.row(page, name);
-    await eightRows(weapons.section(page));
+    await eightRows(weapons.section(page), must);
     await layout(page, 'dark');
     check('no reason pill while the off hand is free', await page.locator(W.reason).count() === 0);
 
@@ -169,9 +178,10 @@ async function layout(page, theme) {
     await holyT.locator(W.hitTile).click();
     check('a to-hit opens the sheet with its d20', await shows(sheet, 'to hit') && await shows(sheet.locator(W.sheetD20), 'd20 ['));
     // the d20 is a real roll: on a natural 20 (1 run in 20) both labels say Critical
+    const optionsWhy = {};
+    const optionTexts = (await sheet.locator(W.sheetOption).allInnerTexts().catch(orElse([], optionsWhy))).map(t => t.split('\n')[0]).join('|');
     check('it offers Damage first, then vs fiends and undead',
-          /^(Critical damage|Damage)\|(Critical vs|vs) fiends and undead/.test(
-            (await sheet.locator(W.sheetOption).allInnerTexts().catch(() => [])).map(t => t.split('\n')[0]).join('|')));
+          /^(Critical damage|Damage)\|(Critical vs|vs) fiends and undead/.test(optionTexts), optionsWhy.text || optionTexts);
     await attempt('pick the vs fiends and undead option', weapons.option(page, 'vs fiends and undead').click({ timeout: 5000 }));
     check('its damage reads one line per part, then the total',
           await shows(sheet, 'radiant \u00B7 vs fiends and undead') && await shows(sheet, 'Total damage'));
@@ -243,12 +253,14 @@ async function layout(page, theme) {
     const plus = weapons.plus;
     check('a weapon with nothing conditional has no +', await plus(row('Frost Brand, Rapier')).count() === 0);
     const holyRow = row('Holy Avenger, Longsword');
+    const popupWhy = {};
     check('a weapon with a target has a +, announced as a menu',
-          await plus(holyRow).getAttribute('aria-haspopup', { timeout: 3000 }).catch(() => null) === 'menu');
+          await plus(holyRow).getAttribute('aria-haspopup', { timeout: 3000 }).catch(orElse(null, popupWhy)) === 'menu', popupWhy.text);
     await attempt('focus the damage tile', weapons.damageTile(holyRow).focus({ timeout: 5000 }));
     await page.keyboard.press('Tab');
-    const isFocused = loc => loc.evaluate(e => e === document.activeElement, null, { timeout: 3000 }).catch(() => false);
-    check('Tab goes from the damage tile to its +', await isFocused(plus(holyRow)));
+    const focusWhy = {};
+    const isFocused = loc => loc.evaluate(e => e === document.activeElement, null, { timeout: 3000 }).catch(orElse(false, focusWhy));
+    check('Tab goes from the damage tile to its +', await isFocused(plus(holyRow)), focusWhy.text);
     await page.keyboard.press('Enter');
     const focused = () => page.evaluate(() => document.activeElement && document.activeElement.textContent);
     check('Enter opens the menu on Roll damage',
@@ -274,17 +286,18 @@ async function layout(page, theme) {
 
     await loadMagic(page, [':holy-avenger-longsword', ':javelin-of-lightning']);
     const jav = row('Javelin of Lightning');
-    await attempt('see the Javelin of Lightning row', jav.waitFor({ timeout: 5000 }));
-    await attempt('open the javelin\'s + menu', plus(jav).click({ timeout: 5000 }));
+    await must('see the Javelin of Lightning row', () => jav.waitFor({ timeout: 5000 }));
+    await must('open the javelin\'s + menu', () => plus(jav).click({ timeout: 5000 }));
     const use = weapons.menuItem(jav, /\+4d6 lightning/);
     check('the last row\'s menu opens upward',
           await jav.locator(W.menuUp).waitFor({ timeout: 5000 }).then(() => true, () => false));
-    await attempt('use the javelin', use.click({ timeout: 5000 }));
+    await must('use the javelin', () => use.click({ timeout: 5000 }));
     check('a once-per-dawn use rolls', await shows(page.locator(W.sheet), 'lightning'));
     await attempt('press Done', weapons.done(page).click({ timeout: 5000 }));
-    await attempt('open the javelin\'s + menu', plus(jav).click({ timeout: 5000 }));
+    await must('open the javelin\'s + menu again', () => plus(jav).click({ timeout: 5000 }));
+    const usedWhy = {};
     check('and then reads "used"', await shows(use, 'used')
-          && await use.getAttribute('aria-disabled', { timeout: 3000 }).catch(() => null) === 'true');
+          && await use.getAttribute('aria-disabled', { timeout: 3000 }).catch(orElse(null, usedWhy)) === 'true', usedWhy.text);
     await page.keyboard.press('Escape');
     await load(page, false);
     await attempt('see 8 weapon rows after the reload', page.waitForFunction(sel => document.querySelectorAll(sel).length === 8, W.row, { timeout: 5000 }));
@@ -351,7 +364,7 @@ async function layout(page, theme) {
   await must('open the desktop sheet\'s Combat tab', sheetTabs.sectionTab(dp, 'Combat').click({ timeout: 10000 }));
   const dsec = dp.locator(W.sectionDesktop).filter({ visible: true }).first();
   if (await dsec.waitFor({ timeout: 20000 }).then(() => true, () => false)) {
-    check('desktop: one row per weapon', await eightRows(dsec) && await dsec.locator(W.row).count() === 8,
+    check('desktop: one row per weapon', await eightRows(dsec, attempt) && await dsec.locator(W.row).count() === 8,
           `${await dsec.locator(W.row).count()}`);
     const dm = await dsec.evaluate((sec, W) => {
       const heads = Object.fromEntries([...sec.querySelectorAll(W.head)].map(h => [h.textContent, h]));
