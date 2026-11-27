@@ -1,7 +1,7 @@
 // Node-only table test of test/browser/lib/toolbox.js: the checker's output and exit code, the
 // bundle test with and without a cache stamp, and the current What's New id. No browser, no server.
 // Needs:     nothing. Run: node test/browser/lib/toolbox_test.js
-const { checker, APP_BUNDLE, currentWhatsNewId, escapeRegExp } = require('./toolbox');
+const { checker, APP_BUNDLE, currentWhatsNewId, escapeRegExp, SetupFailed } = require('./toolbox');
 
 let passed = 0, failed = 0;
 /**
@@ -70,5 +70,32 @@ expect('no checks exits 0 and prints 0/0', empty[0] === 0 && emptyLines.includes
 
 expect('the What\'s New id comes from the app', /^[a-z0-9-]+$/.test(currentWhatsNewId()));
 
-console.log(`toolbox_test: ${passed} passed, ${failed} failed`);
-process.exit(failed ? 1 : 0);
+(async () => {
+  // attempt records a failed check and carries on; must records it and throws SetupFailed
+  const ok = async () => 'fine';
+  const bad = async () => { throw new Error('no such tab\nstack line'); };
+  let got;
+  const c1 = checker();
+  const out = [];
+  const orig = console.log;
+  console.log = (...a) => out.push(a.join(' '));
+  try {
+    got = [await c1.attempt('open A', ok()), await c1.attempt('open B', bad())];
+    var threw = null;
+    try { await c1.must('open C', bad()); } catch (e) { threw = e; }
+    var mustOk = await c1.must('open D', ok()).then(() => true, () => false);
+  } finally { console.log = orig; }
+  expect('attempt returns true when the action works', got[0] === true);
+  expect('attempt returns false when the action throws, and carries on', got[1] === false);
+  expect('attempt records a failed check naming what, first line of the error only',
+         c1.results.some(r => r.name === 'could not open B' && !r.pass && r.detail === 'no such tab'));
+  expect('attempt records nothing when the action works', !c1.results.some(r => r.name === 'could not open A'));
+  expect('must throws SetupFailed when the action throws', threw instanceof SetupFailed);
+  expect('must records the failed check before throwing',
+         c1.results.some(r => r.name === 'could not open C' && !r.pass));
+  expect('must does not throw when the action works', mustOk === true);
+  expect('the failed attempt and must print FAIL lines', out.filter(l => l.startsWith('FAIL  could not')).length === 2);
+
+  console.log(`toolbox_test: ${passed} passed, ${failed} failed`);
+  process.exit(failed ? 1 : 0);
+})();
