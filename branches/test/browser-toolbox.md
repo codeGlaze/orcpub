@@ -17,7 +17,16 @@ the plan.
   ends a journey whose setup failed); no silent waits in the Weapons suite; `quietOverlays` warns;
   `watch(page)` collects console errors, page errors and failed requests, printed when a check
   failed; `run.sh` builds `ledger.js` for suites marked `Needs: ledger` (the five Data View suites).
-- Step 5 (full tabs pattern) in progress. Then 6 (descriptors and census), 7 (recipes, fixtures),
+- Step 5 (full tabs pattern) half done, in the worktree `/home/codeglaze/projects/orcpub-toolbox`:
+  - committed, NOT pushed: `800314c25` (roving tabindex, Left/Right/Home/End switch tab, tabpanel
+    ids, in `views.cljs` and `character_builder.cljs`);
+  - NOT committed: `test/cljs/orcpub/dnd/e5/views_test.cljs` (+25 lines of table tests) and the new
+    `test/browser/tabs_keyboard_e2e.js` (79 lines). Nothing has been run or seen failing yet.
+  - Next: read the diff of `800314c25` and the two test files; check the aria-controls choice
+    against the APG tabs pattern; fail-first (break the arrow-key hunk and the roving-tabindex hunk
+    of `800314c25` by hand, see the tests fail, restore); commit the tests; then once: `fig:build` +
+    cljs suite, full lint + ratchet, run.sh on `tabs_keyboard_e2e.js`, `weapons_table_e2e.js`,
+    `spell_table_e2e.js`, `rest_fab_e2e.js`; push. Then 6 (descriptors and census), 7 (recipes, fixtures),
   8 (more places), 9 (KB page, README, `agent-setup.sh` pointer: that push needs the owner's yes).
 
 ## Owner decisions
