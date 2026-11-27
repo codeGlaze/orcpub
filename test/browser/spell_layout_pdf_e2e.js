@@ -14,7 +14,7 @@
 // Run:  node test/browser/spell_layout_pdf_e2e.js
 // Exit code 0 = all checks passed.
 //
-// Needs:     the real app at :8890 (`lein e2e-server`)
+// Needs:     the real app at E2E_BASE, default :8890 (`lein e2e-server`)
 // Runs in:   ~70-100s. It builds a character and exports sheets, but far fewer than
 //            character_image_capture -- which is why its 20 checks land in a fraction of the time.
 // Overlays:  suppressed by default -- the runner injects lib/suppress-overlays-preload.js, so
@@ -26,6 +26,7 @@ const path = require('path');
 const zlib = require('zlib');
 const { chromium } = require('playwright');
 const { findChrome } = require('./lib/find-chrome');
+const { BASE } = require('./lib/toolbox');
 
 // Click something that may not be there, without paying a 30s default timeout for the
 // privilege. `locator.click().catch(() => {})` waits the full default when the element is
@@ -41,7 +42,6 @@ async function clickIfVisible(locator, { timeout = 2500, label = '' } = {}) {
   }
 }
 
-const BASE = process.env.ORCPUB_E2E_URL || 'http://localhost:8890';
 const OUT = process.env.ORCPUB_E2E_OUT || fs.mkdtempSync(path.join(os.tmpdir(), 'spell-layout-'));
 
 const results = [];
@@ -295,7 +295,7 @@ async function postSpec(page, spec, style, name) {
           !(await page.innerText('body')).includes('Class emblems'));
     await page.getByText('Print Spellbook', { exact: true }).first().click();
     // GOTCHA: the options panel is mounted twice with one copy hidden; count :visible only.
-    const changers = page.locator('span:visible', { hasText: /^Change$/ });
+    const changers = page.getByRole('button', { name: 'Change', exact: true }).locator('visible=true');
     await changers.first().waitFor({ timeout: 5000 }).catch(() => {});
     const pickers = await changers.count();
     check('an emblem picker for each casting class', pickers === 2, `${pickers} found`);
