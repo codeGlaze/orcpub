@@ -1,7 +1,8 @@
 // Node-only table test of test/browser/lib/toolbox.js: the checker's output and exit code, the
 // bundle test with and without a cache stamp, and the current What's New id. No browser, no server.
 // Needs:     nothing. Run: node test/browser/lib/toolbox_test.js
-const { checker, APP_BUNDLE, currentWhatsNewId, escapeRegExp, SetupFailed } = require('./toolbox');
+const { checker, APP_BUNDLE, currentWhatsNewId, escapeRegExp, SetupFailed,
+  formatDiagnostics, isSameOrigin, watchPage } = require('./toolbox');
 
 let passed = 0, failed = 0;
 /**
@@ -95,6 +96,40 @@ expect('the What\'s New id comes from the app', /^[a-z0-9-]+$/.test(currentWhats
          c1.results.some(r => r.name === 'could not open C' && !r.pass));
   expect('must does not throw when the action works', mustOk === true);
   expect('the failed attempt and must print FAIL lines', out.filter(l => l.startsWith('FAIL  could not')).length === 2);
+
+  // diagnostics: same-origin test, formatting, the fake-page collector, and when finish prints them
+  expect('isSameOrigin: same host and port', isSameOrigin('http://localhost:8893/a/b?x=1', 'http://localhost:8893'));
+  expect('isSameOrigin: another port is not', !isSameOrigin('http://localhost:8890/a', 'http://localhost:8893'));
+  expect('isSameOrigin: another host is not', !isSameOrigin('https://fonts.example.com/f', 'http://localhost:8893'));
+  expect('isSameOrigin: junk is not', !isSameOrigin('not a url', 'http://localhost:8893'));
+  const none = { label: 'p', consoleErrors: [], pageErrors: [], failedRequests: [] };
+  expect('formatDiagnostics: nothing collected prints nothing', formatDiagnostics([none]).length === 0);
+  const some = { label: 'phone page', consoleErrors: ['boom\nat x'], pageErrors: ['TypeError: y'], failedRequests: ['GET http://h/a -> 404'] };
+  const fd = formatDiagnostics([none, some]);
+  expect('formatDiagnostics: heading counts the rows, quiet pages skipped', fd[0] === 'Diagnostics for phone page (3):' && fd.length === 4);
+  expect('formatDiagnostics: a row is one indented line per finding',
+         fd[1] === '  console: boom' && fd[2] === '  page error: TypeError: y' && fd[3] === '  request: GET http://h/a -> 404');
+  const handlers = {};
+  const fake = { on: (ev, fn) => { handlers[ev] = fn; } };
+  const col = watchPage(fake, 'fake', 'http://h');
+  const resp = (status, url) => ({ status: () => status, url: () => url, request: () => ({ method: () => 'GET' }) });
+  handlers.console({ type: () => 'error', text: () => 'bad' });
+  handlers.console({ type: () => 'log', text: () => 'fine' });
+  handlers.console({ type: () => 'warning', text: () => 'toolbox: storage blocked' });
+  handlers.console({ type: () => 'warning', text: () => 'other warning' });
+  handlers.pageerror({ message: 'oops' });
+  handlers.requestfailed({ method: () => 'POST', url: () => 'http://h/x', failure: () => ({ errorText: 'net::ERR' }) });
+  handlers.response(resp(404, 'http://h/missing'));
+  handlers.response(resp(200, 'http://h/ok'));
+  handlers.response(resp(500, 'http://other/z'));
+  expect('watchPage keeps console errors and toolbox warnings only', col.consoleErrors.join('|') === 'bad|toolbox: storage blocked');
+  expect('watchPage keeps page errors', col.pageErrors.join() === 'oops');
+  expect('watchPage keeps failed requests and same-origin 4xx/5xx only',
+         col.failedRequests.length === 2 && /POST http:\/\/h\/x failed: net::ERR/.test(col.failedRequests[0]) && /missing -> 404/.test(col.failedRequests[1]));
+  const okRun = capture(() => { const c = checker(); const w = c.watch({ on: (ev, fn) => { if (ev === 'pageerror') fn({ message: 'late' }); } }, 'pg'); c.check('fine', true); c.finish(); });
+  expect('finish prints no diagnostics when every check passed', !okRun.some(l => l.startsWith('Diagnostics')));
+  const badRun = capture(() => { const c = checker(); c.watch({ on: (ev, fn) => { if (ev === 'pageerror') fn({ message: 'late' }); } }, 'pg'); c.check('broken', false); c.finish(); });
+  expect('finish prints the diagnostics when a check failed', badRun.includes('Diagnostics for pg (1):') && badRun.includes('  page error: late'));
 
   console.log(`toolbox_test: ${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
