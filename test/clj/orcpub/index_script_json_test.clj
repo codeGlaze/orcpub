@@ -54,3 +54,8 @@
     (testing "a site with neither link shows nothing in the footer"
       (with-redefs [branding/social-links {:patreon "" :dev-tip ""}]
         (is (nil? (views-shared/support-pills)))))))
+
+(deftest the-load-rescue-notice-stays-on-a-short-screen
+  (let [html (str (index/load-rescue "n"))]
+    (is (.contains html "top:max(8px,min(404px,calc(100vh - 140px)))"))
+    (is (not (.contains html "top:404px")))))

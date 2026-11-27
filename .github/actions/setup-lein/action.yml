@@ -65,4 +65,5 @@ runs:
 
     - name: Install dependencies
       shell: bash
-      run: lein deps
+      # A stalled Maven download is cut off at 15 minutes and tried once more, never left to hang.
+      run: timeout 15m lein deps || { echo "lein deps failed or stalled; one more try"; timeout 15m lein deps; }

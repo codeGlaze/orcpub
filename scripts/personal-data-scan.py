@@ -30,6 +30,7 @@ SECRETS = [
 BINARY_PATH = re.compile(r'\.(svg|png|jpe?g|gif|webp|woff2?|ttf|otf|ico|pdf|map|jar|zip|gz)$|(^|/)compiled/|package-lock\.json$')
 ASSET = re.compile(r'\.(png|jpe?g|gif|svg|webp)$')  # icon@2x.png, roll@2.png: no TLD is an image type
 VERSION_BEFORE = re.compile(r'(?:version|release|tag)\s*[:=]?\s*["\']?$', re.I)  # version=2.5.0.27
+PRODUCT_BEFORE = re.compile(r'\b[A-Z][A-Za-z]*/$')  # a user-agent product token: Chrome/126.0.0.0
 
 
 def load_allow(root):
@@ -65,7 +66,8 @@ def ip_flagged(text, before, allow):
     """True when `text` is a public IPv4 address not on the allow list.
 
     Private, loopback, reserved and documentation ranges pass; so does a dotted number whose
-    preceding text `before` ends in a version label (version=2.5.0.27, release 2.5.0.26)."""
+    preceding text `before` ends in a version label (version=2.5.0.27, release 2.5.0.26) or a
+    capitalised product token (Chrome/126.0.0.0); a URL's // or a lower-case path still flags."""
     try:
         ip = ipaddress.ip_address(text)
     except ValueError:
@@ -75,7 +77,7 @@ def ip_flagged(text, before, allow):
     parts = text.split('.')
     if len(set(parts)) == 1 or text.startswith('1.2.3.') or text == '4.3.2.1':
         return False  # an obvious placeholder (9.9.9.9, 1.2.3.4)
-    return not VERSION_BEFORE.search(before)
+    return not (VERSION_BEFORE.search(before) or PRODUCT_BEFORE.search(before))
 
 
 def scan_line(line, allow):

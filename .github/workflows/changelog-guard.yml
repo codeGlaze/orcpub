@@ -31,6 +31,7 @@ jobs:
     name: Branch changelog folded
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ready to merge')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: A branch changelog must be folded before landing here
@@ -44,6 +45,7 @@ jobs:
   changelog-style:
     name: Changelog house style
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       # No setup step: ubuntu-latest ships python3, and the linter imports nothing

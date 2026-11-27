@@ -307,3 +307,14 @@
         ((:on-key-down a) #js {:key k :preventDefault #(swap! prevented inc)})
         (is (= calls @handled) (str "handler calls for " (pr-str k)))
         (is (= calls @prevented) (str "preventDefault calls for " (pr-str k)))))))
+
+(deftest typed-hit-points
+  (testing "a whole number is taken, 0 included"
+    (is (= 7 (views/typed-hit-points "7")))
+    (is (= 0 (views/typed-hit-points "0"))))
+  (testing "a blank or unreadable box gives nothing, so nothing is saved and leaving it restores the number"
+    (is (nil? (views/typed-hit-points "")))
+    (is (nil? (views/typed-hit-points "-")))
+    (is (nil? (views/typed-hit-points "3.5")) "a pasted decimal is not rounded down")
+    (is (nil? (views/typed-hit-points "1e3")))
+    (is (nil? (views/typed-hit-points nil)))))

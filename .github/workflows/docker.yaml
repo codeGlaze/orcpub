@@ -21,6 +21,7 @@ jobs:
     # Releases publish from the upstream repository only; on a fork this job and bump-version skip.
     if: github.repository == 'Orcpub/orcpub'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     outputs:
       version: ${{ steps.get_version.outputs.VERSION }}
     steps:
@@ -141,6 +142,7 @@ jobs:
   bump-version:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
     steps:

@@ -52,13 +52,15 @@
     c))
 
 (defn- save!
-  "Save a character with `values` (and `id` when updating); returns its id."
+  "Save a character with `values` (and `id` when updating, sending the stored version as a loaded
+   copy does); returns its id."
   [conn values & [id]]
   (:db/id (:body (routes/do-save-character (d/db conn) conn
                                            (cond-> {::se/selections []
                                                     ::se/summary {::char5e/character-name "Storey"}
                                                     ::se/values values}
-                                             id (assoc :db/id id))
+                                             id (assoc :db/id id
+                                                       ::se/version (::se/version (d/pull (d/db conn) [::se/version] id))))
                                            {:user "testy"}))))
 
 (defn- files

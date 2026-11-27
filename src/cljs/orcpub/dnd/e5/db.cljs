@@ -8,6 +8,7 @@
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.character-drafts :as drafts]
+            [clojure.string]
             [orcpub.dnd.e5.backgrounds :as bg5e]
             [orcpub.dnd.e5.languages :as langs5e]
             [orcpub.dnd.e5.library :as library]
@@ -393,28 +394,40 @@
 (def tab-path [:builder :character :tab])
 
 (def ^:private preserve-on-unreadable-keys
-  "Storage slots that must NEVER be destroyed on a parse failure — the homebrew
-   library and its quarantine companion. A corrupt blob here (e.g. a quota-cut
-   write) is moved to a '<key>:corrupt' slot and cleared from the active slot, so
-   it survives for recovery instead of being deleted. Other slots (character,
-   builder drafts) keep the old remove-on-unreadable behavior."
+  "Storage slots never destroyed on a parse failure: the homebrew library, its quarantine
+   companion, and the old single character draft slot. Per-character drafts are kept too
+   (`set-aside-key`). Other builder drafts are still removed."
   #{local-storage-plugins-key
-    local-storage-plugins-rejected-key})
+    local-storage-plugins-rejected-key
+    drafts/legacy-key})
+
+(defn- set-aside-key
+  "Where an unreadable value at `local-storage-key` is kept instead of deleted, or nil when it is
+   not kept: a per-character draft goes to `drafts/corrupt-key`, a preserved slot to its :corrupt
+   companion. Data View's draft page offers a set-aside draft for download."
+  [local-storage-key]
+  (cond
+    (clojure.string/starts-with? local-storage-key drafts/prefix)
+    (drafts/corrupt-key (subs local-storage-key (count drafts/prefix)))
+    (contains? preserve-on-unreadable-keys local-storage-key) (corrupt-slot-key local-storage-key)))
 
 (defn- handle-unreadable
-  "Fallback for a parse failure that self-heal could not repair: preserve
-   homebrew slots to their :corrupt companion (recoverable), remove others."
+  "Fallback for a parse failure that self-heal could not repair: move the raw text to its
+   `set-aside-key` (recoverable) and clear the slot, or remove it when it has none. When the copy
+   cannot be written (storage full) the original stays in place and the failure is logged.
+   Returns nil."
   [local-storage-key stored-str e]
-  (if (contains? preserve-on-unreadable-keys local-storage-key)
-    ;; Preserve unparseable homebrew: copy raw bytes to the :corrupt slot,
-    ;; then clear the active slot so a poison value can't brick boot. Recoverable.
+  (if-let [aside (set-aside-key local-storage-key)]
+    ;; Copy the raw bytes aside, then clear the active slot so a poison value can't brick boot.
     (do
       (js/console.warn
-       "UNREADABLE homebrew storage; preserved raw copy for recovery in"
-       (corrupt-slot-key local-storage-key) "and cleared the active slot."
+       "UNREADABLE storage; preserved raw copy for recovery in"
+       aside "and cleared the active slot."
        local-storage-key)
-      (set-item (corrupt-slot-key local-storage-key) stored-str)
-      (.removeItem js/window.localStorage local-storage-key)
+      (if (set-item aside stored-str)
+        (.removeItem js/window.localStorage local-storage-key)
+        (js/console.error "Could not keep a copy of the unreadable value; left in place:"
+                          local-storage-key))
       nil)
     (do
       (prn "E" e)
