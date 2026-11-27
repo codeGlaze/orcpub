@@ -92,7 +92,7 @@ Homebrew is repaired instead of lost, a character that used to blank the page no
 - **Server:** admin alerts by email: one email per problem with a count of repeats, a limit on how many are sent an hour, and nothing lost or slowed down when the mail server or the database is down. (#716)
 - **Server:** sign-ins, failed sign-ins, sign-ups, password resets, email changes, deleted accounts and refused logins are written to the server log, without passwords or email addresses. (#716)
 - **Server:** an optional `REDIS_URL` shares the sign-in and email limits across app containers. (#725)
-- **Characters:** a Data View page lists everything stored on a saved character or on this browser's draft, lets its owner remove any of it (marked in place, with Undo) and save after a confirmation, and opens even when the character itself will not load. Its owner reaches it from a gear on the character page and in the opened character-list row, from the Missing Content warning, from "Repair this character" on the panel shown when a character can't be loaded, and from a notice under the loading picture when a character page or the builder never finishes loading.
+- **Characters:** a Data View page lists everything stored on a saved character or this browser's draft. Its owner can remove any of it (marked in place, with Undo) and save after a confirmation, even when the character won't load. It opens from a gear on the character page and character list, the Missing Content warning, the can't-load panel's "Repair this character", and a notice when a page never finishes loading.
 
 ### Changed
 - **Characters:** the Missing Content warning also covers spells and languages, and ignores the built-in "Custom" option. (#524)
