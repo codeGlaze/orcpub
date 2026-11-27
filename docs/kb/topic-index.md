@@ -2624,7 +2624,7 @@ _modifier-vs-trait-slots · modifier vs trait slots_
 
 _monolith-decomposition-plan · monolith decomposition plan_
 
-**topics:** -------, builder, caret, checkbox-grid, cljc, cljs, components, domain, helpers, monolith, on-click, shared, sites, split, survivor, tier, views, wrappers
+**topics:** -------, 2026-11-27, builder, caret, checkbox-grid, cljc, cljs, components, domain, helpers, monolith, on-click, shared, sites, split, survivor, tier, views
 
 - 1. Did the Builders Split Make Issues Easier to Find?
 - 2. What Files Can or Should Be Broken Down?

@@ -19,21 +19,28 @@ One branch, one PR; each plan step is commits here (owner, 2026-11-27). Steps ar
   difference (script in the old chat's scratchpad, not kept: re-measure with a bounding-box loop
   over `.checkbox` rows). The phone PDF options panel was not reached (Export is hidden at phone
   width). New: `builder_checkboxes_e2e.js`, `places/item_builder.js`.
-- Fixed (`8f0aa445c`, not yet pushed): `spell_layout_pdf_e2e.js` looked for a `span` "Change";
-  `0ef820d04` (also on `integration`) made the emblem picker's Change a button. It now finds the
-  button by role and reads `toolbox.js`'s `BASE`. 34/34.
-- Step 5c item 2 (`5ef54a79e`, test `3eb2fb518`, not yet pushed): `comps/checkbox-grid` takes cells
-  `{:key :label :checked? :on-click}`; views.cljs has `checkbox-section`, `path-cells`, `value-cells`,
-  `flag-cell`; 29 section functions keep their names and arguments. Measured 1892 rows on 9 builders at
-  1920 and phone, 0 px difference. `builder_checkboxes_e2e.js` covers the feat builder's grids.
-- Step 5c item 3 (caret): carets measured before the change (builders, character builder, spells,
-  monsters, magic items); no code yet. Design: `comps/caret [open? {:kind :caret|:angle|:chevron :class}]`,
-  `aria-hidden` on all.
-- **Measuring:** a probe that records the boxes of a selector on 15 pages at 1920 and phone, run through
-  `run.sh` with `NODE_PATH=$PWD/scripts/e2e/node_modules MEASURE_SEL=... MEASURE_OUT=...`; it is in the
-  session scratchpad, not kept. Save it to `scripts/` here if it is used again.
-- **Next:** full check set and push (owner to say when), then 5c items 3-5, then 6 (place descriptors and
-  the census), 7-9.
+- Pushed 2026-11-27 (`559c32f25`), full set green (lein test 1720/0, lint ratchet 0 new, cljs 1063/0):
+  - `8f0aa445c` spell_layout_pdf_e2e.js: the emblem picker's Change is a button since `0ef820d04` (also on
+    `integration`); found by role now, BASE from toolbox.js. 34/34.
+  - 5c item 2 `5ef54a79e` + test `3eb2fb518`: `comps/checkbox-grid`; views.cljs `checkbox-section`,
+    `path-cells`, `value-cells`, `flag-cell`; 29 sections, names unchanged. 1892 rows, 0 px.
+  - 5c item 3 `69d4aade0`: `comps/caret [open? {:kind :angle :class}]`, aria-hidden; 27 copies plus
+    expand-button. 2955 icons, 0 px. Left: the option editor's clickable chevron (the icon is the control),
+    the sort arrow, the user menu's fixed caret.
+  - 5c item 4 `61c26c81f`: `homebrew-input-field kind ...` + `input-field-events` (views.cljs); builder-input-field
+    and builder-field-cue in builder_fields.cljs. 387 fields, 0 px.
+  - 5c item 5 `ccce7e06c`: `comps/event-value`, `comps/on-enter`, public `comps/press-to-click` (both What's New
+    pills), `switch-attrs` on the newsletter and Manage inventory switches; dead input styles gone.
+    Not done: svg-icon-2 onto themed-icon (its caller passes 64 as the theme; the change would size the icon:
+    a visible change, ask first). validation-messages is live (item builder), not dead.
+- **Failing, older than this work:** `inventory_kits_sheet_e2e.js` fails "its sheet shows the kit as saved:
+  Torch 9/10" then times out on "One fewer", identically at `592468dab`, `69d4aade0` and `ccce7e06c` (3 runs).
+  Cause not traced. Check `origin/integration` and `feature/inventory-kits` first.
+- **Measuring:** a probe recording boxes of `MEASURE_SEL` on 16 pages at 1920 and phone, through `run.sh`
+  (`NODE_PATH=$PWD/scripts/e2e/node_modules MEASURE_SEL=... MEASURE_OUT=...`). For a "before" after editing, a
+  detached temp worktree at HEAD on `E2E_PORT=8894` works. The probe is not kept; save it to `scripts/` here if reused.
+- **Next:** the inventory suite failure, then 5c item 6 (one dropdown, shared modal: look first), then 6 (place
+  descriptors and the census), 7-9.
 
 ## Owner decisions
 
