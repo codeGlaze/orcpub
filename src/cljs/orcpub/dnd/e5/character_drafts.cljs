@@ -9,6 +9,8 @@
 (def ^:private tab-key-name "builder-draft-key")
 (def ^:private tab-id-name "builder-tab-id")
 (def ^:private live-prefix "draft-live/")
+;; Outside `prefix`, so a set-aside draft is never listed or read as a draft.
+(def corrupt-prefix "character-draft-corrupt/")
 
 ;; A tab that has not written its live mark for this long is taken to be closed.
 (def live-ms 60000)
@@ -17,6 +19,11 @@
   "The localStorage key holding the draft for draft key `k`."
   [k]
   (str prefix k))
+
+(defn corrupt-key
+  "The localStorage key holding the raw text of draft key `k`'s draft, set aside as unreadable."
+  [k]
+  (str corrupt-prefix k))
 
 (defn new-key
   "A fresh draft key for a character never saved: \"new-\" and a random uuid."

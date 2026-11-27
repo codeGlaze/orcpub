@@ -36,6 +36,7 @@ jobs:
   detect-stack:
     name: Detect Stack
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       build-mode: ${{ steps.detect.outputs.build-mode }}
       compose-file: ${{ steps.detect.outputs.compose-file }}

@@ -90,9 +90,11 @@ ENV TZ=${TZ}
 # a new compile subprocess. See docs/LEIN-UBERJAR-HANG.md
 
 # Step 1: CLJS via the ClojureScript compiler (cljs.main; exits cleanly, no hang).
-# figwheel is dev-only and never reaches the jar.
+# figwheel is dev-only and never reaches the jar. The character data page has its own script.
 RUN lein cljs:prod && \
-    test -f resources/public/js/compiled/orcpub.js
+    test -f resources/public/js/compiled/orcpub.js && \
+    lein cljs:ledger && \
+    test -f resources/public/js/compiled/ledger.js
 
 # Step 1b: strand fields for any hair art without one, written beside the art so
 # the jar carries them (orcpub.portrait-pack.strands). A deploy needs only the art.

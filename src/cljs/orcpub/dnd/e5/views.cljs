@@ -2537,26 +2537,41 @@
                      (fn [{:keys [class-level hit-die]}] (str class-level "d" hit-die))
                      (vals levels))) false)))
 
-(defn set-current-hit-points-fn [id]
-  #(dispatch [::char/set-current-hit-points
-              id
-              (or (-> %
-                      event-value
-                      js/parseInt)
-                  0)]))
+(defn typed-hit-points
+  "The HP typed in the sheet's box `text` as a whole number, or nil when the box is blank or is
+   not whole-integer text such as 3.5 (nothing is saved then; leaving the box puts back the
+   stored HP)."
+  [text]
+  (when (and (string? text) (re-matches #"-?\d+" (clojure.string/trim text)))
+    (js/parseInt text 10)))
 
-(def set-current-hit-points-handler (memoize set-current-hit-points-fn))
+(defn current-hit-points-input
+  "The sheet's current HP box for character `id`. What is typed is kept here while editing and
+   saved only when it is a number; leaving the box blank shows the stored HP again."
+  [id]
+  (let [typing (r/atom nil)]
+    (fn [id]
+      [:input.input
+       {:style current-hit-points-editor-style
+        :type :number
+        :value (if (some? @typing)
+                 @typing
+                 (or @(subscribe [::char/current-hit-points id])
+                     @(subscribe [::char/max-hit-points id])))
+        :on-change (fn [e]
+                     (let [text (event-value e)
+                           hp (typed-hit-points text)]
+                       (reset! typing text)
+                       (when hp (dispatch [::char/set-current-hit-points id hp]))))
+        :on-blur #(reset! typing nil)}])))
 
-(defn hit-points-section-2 [id]
+(defn hit-points-section-2
+  "The sheet's hit points box for character `id`: the editable current HP over the maximum."
+  [id]
   (basic-section "Max Hit Points"
                  "health-normal"
                  [:div.flex.align-items-c
-                  [:input.input
-                   {:style current-hit-points-editor-style
-                    :type :number
-                    :value (or @(subscribe [::char/current-hit-points id])
-                               @(subscribe [::char/max-hit-points id]))
-                    :on-change (set-current-hit-points-handler id)}]
+                  [current-hit-points-input id]
                   [:span.m-l-5 "/"]
                   [:span.m-l-5 @(subscribe [::char/max-hit-points id])]] false))
 
@@ -4589,6 +4604,18 @@
    {}
    vals))
 
+(defn data-view-path
+  "Address of the Data View page for saved character `id`, opened as a full page load: it runs
+   without the app (`orcpub.ledger-page`)."
+  [id]
+  (routes/path-for routes/dnd-e5-char-data-page-route :id id))
+
+(defn data-view-gear
+  "The muted gear that opens saved character `id` in Data View; for its owner only."
+  [id]
+  [:a.data-view-gear {:href (data-view-path id) :title "Data View" :aria-label "Data View"}
+   [:i.fa.fa-cog]])
+
 (defn character-load-recovery
   "Shown in place of the character sheet when the character's server data could
    not be read even after self-heal. Never a blank sheet, never a dead-end: the
@@ -4612,8 +4639,11 @@
           [:div.f-w-b.f-s-24.m-b-10 "This character couldn’t be loaded"]
           [:div.m-b-15.l-h-19
            "This character’s data appears to be corrupted and couldn’t be read. "
-           "Your saved data is safe — you can delete this character, or head back to your characters."]
+           "Your saved data is safe. You can repair it, delete it, or head back to your characters."]
           [:div.flex.flex-wrap.m-b-15
+           [:button.form-button.m-r-10.m-b-5
+            {:on-click #(set! (.-location js/window) (routes/path-for routes/dnd-e5-char-repair-page-route :id id))}
+            "Repair this character"]
            [:button.form-button.m-r-10.m-b-5
             {:on-click #(do (dispatch [:delete-character id])
                             (dispatch [:route routes/dnd-e5-char-list-page-route]))}
@@ -4695,7 +4725,10 @@
           [notifications/shared-content-banner id]
           [character-display id true (if (= :mobile device-type) 1 2)]]
          :frame? frame?
-         :subheader [share-view/share-line id]])))))
+         :subheader [:div.flex.align-items-c.justify-cont-s-b.w-100-p
+                     [share-view/share-line id]
+                     (when (and username owner (= owner username))
+                       [data-view-gear id])]])))))
 
 ;; dead — zero callers
 #_(defn select-builder-field [name value on-change children]
@@ -10238,7 +10271,9 @@
       (when (= username owner)
         [:button.form-button.m-l-5
          {:on-click (make-event-handler ::char/show-delete-confirmation id)}
-         "delete"])]
+         "delete"])
+      (when (= username owner)
+        [:span.m-l-5 [data-view-gear id]])]
      (when @(subscribe [::char/delete-confirmation-shown? id])
        [:div.p-20.flex.justify-cont-end
         [:div

@@ -290,3 +290,14 @@
                       [". hidden ." "hidden"]
                       ["a​b" "ab"]]]
       (is (= out (pdf-spec/file-safe in)) (pr-str in)))))
+
+(deftest typed-hit-points
+  (testing "a whole number is taken, 0 included"
+    (is (= 7 (views/typed-hit-points "7")))
+    (is (= 0 (views/typed-hit-points "0"))))
+  (testing "a blank or unreadable box gives nothing, so nothing is saved and leaving it restores the number"
+    (is (nil? (views/typed-hit-points "")))
+    (is (nil? (views/typed-hit-points "-")))
+    (is (nil? (views/typed-hit-points "3.5")) "a pasted decimal is not rounded down")
+    (is (nil? (views/typed-hit-points "1e3")))
+    (is (nil? (views/typed-hit-points nil)))))

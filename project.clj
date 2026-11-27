@@ -272,6 +272,11 @@
             "fig:test" ["run" "-m" "figwheel.main" "--" "--build-once" "test"]
             ;; only the junk-pack test, for test/e2e/junk-pack-audit.js
             "fig:junk" ["run" "-m" "figwheel.main" "--" "--build-once" "junk-audit"]
+            ;; The character data page's own script (ledger.cljs.edn), separate from the app, built
+            ;; like cljs:prod so figwheel stays out of the jar.
+            "cljs:ledger" ["with-profile" "-dev,+cljs-prod" "run" "-m" "cljs.main" "-co" "ledger.cljs.edn"
+                           "-d" "target/cljs-ledger-out" "-c" "orcpub.ledger"]
+            "fig:ledger" ["cljs:ledger"]
             ;; Preview the character-load report email (no send) — email endpoint dev tool
             "report-preview" ["with-profile" "+tools" "run" "-m" "orcpub.dev.report-preview"]
             ;; Single-command production build: clean → CLJS → uberjar.
@@ -279,7 +284,7 @@
             ;; resources/public/js/compiled (the CLJS output dir).
             ;; The :uberjar profile itself never cleans — CLJS is compiled
             ;; BEFORE the uberjar step and must not be deleted.
-            "build" ["do" "clean," "cljs:prod," ["with-profile" "uberjar" "uberjar"]]
+            "build" ["do" "clean," "cljs:prod," "cljs:ledger," ["with-profile" "uberjar" "uberjar"]]
             "figwheel-native" ["with-profile" "native-dev" "run" "-m" "user" "--figwheel"]
             "externs" ["do" "clean"
                        ["run" "-m" "externs"]]
@@ -305,7 +310,7 @@
             ;; across 2 commits, unseen: kondo calls it an error, and dev/ was unlinted.
             "lint" ["trampoline" "with-profile" "lint" "run" "-m" "clj-kondo.main" "--lint" "src" "test" "web" "dev" "--fail-level" "error"]
             "prod-build" ^{:doc "Recompile code with prod profile."}
-            ["externs" "cljs:prod"]}
+            ["externs" "cljs:prod" "cljs:ledger"]}
   :profiles {;; Minimal profile to run dev/ command-line tools (e.g. report-preview)
              ;; with base runtime deps but WITHOUT the heavy cljs/devtools :dev-config.
              :tools {:source-paths ["dev"]}
