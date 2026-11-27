@@ -2194,7 +2194,7 @@
   [:span.builder-tab
    (merge {:class (when (= current-tab key) "selected-builder-tab")
            :on-click (set-builder-tab key)}
-          (views5e/tab-attrs (= current-tab key) title (set-builder-tab key)
+          (comps/tab-attrs (= current-tab key) title (set-builder-tab key)
                              {:id (str "builder-tab-" (name key)) :panel-id "builder-tabpanel"}))
    [:span.builder-tab-text title]])
 
@@ -2208,7 +2208,7 @@
         [builder-tab "Description" :description current-tab]
         [builder-tab "Portrait" :portrait current-tab]
         [builder-tab "Details" :details current-tab]]
-       [:div (views5e/tab-panel-attrs "builder-tabpanel" (str "builder-tab-" (name current-tab)))
+       [:div (comps/tab-panel-attrs "builder-tabpanel" (str "builder-tab-" (name current-tab)))
         (case current-tab
           :options [new-options-column 1]
           :description [description-fields]
@@ -2230,7 +2230,7 @@
         [builder-tab "Options" :options current-tab]
         [builder-tab "Description" :description current-tab]
         [builder-tab "Portrait" :portrait current-tab]]
-       [:div (views5e/tab-panel-attrs "builder-tabpanel" (str "builder-tab-" (name current-tab)))
+       [:div (comps/tab-panel-attrs "builder-tabpanel" (str "builder-tab-" (name current-tab)))
         (case current-tab
           :options [new-options-column (if (= device-type :desktop) 2 1)]
           :portrait [portrait5e/tab-panel]
@@ -2430,7 +2430,7 @@
   (let [theme @(subscribe [:theme])]
     [:div.pointer.setting-toggle
      (merge {:on-click toggle-theme}
-            (views5e/switch-attrs (= "light-theme" theme) toggle-theme))
+            (comps/switch-attrs (= "light-theme" theme) toggle-theme))
      [:span.m-r-5 (comps/checkbox-mark (= "light-theme" theme) false)]
      [:span.main-text-color "Light Theme"]]))
 
@@ -2443,7 +2443,7 @@
     (when (not= "light-theme" theme)
       (let [toggle #(dispatch [:toggle-dark-button-text])]
         [:div.pointer.setting-toggle.m-l-20
-         (merge {:on-click toggle} (views5e/switch-attrs on? toggle))
+         (merge {:on-click toggle} (comps/switch-attrs on? toggle))
          [:span.m-r-5 (comps/checkbox-mark on? false)]
          [:span.main-text-color "Dark Button Text"]]))))
 

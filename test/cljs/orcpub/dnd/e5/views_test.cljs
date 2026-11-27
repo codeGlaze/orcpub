@@ -11,6 +11,7 @@
             [reagent.dom :as rdom]
             [cljs.reader :as reader]
             [re-frame.core :as rf]
+            [orcpub.components :as comps]
             [orcpub.pdf-spec :as pdf-spec]
             [orcpub.dnd.e5.character :as char]
             [orcpub.dnd.e5.portrait :as portrait]
@@ -294,7 +295,7 @@
 (deftest tab-attrs-name-and-operate-a-tab
   (testing "role, state, name and focus, for a selected and an unselected tab"
     (doseq [[selected? state] [[true "true"] [false "false"] [nil "false"]]]
-      (let [a (views/tab-attrs selected? "Combat" (fn [_]))]
+      (let [a (comps/tab-attrs selected? "Combat" (fn [_]))]
         (is (= "tab" (:role a)))
         (is (= state (:aria-selected a)) (pr-str selected?))
         (is (= "Combat" (:aria-label a)))
@@ -303,7 +304,7 @@
     (doseq [[k calls] [["Enter" 1] [" " 1] ["a" 0] ["Tab" 0] ["Escape" 0]]]
       (let [handled (atom 0)
             prevented (atom 0)
-            a (views/tab-attrs true "Details" (fn [_] (swap! handled inc)))]
+            a (comps/tab-attrs true "Details" (fn [_] (swap! handled inc)))]
         ((:on-key-down a) #js {:key k :preventDefault #(swap! prevented inc)
                                :currentTarget #js {:closest (fn [_] nil)}})
         (is (= calls @handled) (str "handler calls for " (pr-str k)))
@@ -316,7 +317,7 @@
                           [4 2 "Home" 0] [4 0 "End" 3] [1 0 "ArrowRight" 0]
                           [4 1 "ArrowDown" nil] [4 1 "a" nil] [4 1 "Tab" nil] [4 1 "Escape" nil]
                           [0 0 "ArrowRight" nil]]]
-      (is (= want (views/tab-key-target n i k)) (pr-str [n i k])))))
+      (is (= want (comps/tab-key-target n i k)) (pr-str [n i k])))))
 
 (deftest sheet-tab-scope-ids
   (is (= "new" (views/sheet-tab-scope nil)))
@@ -325,18 +326,18 @@
 
 (deftest tab-attrs-ids-and-controls
   (testing "with ids, the selected tab controls the one rendered panel; others name no panel"
-    (let [on (views/tab-attrs true "Combat" (fn [_]) {:id "sheet-tab-combat" :panel-id "sheet-tabpanel"})
-          off (views/tab-attrs false "Spells" (fn [_]) {:id "sheet-tab-spells" :panel-id "sheet-tabpanel"})]
+    (let [on (comps/tab-attrs true "Combat" (fn [_]) {:id "sheet-tab-combat" :panel-id "sheet-tabpanel"})
+          off (comps/tab-attrs false "Spells" (fn [_]) {:id "sheet-tab-spells" :panel-id "sheet-tabpanel"})]
       (is (= "sheet-tab-combat" (:id on)))
       (is (= "sheet-tabpanel" (:aria-controls on)))
       (is (= "sheet-tab-spells" (:id off)))
       (is (not (contains? off :aria-controls)))))
   (testing "without ids, neither is added"
-    (let [a (views/tab-attrs true "Combat" (fn [_]))]
+    (let [a (comps/tab-attrs true "Combat" (fn [_]))]
       (is (not (contains? a :id)))
       (is (not (contains? a :aria-controls)))))
   (testing "the panel is a tabpanel labelled by the selected tab"
-    (is (= {:role "tabpanel" :id "p" :aria-labelledby "t"} (views/tab-panel-attrs "p" "t")))))
+    (is (= {:role "tabpanel" :id "p" :aria-labelledby "t"} (comps/tab-panel-attrs "p" "t")))))
 
 (deftest typed-hit-points
   (testing "a whole number is taken, 0 included"

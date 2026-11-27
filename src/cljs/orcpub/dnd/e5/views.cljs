@@ -571,69 +571,6 @@
        (dispatch (vec (cons event-kw args)))
        (.stopPropagation e)))))
 
-(defn switch-attrs
-  "Attributes for a `.dev-mode-switch`: its role and state, keyboard focus, and Space or Enter
-   calling `handler` (the switch's click handler, given the key event). `handler` nil: disabled."
-  [on? handler]
-  (cond-> {:role "switch" :aria-checked (str (boolean on?)) :tabIndex (if handler 0 -1)}
-    handler (assoc :on-key-down (fn [e]
-                                  (when (#{" " "Enter"} (.-key e))
-                                    (.preventDefault e)
-                                    (handler e))))
-    (nil? handler) (assoc :aria-disabled "true")))
-
-(defn tab-key-target
-  "Index of the tab an arrow key moves to among `n` tabs from index `i`: ArrowRight and ArrowLeft
-   step with wrap-around, Home the first, End the last. Returns nil for any other key or `n` < 1."
-  [n i k]
-  (when (pos? n)
-    (case k
-      "ArrowRight" (mod (inc i) n)
-      "ArrowLeft" (mod (dec i) n)
-      "Home" 0
-      "End" (dec n)
-      nil)))
-
-(defn step-tab!
-  "Moves from the tab that `e` came from to the sibling tab in its closest [role=tablist] that
-   `tab-key-target` names for the key, clicks it (automatic activation) and focuses it. Returns true
-   when a tab was moved to, nil when the key moves nowhere."
-  [e]
-  (let [tab (.-currentTarget e)
-        tabs (when-let [list (.closest tab "[role=tablist]")]
-               (vec (array-seq (.querySelectorAll list "[role=tab]"))))
-        i (when tabs (.indexOf tabs tab))]
-    (when-let [target (and i (not (neg? i)) (tab-key-target (count tabs) i (.-key e)))]
-      (let [el (nth tabs target)]
-        (.preventDefault e)
-        (.click el)
-        (.focus el)
-        true))))
-
-(defn tab-attrs
-  "Attributes for a clickable tab: its role and selected state, the accessible name `label`, a roving
-   tabindex (0 on the selected tab, -1 on the rest), Space or Enter calling `handler` (the tab's click
-   handler, given the key event), and arrow, Home and End keys moving to and activating a sibling.
-   With `{:id tab-id :panel-id id}` the tab also gets its id, and the selected tab aria-controls the
-   one rendered panel."
-  ([selected? label handler] (tab-attrs selected? label handler nil))
-  ([selected? label handler {:keys [id panel-id]}]
-   (cond-> {:role "tab" :aria-selected (str (boolean selected?)) :aria-label label
-            :tabIndex (if selected? 0 -1)
-            :on-key-down (fn [e]
-                           (if (#{" " "Enter"} (.-key e))
-                             (do (.preventDefault e)
-                                 (handler e))
-                             (step-tab! e)))}
-     id (assoc :id id)
-     (and selected? panel-id) (assoc :aria-controls panel-id))))
-
-(defn tab-panel-attrs
-  "Attributes for the one shown tab panel: role tabpanel with id `panel-id`, labelled by the selected
-   tab whose id is `tab-id`."
-  [panel-id tab-id]
-  {:role "tabpanel" :id panel-id :aria-labelledby tab-id})
-
 (def loading-style
   {:position :fixed
    :height "100%"
@@ -747,7 +684,7 @@
          ;; unlabelled icons sitting in the footer of every page.
          [:div.dev-mode-row
           [:span.dev-mode-switch
-           (merge (switch-attrs dev? (make-event-handler ::e5/toggle-dev-mode))
+           (merge (comps/switch-attrs dev? (make-event-handler ::e5/toggle-dev-mode))
                   {:class (when dev? "on")
                    :title "Show diagnostic tools for getting your content out"
                    :on-click (make-event-handler ::e5/toggle-dev-mode)})]
@@ -759,7 +696,7 @@
            (let [quiet? @(subscribe [::e5/quiet-pick-counts?])]
              [:div.dev-mode-row
               [:span.dev-mode-switch
-               (merge (switch-attrs quiet? (make-event-handler ::e5/toggle-quiet-pick-counts))
+               (merge (comps/switch-attrs quiet? (make-event-handler ::e5/toggle-quiet-pick-counts))
                       {:class (when quiet? "on")
                        :title "Hide \"select any number / complete\" on builder sections that need nothing"
                        :on-click (make-event-handler ::e5/toggle-quiet-pick-counts)})]
@@ -779,7 +716,7 @@
              "Debug info"]]
            [:div.dev-mode-row
             [:span.dev-mode-switch.compact
-             (merge (switch-attrs @cast-inline-on-phones toggle-cast-inline!)
+             (merge (comps/switch-attrs @cast-inline-on-phones toggle-cast-inline!)
                     {:class (when @cast-inline-on-phones "on") :on-click toggle-cast-inline!})]
             [:span.dev-mode-label {:on-click toggle-cast-inline!} "Open item casting under the item on phones"]]])
          ;; One box, not the two identical ones that were here: the same map was
@@ -4274,7 +4211,7 @@
   [:div.b-b-2.f-w-b.pointer.p-10.hover-opacity-full
    (merge {:class (if selected? "b-orange" "b-gray")
            :on-click on-select}
-          (tab-attrs selected? (s/capitalize title) on-select
+          (comps/tab-attrs selected? (s/capitalize title) on-select
                      {:id (str "sheet-tab-" scope "-" title)
                       :panel-id (str "sheet-tabpanel-" scope)}))
    [:div.hover-opacity-full
@@ -4597,7 +4534,7 @@
                  (rest details-tabs)
                  details-tabs)))]
             ^{:key tab}
-            [:div (tab-panel-attrs (str "sheet-tabpanel-" (sheet-tab-scope id))
+            [:div (comps/tab-panel-attrs (str "sheet-tabpanel-" (sheet-tab-scope id))
                                   (str "sheet-tab-" (sheet-tab-scope id) "-" tab))
              [error-boundary
               (fn [error stack retry] [feature-render-error (s/capitalize tab) id error stack retry])
@@ -8939,7 +8876,7 @@
                            (fn [e] (.stopPropagation e))
                            (make-stop-prop-event-handler ::e5/toggle-section-disable source-name type-key))}
               [:span.dev-mode-switch.compact
-               (merge (switch-attrs (not eff-off?)
+               (merge (comps/switch-attrs (not eff-off?)
                                     (when-not global-off?
                                       (make-stop-prop-event-handler ::e5/toggle-section-disable source-name type-key)))
                       {:class (when-not eff-off? "on") :title "On in the builder"})]]
@@ -9006,7 +8943,7 @@
                        {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin-item source-name type-key key)}
                        (let [on? (not (get-in plugin [type-key key :disabled?]))]
                          [:span.dev-mode-switch.compact
-                          (merge (switch-attrs on? (make-stop-prop-event-handler ::e5/toggle-plugin-item source-name type-key key))
+                          (merge (comps/switch-attrs on? (make-stop-prop-event-handler ::e5/toggle-plugin-item source-name type-key key))
                                  {:class (when on? "on") :title "On in the builder"})])]
                       ;; name + (when there's a same-key twin) a small plain note
                       ;; about the mutual-exclusion, so "off" never looks arbitrary.
@@ -9123,7 +9060,7 @@
            {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin name)}
            (let [on? (not (get plugin :disabled?))]
              [:span.dev-mode-switch
-              (merge (switch-attrs on? (make-stop-prop-event-handler ::e5/toggle-plugin name))
+              (merge (comps/switch-attrs on? (make-stop-prop-event-handler ::e5/toggle-plugin name))
                      {:class (when on? "on") :title "On in the builder"})])]
           [:div.flex-grow-1.flex.align-items-c
            [:span.f-s-24 name]
@@ -9160,7 +9097,7 @@
                  [:div.flex.align-items-c.pointer.f-s-14.mc-source-disabled
                   {:on-click #(swap! show-disabled? not)}
                   [:span.dev-mode-switch.compact
-                   (merge (switch-attrs show? #(swap! show-disabled? not))
+                   (merge (comps/switch-attrs show? #(swap! show-disabled? not))
                           {:class (when show? "on") :aria-label "Show disabled"})]
                   [:span.m-l-5 (str "show disabled" (when (pos? dn) (str " (" dn ")")))]]))
              [:div.flex.align-items-c.uppercase.mc-source-actions
@@ -9377,7 +9314,7 @@
       [:div.flex.align-items-c.pointer
        {:on-click (make-event-handler ::e5/toggle-global-disable)}
        [:span.dev-mode-switch
-        (merge (switch-attrs (not global-off?) (make-event-handler ::e5/toggle-global-disable))
+        (merge (comps/switch-attrs (not global-off?) (make-event-handler ::e5/toggle-global-disable))
                {:class (when-not global-off? "on") :aria-label "All homebrew"})]
        [:span.m-l-10.f-s-16.f-w-b "All homebrew"]]
       ;; explainer sits right beside the toggle, not floated to the far edge
