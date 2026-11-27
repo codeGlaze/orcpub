@@ -5199,94 +5199,100 @@
     false
     #(dispatch [::spells/toggle-component component])]])
 
-(defn tool-prof-checkboxes [background tools]
-  [:div.flex.flex-wrap
-   (doall
-    (map
-     (fn [{:keys [name key]}]
-       ^{:key key}
-       [:span.m-r-20.m-b-10
-        [comps/labeled-checkbox
-         name
-         (get-in background [:profs :tool key])
-         false
-         #(dispatch [::bg/toggle-tool-prof key])]])
-     tools))])
+(defn checkbox-section
+  "A titled builder section holding a `comps/checkbox-grid` of `cells`.
+   Args: title; cells, as checkbox-grid takes them; title-class, the heading's size and gap
+   classes (default \"f-s-18 m-b-10\"). Returns hiccup."
+  ([title cells] (checkbox-section title cells "f-s-18 m-b-10"))
+  ([title cells title-class]
+   [:div.m-b-20
+    [:div.f-w-b {:class title-class} title]
+    [comps/checkbox-grid cells]]))
 
-(defn language-checkboxes [race languages]
+(defn path-cells
+  "Checkbox-grid cells for `choices`, each a flag at (conj path k) in `item`.
+   Args: item; path, a vector into item; choices; label-fn and key-fn, a choice to its label
+   and key; event-fn, a key to the event vector its click dispatches. Returns a seq of cells."
+  [item path choices label-fn key-fn event-fn]
+  (for [c choices :let [k (key-fn c)]]
+    {:key k :label (label-fn c) :checked? (get-in item (conj path k))
+     :on-click #(dispatch (event-fn k))}))
+
+(defn value-cells
+  "Checkbox-grid cells picking one of `values` for `path` in `item`, checked when the stored
+   value equals the cell's. Args: item; path; values; label-fn, a value to its label; event-fn,
+   a value to the event vector its click dispatches. Returns a seq of cells."
+  [item path values label-fn event-fn]
+  (for [v values]
+    {:key v :label (label-fn v) :checked? (= v (get-in item path))
+     :on-click #(dispatch (event-fn v))}))
+
+(defn flag-cell
+  "One checkbox-grid cell for the boolean [:props kw] of `feat`, toggled by
+   ::feats/toggle-feat-prop. Returns a cell map."
+  [feat kw label]
+  {:key kw :label label :checked? (get-in feat [:props kw])
+   :on-click #(dispatch [::feats/toggle-feat-prop kw])})
+
+(defn armor-prof-label
+  "The checkbox label for proficiency with `armor-type` (a keyword; :shields reads without
+   \" armor\")."
+  [armor-type]
+  (str "You gain proficiency with " (name armor-type) (when (not= armor-type :shields) " armor")))
+
+(defn tool-prof-checkboxes
+  "The background builder's grid of `tools`, each a flag at [:profs :tool key] of `background`.
+   Returns hiccup."
+  [background tools]
+  [comps/checkbox-grid
+   (path-cells background [:profs :tool] tools :name :key #(vector ::bg/toggle-tool-prof %))])
+
+(defn language-checkboxes
+  "The race builder's language grid, one checkbox per entry of `languages` (by name), with an
+   Add Language link under it. Args: race; languages, maps with :name and :key. Returns hiccup."
+  [race languages]
   [:div
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:span.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in race [:languages name])
-          false
-          #(dispatch [::races/toggle-language name])]])
-      (sort-by
-       :name
-       languages)))]
+   [comps/checkbox-grid
+    (for [{:keys [name key]} (sort-by :name languages)]
+      {:key key :label name :checked? (get-in race [:languages name])
+       :on-click #(dispatch [::races/toggle-language name])})]
    [:div.pointer.m-t-10
     [:span.bg-lighter.p-5
      {:on-click #(dispatch [:route routes/dnd-e5-language-builder-page-route])}
      [:i.fa.fa-plus]
      [:span.orange.underline.m-l-5 "Add Language"]]]])
 
-(defn tool-choice-checkboxes [background key]
-  [:div.flex.flex-wrap
-   (doall
-    (map
-     (fn [num]
-       ^{:key num}
-       [:span.m-r-20.m-b-10
-        [comps/labeled-checkbox
-         (str "Any " num)
-         (= num (get-in background [:profs :tool-options key]))
-         false
-         #(dispatch [::bg/toggle-choice-tool-prof key num])]])
-     (range 1 4)))])
+(defn tool-choice-checkboxes
+  "\"Any 1\" to \"Any 3\" for the background's free choice of tool kind `key`. Returns hiccup."
+  [background key]
+  [comps/checkbox-grid
+   (value-cells background [:profs :tool-options key] (range 1 4) #(str "Any " %)
+                #(vector ::bg/toggle-choice-tool-prof key %))])
 
-(defn language-choice-checkboxes [background]
-  [:div.flex.flex-wrap
-   (doall
-    (map
-     (fn [num]
-       ^{:key num}
-       [:span.m-r-20.m-b-10
-        [comps/labeled-checkbox
-         (str "Any " num)
-         (= num (get-in background [:profs :language-options :choose]))
-         false
-         #(dispatch [::bg/toggle-choice-language-prof num])]])
-     (range 1 4)))])
+(defn language-choice-checkboxes
+  "\"Any 1\" to \"Any 3\" for the background's free choice of languages. Returns hiccup."
+  [background]
+  [comps/checkbox-grid
+   (value-cells background [:profs :language-options :choose] (range 1 4) #(str "Any " %)
+                #(vector ::bg/toggle-choice-language-prof %))])
 
-(defn starting-equipment-choice-checkboxes [background equipment equipment-name]
-  [:div.m-r-20.m-b-10
-   [comps/labeled-checkbox
-    "Any 1"
-    (some
-     (fn [{:keys [name]}]
-       (= name equipment-name))
-     (:equipment-choices background))
-    false
-    #(dispatch [::bg/toggle-starting-equipment-choice equipment equipment-name])]])
+(defn starting-equipment-choice-checkboxes
+  "One \"Any 1\" checkbox: the background lets the player choose one of `equipment`, listed
+   under `equipment-name`. Returns hiccup."
+  [background equipment equipment-name]
+  [comps/labeled-checkbox
+   "Any 1"
+   (some (fn [{:keys [name]}] (= name equipment-name)) (:equipment-choices background))
+   false
+   #(dispatch [::bg/toggle-starting-equipment-choice equipment equipment-name])
+   "m-r-20 m-b-10"])
 
-(defn starting-equipment-checkboxes [background equipment]
-  [:div.flex.flex-wrap
-   (doall
-    (map
-     (fn [{:keys [name key]}]
-       ^{:key key}
-       [:span.m-r-20.m-b-10
-        [comps/labeled-checkbox
-         name
-         (get-in background [:equipment key])
-         false
-         #(dispatch [::bg/toggle-starting-equipment key])]])
-     equipment))])
+(defn starting-equipment-checkboxes
+  "The background builder's grid of `equipment`, each a flag at [:equipment key]. Returns hiccup."
+  [background equipment]
+  [comps/checkbox-grid
+   (path-cells background [:equipment] equipment :name :key
+               #(vector ::bg/toggle-starting-equipment %))])
 
 (def option-source-name-label
   [:span
@@ -5297,12 +5303,12 @@
     [:span.i "Hodor's Guide to Hodors"]
     [:span ")"]]])
 
-(defn option-proficiency-choice [title
-                                 proficiency-choice-key
-                                 proficiency-options
-                                 option
-                                 set-path-prop-event
-                                 toggle-path-prop-event]
+(defn option-proficiency-choice
+  "A \"choose N of these\" proficiency section: a Choose dropdown (1-5) and a grid of
+   `proficiency-options`, stored under [:profs proficiency-choice-key] of `option`.
+   Args: title; proficiency-choice-key; proficiency-options, maps with :name and :key; option;
+   set-path-prop-event and toggle-path-prop-event, dispatched with a path. Returns hiccup."
+  [title proficiency-choice-key proficiency-options option set-path-prop-event toggle-path-prop-event]
   [:div.m-b-20
    [:div.f-s-24.f-w-b.m-b-20 title]
    [:div.m-b-10
@@ -5314,18 +5320,9 @@
       :value (get-in option [:profs proficiency-choice-key :choose] 1)
       :on-change #(dispatch [set-path-prop-event [:profs proficiency-choice-key :choose] (js/parseInt %)])}]]
    [:div.f-s-18.f-w-b.m-b-20 "Options"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:span.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in option [:profs proficiency-choice-key :options key])
-          false
-          #(dispatch [toggle-path-prop-event [:profs proficiency-choice-key :options key]])]])
-      proficiency-options))]])
+   [comps/checkbox-grid
+    (path-cells option [:profs proficiency-choice-key :options] proficiency-options :name :key
+                #(vector toggle-path-prop-event [:profs proficiency-choice-key :options %]))]])
 
 (defn option-weapon-proficiency-choice [option
                                         set-path-prop-event
@@ -5361,109 +5358,60 @@
            :skill-options
            skills/skills))
 
-(defn option-skill-proficiency [option toggle-event]
-  [:div.m-b-20
-   [:div.f-s-24.f-w-b.m-b-20 "Skill Proficiencies"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:span.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in option [:props :skill-prof key])
-          false
-          #(dispatch [toggle-event :skill-prof key])]])
-      skills/skills))]])
+(defn option-skill-proficiency
+  "Skill Proficiencies: a flag per skill at [:props :skill-prof], toggled by
+   [toggle-event :skill-prof key]. Returns hiccup."
+  [option toggle-event]
+  [checkbox-section "Skill Proficiencies"
+   (path-cells option [:props :skill-prof] skills/skills :name :key
+               #(vector toggle-event :skill-prof %)) "f-s-24 m-b-20"])
 
-(defn option-languages [option toggle-map-prop-event]
+(defn option-languages
+  "Languages: a flag per known language at [:props :language], toggled by
+   [toggle-map-prop-event :language key], with an Add Language link. Returns hiccup."
+  [option toggle-map-prop-event]
   (let [languages @(subscribe [::langs/languages])]
     [:div.m-b-20
      [:div.f-s-24.f-w-b.m-b-20 "Languages"]
-     [:div.flex.flex-wrap
-      (doall
-       (map
-        (fn [{:keys [name key]}]
-          ^{:key key}
-          [:span.m-r-20.m-b-10
-           [comps/labeled-checkbox
-            name
-            (get-in option [:props :language key])
-            false
-            #(dispatch [toggle-map-prop-event :language key])]])
-        (sort-by
-         :name
-         languages)))]
+     [comps/checkbox-grid
+      (path-cells option [:props :language] (sort-by :name languages) :name :key
+                  #(vector toggle-map-prop-event :language %))]
      [:div.pointer.m-t-10
       [:span.bg-lighter.p-5
        {:on-click #(dispatch [:route routes/dnd-e5-language-builder-page-route])}
        [:i.fa.fa-plus]
        [:span.orange.underline.m-l-5 "Add Language"]]]]))
 
-(defn option-skill-proficiency-or-expertise [option toggle-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-20 "Skill Proficiency or Expertise"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:span.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in option [:props :skill-prof-or-expertise key])
-          false
-          #(dispatch [toggle-event :skill-prof-or-expertise key])]])
-      skills/skills))]])
+(defn option-skill-proficiency-or-expertise
+  "Skill Proficiency or Expertise: a flag per skill at [:props :skill-prof-or-expertise],
+   toggled by [toggle-event :skill-prof-or-expertise key]. Returns hiccup."
+  [option toggle-event]
+  [checkbox-section "Skill Proficiency or Expertise"
+   (path-cells option [:props :skill-prof-or-expertise] skills/skills :name :key
+               #(vector toggle-event :skill-prof-or-expertise %)) "f-s-18 m-b-20"])
 
-(defn option-tool-proficiency [option toggle-path-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-20 "Tool Proficiency"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:span.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in option [:profs :tool key])
-          false
-          #(dispatch [toggle-path-prop-event [:profs :tool key]])]])
-      equip/tools))]])
+(defn option-tool-proficiency
+  "Tool Proficiency: a flag per tool at [:profs :tool key], toggled by
+   [toggle-path-prop-event path]. Returns hiccup."
+  [option toggle-path-prop-event]
+  [checkbox-section "Tool Proficiency"
+   (path-cells option [:profs :tool] equip/tools :name :key
+               #(vector toggle-path-prop-event [:profs :tool %])) "f-s-18 m-b-20"])
 
-(defn option-tool-proficiency-or-expertise [option toggle-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-20 "Tool Proficiency or Expertise"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:span.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in option [:props :tool-prof-or-expertise key])
-          false
-          #(dispatch [toggle-event :tool-prof-or-expertise key])]])
-      equip/tools))]])
+(defn option-tool-proficiency-or-expertise
+  "Tool Proficiency or Expertise: a flag per tool at [:props :tool-prof-or-expertise],
+   toggled by [toggle-event :tool-prof-or-expertise key]. Returns hiccup."
+  [option toggle-event]
+  [checkbox-section "Tool Proficiency or Expertise"
+   (path-cells option [:props :tool-prof-or-expertise] equip/tools :name :key
+               #(vector toggle-event :tool-prof-or-expertise %)) "f-s-18 m-b-20"])
 
-(defn background-skill-proficiencies [background]
-  [:div.m-b-20
-   [:div.f-s-24.f-w-b.m-b-20 "Skill Proficiencies"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:span.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in background [:profs :skill key])
-          false
-          #(dispatch [::bg/toggle-skill-prof key])]])
-      skills/skills))]])
+(defn background-skill-proficiencies
+  "The background's Skill Proficiencies: a flag per skill at [:profs :skill]. Returns hiccup."
+  [background]
+  [checkbox-section "Skill Proficiencies"
+   (path-cells background [:profs :skill] skills/skills :name :key
+               #(vector ::bg/toggle-skill-prof %)) "f-s-24 m-b-20"])
 
 (defn background-languages [background]
   [:div.m-t-20.m-b-20
@@ -5606,267 +5554,124 @@
                   (when (increases :saves?)
                     " You gain proficiency in the saves using the chosen ability.\""))))]])
 
-(defn feat-skill-proficiency [feat]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Skill or Tool Proficiency"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [num]
-        ^{:key num}
-        [:div.m-r-20.m-b-10
-         (let [kw :skill-tool-choice]
-           [comps/labeled-checkbox
-            (str "You gain proficiency in " num " skills or tools of your choice")
-            (= num (get-in feat [:props kw]))
-            false
-            #(dispatch [::feats/toggle-feat-value-prop kw num])])])
-      (range 1 4)))]])
+(defn feat-skill-proficiency
+  "The feat grants 1 to 3 skills or tools of choice, one value at [:props :skill-tool-choice]. Returns hiccup."
+  [feat]
+  [checkbox-section "Skill or Tool Proficiency"
+   (value-cells feat [:props :skill-tool-choice] (range 1 4) #(str "You gain proficiency in " % " skills or tools of your choice")
+                #(vector ::feats/toggle-feat-value-prop :skill-tool-choice %))])
 
-(defn feat-weapon-proficiency [feat]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Weapon Proficiency"]
-   [:div.flex.flex-wrap
-    [:div.m-r-20.m-b-10
-     (let [kw :improvised-weapons-prof]
-       [comps/labeled-checkbox
-        "You gain proficiency with improvised weapons"
-        (get-in feat [:props kw])
-        false
-        #(dispatch [::feats/toggle-feat-prop kw])])]
-    (doall
-     (map
-      (fn [num]
-        ^{:key num}
-        [:div.m-r-20.m-b-10
-         (let [kw :weapon-prof-choice]
-           [comps/labeled-checkbox
-            (str "You gain proficiency with " num " weapons of your choice")
-            (= num (get-in feat [:props kw]))
-            false
-            #(dispatch [::feats/toggle-feat-value-prop kw num])])])
-      (range 3 5)))]])
+(defn feat-weapon-proficiency
+  "Weapon Proficiency: improvised weapons (a flag), and 3 or 4 weapons of choice, one value at
+   [:props :weapon-prof-choice]. Returns hiccup."
+  [feat]
+  [checkbox-section "Weapon Proficiency"
+   (cons (flag-cell feat :improvised-weapons-prof "You gain proficiency with improvised weapons")
+         (value-cells feat [:props :weapon-prof-choice] (range 3 5)
+                      #(str "You gain proficiency with " % " weapons of your choice")
+                      #(vector ::feats/toggle-feat-value-prop :weapon-prof-choice %)))])
 
-(defn option-armor-proficiency [option toggle-map-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Armor Proficiency"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [armor-type]
-        ^{:key armor-type}
-        [:div.m-r-20.m-b-10
-         (let [kw :armor-prof]
-           [comps/labeled-checkbox
-            (str "You gain proficiency with " (name armor-type) (when (not= armor-type :shields) " armor"))
-            (get-in option [:props kw armor-type])
-            false
-            #(dispatch [toggle-map-prop-event kw armor-type])])])
-      (conj armor/armor-types :shields)))]])
+(defn option-armor-proficiency
+  "Armor Proficiency: a flag per armor type and shields at [:props :armor-prof], toggled by
+   [toggle-map-prop-event :armor-prof type]. Returns hiccup."
+  [option toggle-map-prop-event]
+  [checkbox-section "Armor Proficiency"
+   (path-cells option [:props :armor-prof] (conj armor/armor-types :shields) armor-prof-label identity
+               #(vector toggle-map-prop-event :armor-prof %))])
 
-(defn feat-armor-proficiency [feat]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Armor Proficiency"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [armor-type]
-        ^{:key armor-type}
-        [:div.m-r-20.m-b-10
-         (let [kw :armor-prof]
-           [comps/labeled-checkbox
-            (str "You gain proficiency with " (name armor-type) (when (not= armor-type :shields) " armor"))
-            (get-in feat [:props kw armor-type])
-            false
-            #(dispatch [::feats/toggle-feat-map-prop kw armor-type])])])
-      (conj armor/armor-types :shields)))
-    [:div.m-r-20.m-b-10
-     (let [kw :medium-armor-stealth]
-       [comps/labeled-checkbox
-        "Wearing medium armor doesn't give disadvantage on Stealth checks"
-        (get-in feat [:props kw])
-        false
-        #(dispatch [::feats/toggle-feat-prop kw])])]
-    [:div.m-r-20.m-b-10
-     (let [kw :medium-armor-max-dex-3]
-       [comps/labeled-checkbox
-        "When wearing medium armor, you can add 3 to your AC if your Dexterity is 16+"
-        (get-in feat [:props kw])
-        false
-        #(dispatch [::feats/toggle-feat-prop kw])])]]])
+(defn feat-armor-proficiency
+  "The feat's Armor Proficiency: a flag per armor type and shields at [:props :armor-prof], and
+   the two medium-armor flags. Returns hiccup."
+  [feat]
+  [checkbox-section "Armor Proficiency"
+   (concat
+    (path-cells feat [:props :armor-prof] (conj armor/armor-types :shields) armor-prof-label identity
+                #(vector ::feats/toggle-feat-map-prop :armor-prof %))
+    [(flag-cell feat :medium-armor-stealth
+                "Wearing medium armor doesn't give disadvantage on Stealth checks")
+     (flag-cell feat :medium-armor-max-dex-3
+                "When wearing medium armor, you can add 3 to your AC if your Dexterity is 16+")])])
 
-(defn option-hps [option toggle-value-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Hit Points"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [num]
-        ^{:key num}
-        [:div.m-r-20.m-b-10
-         (let [kw :max-hp-bonus]
-           [comps/labeled-checkbox
-            (str "Your hit point maximum increases by " num " for each of your levels")
-            (= (get-in option [:props kw]) num)
-            false
-            #(dispatch [toggle-value-prop-event kw num])])])
-      (range 1 3)))]])
+(defn option-hps
+  "Hit Points: +1 or +2 per level, one value at [:props :max-hp-bonus], set by
+   [toggle-value-prop-event :max-hp-bonus n]. Returns hiccup."
+  [option toggle-value-prop-event]
+  [checkbox-section "Hit Points"
+   (value-cells option [:props :max-hp-bonus] (range 1 3)
+                #(str "Your hit point maximum increases by " % " for each of your levels")
+                #(vector toggle-value-prop-event :max-hp-bonus %))])
 
 (defn feat-hps [feat]
   (option-hps feat ::feats/toggle-feat-value-prop))
 
-(defn feat-speed-bonuses [feat]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Speed Bonuses"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [v]
-        ^{:key v}
-        [:div.m-r-20.m-b-10
-         (let [kw :speed]
-           [comps/labeled-checkbox
-            (str "Your speed is increased by " v " ft.")
-            (= v (get-in feat [:props kw]))
-            false
-            #(dispatch [::feats/toggle-feat-value-prop kw v])])])
-      (range 5 20 5)))]])
+(defn feat-speed-bonuses
+  "Speed Bonuses: +5 to +15 ft., one value at [:props :speed]. Returns hiccup."
+  [feat]
+  [checkbox-section "Speed Bonuses"
+   (value-cells feat [:props :speed] (range 5 20 5) #(str "Your speed is increased by " % " ft.")
+                #(vector ::feats/toggle-feat-value-prop :speed %))])
 
-(defn feat-initiative-bonuses [feat]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Initiative Bonuses"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [v]
-        ^{:key v}
-        [:div.m-r-20.m-b-10
-         (let [kw :initiative]
-           [comps/labeled-checkbox
-            (str "You gain a +" v " bonus to initiative")
-            (= v (get-in feat [:props kw]))
-            false
-            #(dispatch [::feats/toggle-feat-value-prop kw v])])])
-      (range 1 6)))]])
+(defn feat-initiative-bonuses
+  "Initiative Bonuses: +1 to +5, one value at [:props :initiative]. Returns hiccup."
+  [feat]
+  [checkbox-section "Initiative Bonuses"
+   (value-cells feat [:props :initiative] (range 1 6) #(str "You gain a +" % " bonus to initiative")
+                #(vector ::feats/toggle-feat-value-prop :initiative %))])
 
-(defn feat-languages [feat]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Languages"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [v]
-        ^{:key v}
-        [:div.m-r-20.m-b-10
-         (let [kw :language-choice]
-           [comps/labeled-checkbox
-            (str "You learn " v " languages of your choice.")
-            (= v (get-in feat [:props kw]))
-            false
-            #(dispatch [::feats/toggle-feat-value-prop kw v])])])
-      (range 1 4)))]])
+(defn feat-languages
+  "Languages: 1 to 3 of choice, one value at [:props :language-choice]. Returns hiccup."
+  [feat]
+  [checkbox-section "Languages"
+   (value-cells feat [:props :language-choice] (range 1 4) #(str "You learn " % " languages of your choice.")
+                #(vector ::feats/toggle-feat-value-prop :language-choice %))])
 
-(defn option-damage-resistance [option toggle-map-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Damage Resistances"]
-   (let [kw :damage-resistance]
-     [:div.flex.flex-wrap
-      [:div.m-r-20.m-b-10
-       [comps/labeled-checkbox
-        "Resistance to damage from traps"
-        (get-in option [:props kw :traps])
-        false
-        #(dispatch [toggle-map-prop-event kw :traps])]]
-      (doall
-       (map
-        (fn [damage-type]
-          ^{:key damage-type}
-          [:div.m-r-20.m-b-10
-           [comps/labeled-checkbox
-            (str "Resistance to " (name damage-type) " damage")
-            (get-in option [:props kw damage-type])
-            false
-            #(dispatch [toggle-map-prop-event kw damage-type])]])
-        opt/damage-types))])])
+(defn option-damage-resistance
+  "Damage Resistances: a flag for traps and per damage type at [:props :damage-resistance],
+   toggled by [toggle-map-prop-event :damage-resistance type]. Returns hiccup."
+  [option toggle-map-prop-event]
+  [checkbox-section "Damage Resistances"
+   (path-cells option [:props :damage-resistance] (cons :traps opt/damage-types)
+               #(if (= % :traps) "Resistance to damage from traps" (str "Resistance to " (name %) " damage")) identity
+               #(vector toggle-map-prop-event :damage-resistance %))])
 
-(defn option-damage-immunity [option toggle-map-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Damage Immunities"]
-   (let [kw :damage-immunity]
-     [:div.flex.flex-wrap
-      (doall
-       (map
-        (fn [damage-type]
-          ^{:key damage-type}
-          [:div.m-r-20.m-b-10
-           [comps/labeled-checkbox
-            (str "Immunity to " (name damage-type) " damage")
-            (get-in option [:props kw damage-type])
-            false
-            #(dispatch [toggle-map-prop-event kw damage-type])]])
-        opt/damage-types))])])
+(defn option-damage-immunity
+  "Damage Immunities: a flag per damage type at [:props :damage-immunity], toggled by
+   [toggle-map-prop-event :damage-immunity type]. Returns hiccup."
+  [option toggle-map-prop-event]
+  [checkbox-section "Damage Immunities"
+   (path-cells option [:props :damage-immunity] opt/damage-types
+               #(str "Immunity to " (name %) " damage") identity
+               #(vector toggle-map-prop-event :damage-immunity %))])
 
-(defn option-damage-vulnerability [option toggle-map-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Damage Vulnerabilities"]
-   (let [kw :damage-vulnerability]
-     [:div.flex.flex-wrap
-      (doall
-       (map
-        (fn [damage-type]
-          ^{:key damage-type}
-          [:div.m-r-20.m-b-10
-           [comps/labeled-checkbox
-            (str "Vulnerability to " (name damage-type) " damage")
-            (get-in option [:props kw damage-type])
-            false
-            #(dispatch [toggle-map-prop-event kw damage-type])]])
-        opt/damage-types))])])
+(defn option-damage-vulnerability
+  "Damage Vulnerabilities: a flag per damage type at [:props :damage-vulnerability], toggled by
+   [toggle-map-prop-event :damage-vulnerability type]. Returns hiccup."
+  [option toggle-map-prop-event]
+  [checkbox-section "Damage Vulnerabilities"
+   (path-cells option [:props :damage-vulnerability] opt/damage-types
+               #(str "Vulnerability to " (name %) " damage") identity
+               #(vector toggle-map-prop-event :damage-vulnerability %))])
 
-(defn option-condition-immunity [option toggle-map-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Condition Immunities"]
-   (let [kw :condition-immunity]
-     [:div.flex.flex-wrap
-      (doall
-       (map
-        (fn [{:keys [name key]}]
-          ^{:key key}
-          [:div.m-r-20.m-b-10
-           [comps/labeled-checkbox
-            (str "Immunity to being " name)
-            (get-in option [:props kw key])
-            false
-            #(dispatch [toggle-map-prop-event kw key])]])
-        opt/conditions))])])
+(defn option-condition-immunity
+  "Condition Immunities: a flag per condition at [:props :condition-immunity], toggled by
+   [toggle-map-prop-event :condition-immunity key]. Returns hiccup."
+  [option toggle-map-prop-event]
+  [checkbox-section "Condition Immunities"
+   (path-cells option [:props :condition-immunity] opt/conditions
+               #(str "Immunity to being " (:name %)) :key
+               #(vector toggle-map-prop-event :condition-immunity %))])
 
-(defn option-weapon-proficiency [option toggle-map-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Weapon Proficiencies"]
-   (let [kw :weapon-prof]
-     [:div.flex.flex-wrap
-      (doall
-       (concat
-        (map
-         (fn [weapon-type]
-           ^{:key weapon-type}
-           [:div.m-r-20.m-b-10
-            [comps/labeled-checkbox
-             (str "All " (common/safe-capitalize-kw weapon-type) " Weapons")
-             (get-in option [:props kw weapon-type])
-             false
-             #(dispatch [toggle-map-prop-event kw weapon-type])]])
-         [:simple :martial])
-        (map
-         (fn [{:keys [key name]}]
-           ^{:key key}
-           [:div.m-r-20.m-b-10
-            [comps/labeled-checkbox
-             name
-             (get-in option [:props kw key])
-             false
-             #(dispatch [toggle-map-prop-event kw key])]])
-         @(subscribe [::mi/custom-and-standard-weapons]))))])])
+(defn option-weapon-proficiency
+  "Weapon Proficiencies: all simple, all martial, and each weapon, flags at [:props :weapon-prof]
+   toggled by [toggle-map-prop-event :weapon-prof key]. Returns hiccup."
+  [option toggle-map-prop-event]
+  [checkbox-section "Weapon Proficiencies"
+   (path-cells option [:props :weapon-prof]
+               (concat (for [t [:simple :martial]]
+                         {:key t :name (str "All " (common/safe-capitalize-kw t) " Weapons")})
+                       @(subscribe [::mi/custom-and-standard-weapons]))
+               :name :key
+               #(vector toggle-map-prop-event :weapon-prof %))])
 
 (defn add-trait-button
   "The add button of a builder's traits list.
@@ -5942,22 +5747,14 @@
      [:div.p-t-10.flex.justify-cont-end
       [add-trait-button add-trait-event button-title]])])
 
-(defn option-saving-throw-advantages [option toggle-map-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Saving Throw Advantage"]
-   (let [kw :saving-throw-advantage]
-     [:div.flex.flex-wrap
-      (doall
-       (map
-        (fn [{:keys [name key]}]
-          ^{:key key}
-          [:div.m-r-20.m-b-10
-           [comps/labeled-checkbox
-            (str "You have advantage on saving throws against being " name)
-            (get-in option [:props kw key])
-            false
-            #(dispatch [toggle-map-prop-event kw key])]])
-        opt/conditions))])])
+(defn option-saving-throw-advantages
+  "Saving Throw Advantage: a flag per condition at [:props :saving-throw-advantage], toggled by
+   [toggle-map-prop-event :saving-throw-advantage key]. Returns hiccup."
+  [option toggle-map-prop-event]
+  [checkbox-section "Saving Throw Advantage"
+   (path-cells option [:props :saving-throw-advantage] opt/conditions
+               #(str "You have advantage on saving throws against being " (:name %)) :key
+               #(vector toggle-map-prop-event :saving-throw-advantage %))])
 
 (defn feat-damage-resistance [feat]
   (option-damage-resistance feat ::feats/toggle-feat-map-prop))
@@ -5966,71 +5763,31 @@
 #_(defn subrace-damage-resistance [subrace]
   (option-damage-resistance subrace ::feats/toggle-subrace-map-prop))
 
-(defn feat-misc-modifiers [feat]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Misc. Modifiers"]
-   [:div.flex.flex-wrap
-    [:div.m-r-20.m-b-10
-     (let [kw :two-weapon-ac-1]
-       [comps/labeled-checkbox
-        "+1 AC Bonus while wielding two melee weapons"
-        (get-in feat [:props kw])
-        false
-        #(dispatch [::feats/toggle-feat-prop kw])])]
-    [:div.m-r-20.m-b-10
-     (let [kw :two-weapon-any-one-handed]
-       [comps/labeled-checkbox
-        "You can use two-weapon fighting with any one-handed melee weapon"
-        (get-in feat [:props kw])
-        false
-        #(dispatch [::feats/toggle-feat-prop kw])])]
-    [:div.m-r-20.m-b-10
-     (let [kw :saving-throw-advantage-traps]
-       [comps/labeled-checkbox
-        "Advantage on saving throws against traps"
-        (get-in feat [:props kw])
-        false
-        #(dispatch [::feats/toggle-feat-prop kw])])]
-    [:div.m-r-20.m-b-10
-     (let [kw :passive-perception-5]
-       [comps/labeled-checkbox
-        "You gain a +5 to your passive Perception"
-        (get-in feat [:props kw])
-        false
-        #(dispatch [::feats/toggle-feat-prop kw])])]
-    [:div.m-r-20.m-b-10
-     (let [kw :passive-investigation-5]
-       [comps/labeled-checkbox
-        "You gain a +5 to your passive Investigation"
-        (get-in feat [:props kw])
-        false
-        #(dispatch [::feats/toggle-feat-prop kw])])]]])
+(defn feat-misc-modifiers
+  "Misc. Modifiers: the feat's two-weapon, trap-save and passive-score flags at [:props kw].
+   Returns hiccup."
+  [feat]
+  [checkbox-section "Misc. Modifiers"
+   [(flag-cell feat :two-weapon-ac-1 "+1 AC Bonus while wielding two melee weapons")
+    (flag-cell feat :two-weapon-any-one-handed
+               "You can use two-weapon fighting with any one-handed melee weapon")
+    (flag-cell feat :saving-throw-advantage-traps "Advantage on saving throws against traps")
+    (flag-cell feat :passive-perception-5 "You gain a +5 to your passive Perception")
+    (flag-cell feat :passive-investigation-5 "You gain a +5 to your passive Investigation")]])
 
-(defn feat-spellcasting [feat]
+(defn feat-spellcasting
+  "Spellcasting: the feat's magic-novice, ritual-casting and attack-cantrip flags at [:props kw].
+   Returns hiccup."
+  [feat]
   [:div.m-b-30
    [:div.f-s-18.f-w-b.m-b-10 "Spellcasting"]
-   [:div.flex.flex-wrap
-    [:div.m-r-20.m-b-10
-     (let [kw :magic-novice]
-       [comps/labeled-checkbox
-        "Choose a class, gain (2) cantrips and (1) 1st-level spell from that class's spell list"
-        (get-in feat [:props kw])
-        false
-        #(dispatch [::feats/toggle-feat-prop kw])])]
-    [:div.m-r-20.m-b-10
-     (let [kw :ritual-casting]
-       [comps/labeled-checkbox
-        "Choose a class, gain (2) 1st-level ritual spells from that class's spell list"
-        (get-in feat [:props kw])
-        false
-        #(dispatch [::feats/toggle-feat-prop kw])])]
-    [:div.m-r-20.m-b-10
-     (let [kw :attack-spell]
-       [comps/labeled-checkbox
-        "Choose a class, gain a cantrip requiring an attack roll from that class's spell list"
-        (get-in feat [:props kw])
-        false
-        #(dispatch [::feats/toggle-feat-prop kw])])]]])
+   [comps/checkbox-grid
+    [(flag-cell feat :magic-novice
+                "Choose a class, gain (2) cantrips and (1) 1st-level spell from that class's spell list")
+     (flag-cell feat :ritual-casting
+                "Choose a class, gain (2) 1st-level ritual spells from that class's spell list")
+     (flag-cell feat :attack-spell
+                "Choose a class, gain a cantrip requiring an attack roll from that class's spell list")]]])
 
 ;;;; TODO remove when no longer useful for debugging
 #_(defn print-plugin-names []

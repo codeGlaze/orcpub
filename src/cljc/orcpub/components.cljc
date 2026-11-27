@@ -118,6 +118,16 @@
    [checkbox-mark selected? disabled?]
    [:span.m-l-5 label]]))
 
+(defn checkbox-grid
+  "A wrapping row of `labeled-checkbox`es, spaced as the builders' choice grids are.
+   `cells` is a seq of maps `{:key :label :checked? :on-click}`, `:key` unique among them.
+   Returns hiccup: a flex-wrap div with one checkbox per cell."
+  [cells]
+  [:div.flex.flex-wrap
+   (for [{:keys [key label checked? on-click]} cells]
+     ^{:key key}
+     [labeled-checkbox label checked? false on-click "m-r-20 m-b-10"])])
+
 (defn selection-item [key name selected?]
   [:option.builder-dropdown-item
    {:value key}
