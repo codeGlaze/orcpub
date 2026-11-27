@@ -2194,7 +2194,8 @@
   [:span.builder-tab
    (merge {:class (when (= current-tab key) "selected-builder-tab")
            :on-click (set-builder-tab key)}
-          (views5e/tab-attrs (= current-tab key) title (set-builder-tab key)))
+          (views5e/tab-attrs (= current-tab key) title (set-builder-tab key)
+                             {:id (str "builder-tab-" (name key)) :panel-id "builder-tabpanel"}))
    [:span.builder-tab-text title]])
 
 (defn mobile-columns []
@@ -2207,12 +2208,13 @@
         [builder-tab "Description" :description current-tab]
         [builder-tab "Portrait" :portrait current-tab]
         [builder-tab "Details" :details current-tab]]
-       (case current-tab
-         :options [new-options-column 1]
-         :description [description-fields]
-         :portrait [portrait5e/tab-panel]
-         ;; nil id = the builder's own character (not a saved one).
-         [views5e/character-display nil true 1])]]]))
+       [:div (views5e/tab-panel-attrs "builder-tabpanel" (str "builder-tab-" (name current-tab)))
+        (case current-tab
+          :options [new-options-column 1]
+          :description [description-fields]
+          :portrait [portrait5e/tab-panel]
+          ;; nil id = the builder's own character (not a saved one).
+          [views5e/character-display nil true 1])]]]]))
 
 
 (defn desktop-or-tablet-columns [device-type]
@@ -2228,10 +2230,11 @@
         [builder-tab "Options" :options current-tab]
         [builder-tab "Description" :description current-tab]
         [builder-tab "Portrait" :portrait current-tab]]
-       (case current-tab
-         :options [new-options-column (if (= device-type :desktop) 2 1)]
-         :portrait [portrait5e/tab-panel]
-         [description-fields])]
+       [:div (views5e/tab-panel-attrs "builder-tabpanel" (str "builder-tab-" (name current-tab)))
+        (case current-tab
+          :options [new-options-column (if (= device-type :desktop) 2 1)]
+          :portrait [portrait5e/tab-panel]
+          [description-fields])]]
       [:div.w-50-p.m-l-20.m-r-10
        ;; nil id = the builder's own character (not a saved one).
        [views5e/character-display nil true 1]]]]))

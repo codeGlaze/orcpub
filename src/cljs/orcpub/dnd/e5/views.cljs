@@ -582,15 +582,57 @@
                                     (handler e))))
     (nil? handler) (assoc :aria-disabled "true")))
 
+(defn tab-key-target
+  "Index of the tab an arrow key moves to among `n` tabs from index `i`: ArrowRight and ArrowLeft
+   step with wrap-around, Home the first, End the last. Returns nil for any other key or `n` < 1."
+  [n i k]
+  (when (pos? n)
+    (case k
+      "ArrowRight" (mod (inc i) n)
+      "ArrowLeft" (mod (dec i) n)
+      "Home" 0
+      "End" (dec n)
+      nil)))
+
+(defn step-tab!
+  "Moves from the tab that `e` came from to the sibling tab in its closest [role=tablist] that
+   `tab-key-target` names for the key, clicks it (automatic activation) and focuses it. Returns true
+   when a tab was moved to, nil when the key moves nowhere."
+  [e]
+  (let [tab (.-currentTarget e)
+        tabs (when-let [list (.closest tab "[role=tablist]")]
+               (vec (array-seq (.querySelectorAll list "[role=tab]"))))
+        i (when tabs (.indexOf tabs tab))]
+    (when-let [target (and i (not (neg? i)) (tab-key-target (count tabs) i (.-key e)))]
+      (let [el (nth tabs target)]
+        (.preventDefault e)
+        (.click el)
+        (.focus el)
+        true))))
+
 (defn tab-attrs
-  "Attributes for a clickable tab: its role and selected state, the accessible name `label`, keyboard
-   focus, and Space or Enter calling `handler` (the tab's click handler, given the key event)."
-  [selected? label handler]
-  {:role "tab" :aria-selected (str (boolean selected?)) :aria-label label :tabIndex 0
-   :on-key-down (fn [e]
-                  (when (#{" " "Enter"} (.-key e))
-                    (.preventDefault e)
-                    (handler e)))})
+  "Attributes for a clickable tab: its role and selected state, the accessible name `label`, a roving
+   tabindex (0 on the selected tab, -1 on the rest), Space or Enter calling `handler` (the tab's click
+   handler, given the key event), and arrow, Home and End keys moving to and activating a sibling.
+   With `{:id tab-id :panel-id id}` the tab also gets its id, and the selected tab aria-controls the
+   one rendered panel."
+  ([selected? label handler] (tab-attrs selected? label handler nil))
+  ([selected? label handler {:keys [id panel-id]}]
+   (cond-> {:role "tab" :aria-selected (str (boolean selected?)) :aria-label label
+            :tabIndex (if selected? 0 -1)
+            :on-key-down (fn [e]
+                           (if (#{" " "Enter"} (.-key e))
+                             (do (.preventDefault e)
+                                 (handler e))
+                             (step-tab! e)))}
+     id (assoc :id id)
+     (and selected? panel-id) (assoc :aria-controls panel-id))))
+
+(defn tab-panel-attrs
+  "Attributes for the one shown tab panel: role tabpanel with id `panel-id`, labelled by the selected
+   tab whose id is `tab-id`."
+  [panel-id tab-id]
+  {:role "tabpanel" :id panel-id :aria-labelledby tab-id})
 
 (def loading-style
   {:position :fixed
@@ -4222,7 +4264,8 @@
   [:div.b-b-2.f-w-b.pointer.p-10.hover-opacity-full
    (merge {:class (if selected? "b-orange" "b-gray")
            :on-click on-select}
-          (tab-attrs selected? (s/capitalize title) on-select))
+          (tab-attrs selected? (s/capitalize title) on-select
+                     {:id (str "sheet-tab-" title) :panel-id "sheet-tabpanel"}))
    [:div.hover-opacity-full
     {:class (when (not selected?) "opacity-5")}
     [:div (svg-icon icon 24)]
@@ -4542,9 +4585,10 @@
                  (rest details-tabs)
                  details-tabs)))]
             ^{:key tab}
-            [error-boundary
-             (fn [error stack retry] [feature-render-error (s/capitalize tab) id error stack retry])
-             [(-> tab details-tabs :view) num-columns id]]]]
+            [:div (tab-panel-attrs "sheet-tabpanel" (str "sheet-tab-" tab))
+             [error-boundary
+              (fn [error stack retry] [feature-render-error (s/capitalize tab) id error stack retry])
+              [(-> tab details-tabs :view) num-columns id]]]]]
           [rest-controls/rest-fab id tab]
           [:div.p-10
            [:span.orange.underline.pointer
