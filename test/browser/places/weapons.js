@@ -1,6 +1,8 @@
 // Places in the sheet's Weapons table and its roll result sheet. Roles and names where the markup
 // has them; otherwise the class selector, kept only in this file. `scope` is a page or a locator.
 
+const { escapeRegExp } = require('../lib/toolbox');
+
 // Class selectors for parts with no role or name, and for layout parts only measured inside
 // page.evaluate (pass `parts` in as the evaluate argument). Suites read them from here.
 const parts = {
@@ -52,7 +54,7 @@ const row = (scope, name) => {
   // `has` is matched inside each row, so its locator must start from the page, not from `scope`
   const root = typeof scope.page === 'function' ? scope.page() : scope;
   return scope.locator(parts.row)
-    .filter({ has: root.locator(parts.name, { hasText: new RegExp(`^${name}$`) }) });
+    .filter({ has: root.locator(parts.name, { hasText: new RegExp(`^${escapeRegExp(name)}$`) }) });
 };
 
 /** The to-hit tile of a row. */

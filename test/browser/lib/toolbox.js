@@ -37,6 +37,14 @@ function checker() {
 }
 
 /**
+ * Escapes the characters a regular expression treats as syntax, so `new RegExp(escapeRegExp(s))`
+ * matches `s` literally (weapon names such as "Mace +2" or "Javelin (+1)").
+ * @param {string} s
+ * @returns {string}
+ */
+const escapeRegExp = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
  * Opens a 390x844 phone context: touch, mobile, an iPhone user agent (the phone layout is chosen
  * by user agent as well as width). `opts` overrides any context option.
  * @param {import('playwright').Browser} browser
@@ -73,4 +81,4 @@ const quietOverlays = ctx => ctx.addInitScript(id => {
   } catch (e) {}
 }, currentWhatsNewId());
 
-module.exports = { BASE, APP_BUNDLE, checker, phoneContext, quietOverlays, currentWhatsNewId };
+module.exports = { BASE, APP_BUNDLE, escapeRegExp, checker, phoneContext, quietOverlays, currentWhatsNewId };
