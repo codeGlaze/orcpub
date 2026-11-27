@@ -4260,12 +4260,23 @@
        (when @managing?
          [inventory-views/done-managing managing?])])))
 
-(defn details-tab [title icon device-type selected? on-select]
+(defn sheet-tab-scope
+  "Id fragment that keeps one sheet's tab and panel ids apart from other sheets on the page: the
+   character's id as a string, or \"new\" when the sheet has none (the builder's own character)."
+  [id]
+  (if (nil? id) "new" (str id)))
+
+(defn details-tab
+  "One tab of the character sheet's tab bar: `title`, `icon`, `device-type` (:desktop shows the
+   label), `selected?` and the `on-select` click handler. `scope` (see `sheet-tab-scope`) goes into
+   the tab's id. Returns hiccup."
+  [title icon device-type selected? on-select scope]
   [:div.b-b-2.f-w-b.pointer.p-10.hover-opacity-full
    (merge {:class (if selected? "b-orange" "b-gray")
            :on-click on-select}
           (tab-attrs selected? (s/capitalize title) on-select
-                     {:id (str "sheet-tab-" title) :panel-id "sheet-tabpanel"}))
+                     {:id (str "sheet-tab-" scope "-" title)
+                      :panel-id (str "sheet-tabpanel-" scope)}))
    [:div.hover-opacity-full
     {:class (when (not selected?) "opacity-5")}
     [:div (svg-icon icon 24)]
@@ -4580,12 +4591,14 @@
                    icon
                    device-type
                    (= title tab)
-                   (make-event-handler ::char/set-selected-display-tab title)]])
+                   (make-event-handler ::char/set-selected-display-tab title)
+                   (sheet-tab-scope id)]])
                (if two-columns?
                  (rest details-tabs)
                  details-tabs)))]
             ^{:key tab}
-            [:div (tab-panel-attrs "sheet-tabpanel" (str "sheet-tab-" tab))
+            [:div (tab-panel-attrs (str "sheet-tabpanel-" (sheet-tab-scope id))
+                                  (str "sheet-tab-" (sheet-tab-scope id) "-" tab))
              [error-boundary
               (fn [error stack retry] [feature-render-error (s/capitalize tab) id error stack retry])
               [(-> tab details-tabs :view) num-columns id]]]]]
