@@ -747,7 +747,7 @@ _character-heals · character heals_
 
 _character-image-routes · character image routes_
 
-**topics:** 393, acao, advice, bearing, browser, clipboard, cross-origin, curl, host, hosts, image, picture, pinterest, proxy, server, thumbnail, url, urls
+**topics:** 393, acao, advice, bearing, browser, clipboard, curl, egress, host, hosts, image, picture, pinterest, proxy, server, thumbnail, url, urls
 
 - The rule that decides everything
 - Measured, with real URLs
@@ -3081,7 +3081,7 @@ _plan-669-merge-verification · plan 669 merge verification_
 
 _plan-browser-toolbox · plan browser toolbox_
 
-**topics:** 2026-11-26, 2026-11-27, accessible, census, codex, journey, page-load-budget, preconditions, recipes, role, roving, screen, selector, suite, suites, tabs, toolbox, viewport
+**topics:** 2026-11-26, 2026-11-27, accessible, census, codex, failed, journey, page-load-budget, preconditions, recipes, role, roving, selector, suite, suites, tabs, toolbox, viewport
 
 - The problem, measured
 - What it is

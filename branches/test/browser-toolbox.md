@@ -26,7 +26,9 @@ the plan.
     against the APG tabs pattern; fail-first (break the arrow-key hunk and the roving-tabindex hunk
     of `800314c25` by hand, see the tests fail, restore); commit the tests; then once: `fig:build` +
     cljs suite, full lint + ratchet, run.sh on `tabs_keyboard_e2e.js`, `weapons_table_e2e.js`,
-    `spell_table_e2e.js`, `rest_fab_e2e.js`; push. Then 6 (descriptors and census), 7 (recipes, fixtures),
+    `spell_table_e2e.js`, `rest_fab_e2e.js`; push.
+- Then step 4b (the fourth review's fixes, listed in the plan), in the same chat if budget allows;
+  it touches `toolbox.js`, `toolbox_test.js` and `weapons_table_e2e.js`, so not alongside step 5's edits. Then 6 (descriptors and census), 7 (recipes, fixtures),
   8 (more places), 9 (KB page, README, `agent-setup.sh` pointer: that push needs the owner's yes).
 
 ## Owner decisions

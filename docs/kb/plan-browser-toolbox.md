@@ -134,6 +134,19 @@ the owner says.
    which nothing built, so on a fresh checkout they timed out on an empty page (found on the DMV
    pre-merge, 2026-11-27). It builds the script when missing or stale, and fails with a reason when
    it cannot.
+4b. Fourth review's fixes (checked against `b937cb159`, 2026-11-27):
+   - diagnostics count: a console error, page error or same-origin failed request is a failed
+     check, not only printed when another check failed; cross-origin transport failures are not
+     recorded;
+   - `attempt` and `must` take a function, not a promise, so an error thrown while building the
+     action is recorded too;
+   - steps later checks depend on use `must` (`eightRows`, the Javelin setup, the phone journey's
+     first Weapons section);
+   - queries that turn a failure into a value (`.catch(() => null)`) keep the error text in the
+     check's detail;
+   - `run.sh` fails when an extern listed in `ledger.cljs.edn` is missing.
+   Not taken: its "toolbox.js does not export `must`" came from a cached older copy; `find -newer`
+   missing an edit with an older timestamp is how every timestamp build behaves.
 5. The full tabs pattern: roving `tabindex`, Left/Right/Home/End, `aria-controls` and
    `role=tabpanel`.
 6. Place descriptors: each entry carries its locator, route, preconditions and expected count.
