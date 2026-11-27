@@ -126,10 +126,45 @@ expect('the What\'s New id comes from the app', /^[a-z0-9-]+$/.test(currentWhats
   expect('watchPage keeps page errors', col.pageErrors.join() === 'oops');
   expect('watchPage keeps failed requests and same-origin 4xx/5xx only',
          col.failedRequests.length === 2 && /POST http:\/\/h\/x failed: net::ERR/.test(col.failedRequests[0]) && /missing -> 404/.test(col.failedRequests[1]));
-  const okRun = capture(() => { const c = checker(); const w = c.watch({ on: (ev, fn) => { if (ev === 'pageerror') fn({ message: 'late' }); } }, 'pg'); c.check('fine', true); c.finish(); });
-  expect('finish prints no diagnostics when every check passed', !okRun.some(l => l.startsWith('Diagnostics')));
-  const badRun = capture(() => { const c = checker(); c.watch({ on: (ev, fn) => { if (ev === 'pageerror') fn({ message: 'late' }); } }, 'pg'); c.check('broken', false); c.finish(); });
-  expect('finish prints the diagnostics when a check failed', badRun.includes('Diagnostics for pg (1):') && badRun.includes('  page error: late'));
+  // cross-origin transport failures are not recorded; same-origin ones are
+  const h2 = {};
+  const col2 = watchPage({ on: (ev, fn) => { h2[ev] = fn; } }, 'x', 'http://h');
+  h2.requestfailed({ method: () => 'GET', url: () => 'https://fonts.example.com/f.woff', failure: () => ({ errorText: 'net::ERR_BLOCKED' }) });
+  expect('watchPage ignores a cross-origin requestfailed', col2.failedRequests.length === 0);
+  h2.requestfailed({ method: () => 'GET', url: () => 'http://h/a.js', failure: () => ({ errorText: 'net::ERR_FAILED' }) });
+  expect('watchPage keeps a same-origin requestfailed', col2.failedRequests.length === 1);
+
+  // diagnostics count as failed checks, one per page with findings, and change the exit code
+  const diagCases = [
+    ['a page error', 'pageerror', { message: 'late' }, 1],
+    ['a console error', 'console', { type: () => 'error', text: () => 'bad' }, 1],
+    ['a same-origin 404', 'response', { status: () => 404, url: () => 'http://localhost:8890/x', request: () => ({ method: () => 'GET' }) }, 1],
+    ['a cross-origin 404', 'response', { status: () => 404, url: () => 'http://elsewhere/x', request: () => ({ method: () => 'GET' }) }, 0],
+    ['a console log', 'console', { type: () => 'log', text: () => 'fine' }, 0],
+  ];
+  for (const [what, ev, arg, wantFailed] of diagCases) {
+    const code = [], c = checker();
+    const out2 = capture(() => {
+      c.watch({ on: (e, fn) => { if (e === ev) fn(arg); } }, 'pg');
+      c.check('fine', true);
+      code.push(c.finish());
+    });
+    const diag = c.results.filter(r => /^diagnostics: pg has 1 /.test(r.name) && !r.pass).length;
+    expect(`${what} on a watched page ${wantFailed ? 'is' : 'is not'} a failed check`, diag === wantFailed);
+    expect(`${what} sets exit ${wantFailed}`, code[0] === wantFailed);
+    expect(`${what} ${wantFailed ? 'prints' : 'does not print'} its detail`, out2.some(l => l.startsWith('Diagnostics for pg')) === !!wantFailed);
+    if (wantFailed) expect(`${what} is counted in the summary`, out2.includes('\n1/2 checks passed'));
+  }
+  const quiet = checker();
+  quiet.watch({ on: () => {} }, 'pg');
+  const twoPages = [];
+  capture(() => {
+    const c = checker();
+    c.watch({ on: (e, fn) => { if (e === 'pageerror') fn({ message: 'a' }); } }, 'one');
+    c.watch({ on: (e, fn) => { if (e === 'pageerror') fn({ message: 'b' }); } }, 'two');
+    c.finish(); twoPages.push(c.results.filter(r => /^diagnostics/.test(r.name)).length);
+  });
+  expect('each watched page with findings adds its own failed check', twoPages[0] === 2);
 
   console.log(`toolbox_test: ${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
