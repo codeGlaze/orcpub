@@ -24,7 +24,7 @@ const tabState = list => list.getByRole('tab').evaluateAll(els => els.map(e => (
   focused: document.activeElement === e })));
 
 // Checks one tablist: roving tabindex, arrows, Home, End, wrap, and the panel's labelling.
-async function tablistChecks(page, label, list, panelSel, first, second, last) {
+async function tablistChecks(page, label, list, listSel, panelSel, first, second, last) {
   const st = await tabState(list);
   const sel = st.filter(t => t.sel);
   check(`${label}: exactly one tab has tabindex 0, the selected one, the rest -1`,
@@ -39,6 +39,10 @@ async function tablistChecks(page, label, list, panelSel, first, second, last) {
   check(`${label}: the panel is a tabpanel labelled by the selected tab, which controls it`, await labelled());
   const press = async (key, name) => {
     await page.keyboard.press(key);
+    // The selection is a re-frame event applied on the next frame: wait for it to land.
+    await attempt(`${label}: ${key} selects "${name}"`, page.waitForFunction(
+      ([sel, n]) => { const e = document.querySelector(`${sel} [role=tab][aria-selected=true]`); return e && e.getAttribute('aria-label') === n; },
+      [listSel, name], { timeout: 3000 }));
     const t = await tabState(list);
     const s = t.find(x => x.sel);
     check(`${label}: ${key} focuses and selects "${name}"`,
@@ -71,10 +75,12 @@ const duplicateIds = page => page.evaluate(() => {
   await must('see the builder tabs', builder.tab(page, 'Options').waitFor({ timeout: 60000 }));
 
   await tablistChecks(page, 'builder', page.getByRole('tablist', { name: 'Builder sections' }),
+                      '[role=tablist][aria-label="Builder sections"]',
                       '#builder-tabpanel', 'Options', 'Description', 'Details');
   await must('open the builder\'s Details tab', builder.tab(page, 'Details').click({ timeout: 20000 }));
   await must('see the sheet tabs', sheetTabs.sectionTab(page, 'Combat').waitFor({ timeout: 20000 }));
   await tablistChecks(page, 'sheet', page.getByRole('tablist', { name: 'Character sheet sections' }),
+                      '[role=tablist][aria-label="Character sheet sections"]',
                       '[role=tabpanel][id^=sheet-tabpanel-]', 'Summary', 'Combat', 'Equipment');
 
   const dups = await duplicateIds(page);
