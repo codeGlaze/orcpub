@@ -298,15 +298,45 @@
         (is (= "tab" (:role a)))
         (is (= state (:aria-selected a)) (pr-str selected?))
         (is (= "Combat" (:aria-label a)))
-        (is (= 0 (:tabIndex a))))))
+        (is (= (if selected? 0 -1) (:tabIndex a)) "roving tabindex: only the selected tab is in the Tab order"))))
   (testing "Enter and Space call the handler and stop the page scrolling; other keys do not"
     (doseq [[k calls] [["Enter" 1] [" " 1] ["a" 0] ["Tab" 0] ["Escape" 0]]]
       (let [handled (atom 0)
             prevented (atom 0)
             a (views/tab-attrs true "Details" (fn [_] (swap! handled inc)))]
-        ((:on-key-down a) #js {:key k :preventDefault #(swap! prevented inc)})
+        ((:on-key-down a) #js {:key k :preventDefault #(swap! prevented inc)
+                               :currentTarget #js {:closest (fn [_] nil)}})
         (is (= calls @handled) (str "handler calls for " (pr-str k)))
         (is (= calls @prevented) (str "preventDefault calls for " (pr-str k)))))))
+
+(deftest tab-key-target-moves-between-tabs
+  (testing "n tabs, index i, key: the index moved to, or nil"
+    (doseq [[n i k want] [[4 0 "ArrowRight" 1] [4 3 "ArrowRight" 0]
+                          [4 1 "ArrowLeft" 0] [4 0 "ArrowLeft" 3]
+                          [4 2 "Home" 0] [4 0 "End" 3] [1 0 "ArrowRight" 0]
+                          [4 1 "ArrowDown" nil] [4 1 "a" nil] [4 1 "Tab" nil] [4 1 "Escape" nil]
+                          [0 0 "ArrowRight" nil]]]
+      (is (= want (views/tab-key-target n i k)) (pr-str [n i k])))))
+
+(deftest sheet-tab-scope-ids
+  (is (= "new" (views/sheet-tab-scope nil)))
+  (is (= "17592186045418" (views/sheet-tab-scope 17592186045418)))
+  (is (= "abc" (views/sheet-tab-scope "abc"))))
+
+(deftest tab-attrs-ids-and-controls
+  (testing "with ids, the selected tab controls the one rendered panel; others name no panel"
+    (let [on (views/tab-attrs true "Combat" (fn [_]) {:id "sheet-tab-combat" :panel-id "sheet-tabpanel"})
+          off (views/tab-attrs false "Spells" (fn [_]) {:id "sheet-tab-spells" :panel-id "sheet-tabpanel"})]
+      (is (= "sheet-tab-combat" (:id on)))
+      (is (= "sheet-tabpanel" (:aria-controls on)))
+      (is (= "sheet-tab-spells" (:id off)))
+      (is (not (contains? off :aria-controls)))))
+  (testing "without ids, neither is added"
+    (let [a (views/tab-attrs true "Combat" (fn [_]))]
+      (is (not (contains? a :id)))
+      (is (not (contains? a :aria-controls)))))
+  (testing "the panel is a tabpanel labelled by the selected tab"
+    (is (= {:role "tabpanel" :id "p" :aria-labelledby "t"} (views/tab-panel-attrs "p" "t")))))
 
 (deftest typed-hit-points
   (testing "a whole number is taken, 0 included"
