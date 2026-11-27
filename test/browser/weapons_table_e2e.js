@@ -28,7 +28,7 @@
 // Runs in:   ~30s. SHOT_DIR=<dir> saves weapons-dark.png, weapons-light.png and weapons-plus-menu.png.
 const { chromium } = require('playwright');
 const { findChrome } = require('./lib/find-chrome');
-const { BASE, checker, phoneContext, quietOverlays } = require('./lib/toolbox');
+const { SetupFailed, BASE, checker, phoneContext, quietOverlays } = require('./lib/toolbox');
 const builder = require('./places/builder');
 const sheetTabs = require('./places/sheet');
 const settings = require('./places/settings');
@@ -36,13 +36,7 @@ const weapons = require('./places/weapons');
 const W = weapons.parts;
 const SHOT_DIR = process.env.SHOT_DIR;
 
-const { check, finish } = checker();
-
-// Awaits `action` (a Playwright call on a place); when it throws, records a failed check naming
-// `what` instead of passing silently.
-const attempt = async (what, action) => {
-  try { await action; } catch (e) { check(`could not ${what}`, false, String(e.message).split('\n')[0]); }
-};
+const { check, attempt, must, finish } = checker();
 
 // Puts a level 1 wizard carrying the test weapons into the builder, and a Shield when `shield`.
 const load = (page, shield) => page.evaluate(shield => {
@@ -136,8 +130,8 @@ async function layout(page, theme) {
                              null, { timeout: 60000 });
   await load(page);
   // a phone shows the sheet under the Details tab, its sections behind icon tabs
-  await attempt('open the builder\'s Details tab', builder.tab(page, 'Details').click({ timeout: 20000 }));
-  await attempt('open the sheet\'s Combat tab', sheetTabs.sectionTab(page, 'Combat').click({ timeout: 20000 }));
+  await must('open the builder\'s Details tab', builder.tab(page, 'Details').click({ timeout: 20000 }));
+  await must('open the sheet\'s Combat tab', sheetTabs.sectionTab(page, 'Combat').click({ timeout: 20000 }));
   const section = weapons.section(page);
   if (!await section.waitFor({ timeout: 20000 }).then(() => true, () => false)) {
     check('the Combat tab shows the Weapons table', false, 'no .weapons-section');
@@ -354,7 +348,7 @@ async function layout(page, theme) {
   await dp.goto(`${BASE}/pages/dnd/5e/character-builder`, { waitUntil: 'domcontentloaded' });
   await dp.waitForFunction(() => { try { return !!re_frame.core.dispatch_sync; } catch (e) { return false; } }, null, { timeout: 60000 });
   await load(dp, false);
-  await attempt('open the desktop sheet\'s Combat tab', sheetTabs.sectionTab(dp, 'Combat').click({ timeout: 10000 }));
+  await must('open the desktop sheet\'s Combat tab', sheetTabs.sectionTab(dp, 'Combat').click({ timeout: 10000 }));
   const dsec = dp.locator(W.sectionDesktop).filter({ visible: true }).first();
   if (await dsec.waitFor({ timeout: 20000 }).then(() => true, () => false)) {
     check('desktop: one row per weapon', await eightRows(dsec) && await dsec.locator(W.row).count() === 8,
@@ -397,4 +391,7 @@ async function layout(page, theme) {
 
   await browser.close();
   process.exit(finish());
-})().catch(e => { console.error(e); process.exit(2); });
+})().catch(e => {
+  if (e instanceof SetupFailed) { console.log('STOP  ' + e.message); process.exit(finish()); }
+  console.error(e); process.exit(2);
+});

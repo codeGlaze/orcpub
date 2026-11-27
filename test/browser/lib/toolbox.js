@@ -16,11 +16,18 @@ const PHONE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWe
  */
 const APP_BUNDLE = url => url.pathname === '/js/compiled/orcpub.js';
 
+/** Thrown by `must` after it records the failed step: ends a journey whose setup did not happen. */
+class SetupFailed extends Error {}
+
 /**
  * Makes a checker: `check(name, pass, detail)` records and prints one PASS or FAIL line;
+ * `attempt(what, action)` awaits `action` and, when it throws, records a failed check "could not
+ * <what>" and carries on (returns whether it worked); `must(what, action)` does the same but then
+ * throws SetupFailed, so a journey whose setup failed ends instead of checking the wrong state;
  * `finish()` prints the "n/m checks passed" line run.sh reads and returns the exit code
  * (1 when any check failed, else 0).
- * @returns {{check: function(string, boolean, string=): void, results: Array, finish: function(): number}}
+ * @returns {{check: function(string, boolean, string=): void, attempt: function(string, Promise): Promise<boolean>,
+ *            must: function(string, Promise): Promise<void>, results: Array, finish: function(): number}}
  */
 function checker() {
   const results = [];
@@ -28,12 +35,21 @@ function checker() {
     results.push({ name, pass, detail });
     console.log((pass ? 'PASS  ' : 'FAIL  ') + name + (detail ? '   [' + detail + ']' : ''));
   };
+  const attempt = async (what, action) => {
+    try { await action; return true; } catch (e) {
+      check(`could not ${what}`, false, String(e.message).split('\n')[0]);
+      return false;
+    }
+  };
+  const must = async (what, action) => {
+    if (!await attempt(what, action)) throw new SetupFailed(`setup failed: could not ${what}`);
+  };
   const finish = () => {
     const failed = results.filter(r => !r.pass).length;
     console.log(`\n${results.length - failed}/${results.length} checks passed`);
     return failed ? 1 : 0;
   };
-  return { check, results, finish };
+  return { check, attempt, must, results, finish };
 }
 
 /**
@@ -81,4 +97,4 @@ const quietOverlays = ctx => ctx.addInitScript(id => {
   } catch (e) {}
 }, currentWhatsNewId());
 
-module.exports = { BASE, APP_BUNDLE, escapeRegExp, checker, phoneContext, quietOverlays, currentWhatsNewId };
+module.exports = { SetupFailed, BASE, APP_BUNDLE, escapeRegExp, checker, phoneContext, quietOverlays, currentWhatsNewId };
