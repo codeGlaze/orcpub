@@ -6,7 +6,12 @@ draft's stored choices for its owner, with Remove, Undo, Save and Copy for suppo
 version check that refuses a save made from an older copy. **Base:** `integration`.
 **PR into:** `integration`, when the owner says. **KB:** `docs/kb/character-rescue.md`, on agents/develop since 2026-11-26.
 
-## State (updated 2026-11-25)
+## State (updated 2026-11-27)
+
+- **Merged 2026-11-27:** PR #99 into `integration` (`69edbbc27`), changelog folded into the Long Rest
+  Update, CI and heavy Docker green, all 7 CodeRabbit threads answered. On the DMV pre-merge
+  (Gitea PR #10) the same day, `10be4dc5d`. Left for later: the Data View drafts picker (owner, 2026-11-25).
+
 
 - Done: Data View and its entry points, the support email's repair link, the version check (409 on
   a stale save), unreadable drafts kept, the redesign. `integration` merged in on 2026-11-25

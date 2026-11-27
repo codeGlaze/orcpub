@@ -70,8 +70,10 @@ else here carries live state.*
     places, and save-proficiency grants).
   - Merged 2026-10-26: #75 `feature/email-and-alerts` (email outbox, admin alerts, crash
     evidence, the startup report and email; brings the heavy Docker checks to `integration`).
-  - Active, no PR yet: `feature/character-rescue` (Data View and the server's version check;
-    handoff in `branches/`), `feature/inventory-kits` (the `inventory` namespace and the Kits panel,
+  - Merged 2026-11-27: #99 `feature/character-rescue` (Data View, the server's version check, #295;
+    merge `69edbbc27`). Not on the dev site until a release PR takes `integration` into `develop`.
+  - Active, no PR yet: `test/browser-toolbox` ([plan-browser-toolbox.md](docs/kb/plan-browser-toolbox.md)),
+    `feature/inventory-kits` (the `inventory` namespace and the Kits panel,
     [`plan-inventory-kits.md`](docs/kb/plan-inventory-kits.md)), `feature/srd-pipeline`.
     (`feature/guarded-homebrew` is fully in `integration`; its remote branch was deleted 2026-11-09.)
 

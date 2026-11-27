@@ -130,6 +130,10 @@ the owner says.
    so failed setup ends the journey; no swallowed waits (`.catch(() => {})` becomes a check);
    `quietOverlays` reports its errors; the toolbox collects console errors and failed requests
    and prints them with a failure.
+   `run.sh` also learns `Needs: ledger`: the Data View suites need `ledger.js` (`lein cljs:ledger`),
+   which nothing built, so on a fresh checkout they timed out on an empty page (found on the DMV
+   pre-merge, 2026-11-27). It builds the script when missing or stale, and fails with a reason when
+   it cannot.
 5. The full tabs pattern: roving `tabindex`, Left/Right/Home/End, `aria-controls` and
    `role=tabpanel`.
 6. Place descriptors: each entry carries its locator, route, preconditions and expected count.
