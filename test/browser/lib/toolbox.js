@@ -86,7 +86,8 @@ function currentWhatsNewId() {
 
 /**
  * Stamps the cookie bar and the current What's New release as seen before any page loads, so
- * neither overlay covers a control. Call before the first page.goto.
+ * neither overlay covers a control. Call before the first page.goto. When the page blocks storage,
+ * the init script logs a console warning (collected by `watchPage`) instead of failing silently.
  * @param {import('playwright').BrowserContext} ctx
  * @returns {Promise<void>}
  */
@@ -94,7 +95,9 @@ const quietOverlays = ctx => ctx.addInitScript(id => {
   try {
     localStorage.setItem('orcpub:no-cookie-banner', '1');
     localStorage.setItem('whats-new-seen', JSON.stringify(id));
-  } catch (e) {}
+  } catch (e) {
+    console.warn('toolbox: could not stamp the cookie bar and What\'s New as seen (' + e + '), so an overlay may cover a control');
+  }
 }, currentWhatsNewId());
 
 module.exports = { SetupFailed, BASE, APP_BUNDLE, escapeRegExp, checker, phoneContext, quietOverlays, currentWhatsNewId };
