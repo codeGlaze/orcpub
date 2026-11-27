@@ -149,6 +149,26 @@ the owner says.
    missing an edit with an older timestamp is how every timestamp build behaves.
 5. The full tabs pattern: roving `tabindex`, Left/Right/Home/End, `aria-controls` and
    `role=tabpanel`.
+5b. The tab and switch helpers move to `orcpub.components` (`src/cljc/orcpub/components.cljc`),
+   and `tab-attrs` reuses its `press-to-click` instead of a second Space/Enter handler.
+5c. Shared controls, merged here because the place map locates these controls (owner, 2026-11-27:
+   "on the toolbox branch bc it might have knock-on effects for the toolbox"). The audit and its
+   numbers: [monolith-decomposition-plan.md](monolith-decomposition-plan.md), "Shared controls and
+   duplicates". One commit per item, checked before the next; each item's browser check is the
+   suites that touch that control.
+   1. One checkbox: `components/labeled-checkbox` (keyboard use) replaces `builder_fields`'
+      mouse-only copy at its 17 callers. Players gain keyboard use of those checkboxes.
+   2. One `checkbox-grid` plus a data table replaces the 19 checkbox-grid functions in `views.cljs`
+      (about 250 lines).
+   3. One caret: `comps/caret` (or an `expand-button` option) for the about 30 hand-written caret
+      icons; the chevron and angle variants become options.
+   4. The 13 `*-input-field` wrappers become one function plus an event table, moved with
+      `builder-input-field` and `builder-field-cue` to `views/builder_fields.cljs`.
+   5. Small merges: `event-value` in components, used at about 50 sites; one Space/Enter helper
+      and one `on-enter` helper for the inline copies; the two What's New pills become one;
+      `svg-icon-2` uses `themed-icon`; the dead `default-input-style` and `validation-messages` go.
+   6. Later, after a closer look: one dropdown (`builder_fields/dropdown` with options) and a shared
+      modal.
 6. Place descriptors: each entry carries its locator, route, preconditions and expected count.
    The census checks the mapped places and says which kind of failure it saw: missing, wrong count,
    hidden, covered, or setup failed. It is seen failing on a scratch rename.

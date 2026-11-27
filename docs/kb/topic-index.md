@@ -3087,7 +3087,7 @@ _plan-669-merge-verification · plan 669 merge verification_
 
 _plan-browser-toolbox · plan browser toolbox_
 
-**topics:** 2026-11-26, 2026-11-27, accessible, census, codex, failed, journey, page-load-budget, preconditions, recipes, role, roving, selector, suite, suites, tabs, toolbox, viewport
+**topics:** 2026-11-26, 2026-11-27, accessible, census, codex, controls, failed, journey, keyboard, players, preconditions, recipes, selector, suite, suites, tabs, toolbox, viewport
 
 - The problem, measured
 - What it is
