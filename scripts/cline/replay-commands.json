@@ -1,0 +1,710 @@
+[
+ {
+  "id": 0,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "git fetch --prune origin 2>&1 | tail -20",
+  "expect": "run"
+ },
+ {
+  "id": 1,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "git branch -r | grep -i \"agents/develop\"; echo \"---\"; git worktree list 2>/dev/null; echo \"---\"; git ls-remote origin agents/develop 2>/dev/null",
+  "expect": "run"
+ },
+ {
+  "id": 2,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && find . -iname \"*start-here*\" -not -path \"./.git/*\" 2>/dev/null; echo \"---\"; git log --oneline -3",
+  "expect": "run"
+ },
+ {
+  "id": 3,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && ls -la && echo \"---CLAUDE---\" && cat CLAUDE.md 2>/dev/null | head -100",
+  "expect": "run"
+ },
+ {
+  "id": 4,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && ls -la branches/ && echo \"---TEMPLATE---\" && cat branches/TEMPLATE.md 2>/dev/null && echo \"---README---\" && cat branches/README.md 2>/dev/null",
+  "expect": "run"
+ },
+ {
+  "id": 5,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && find .claude .githooks -type f | sort && echo \"===SETTINGS===\" && cat .claude/settings.json 2>/dev/null",
+  "expect": "run"
+ },
+ {
+  "id": 6,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && for d in branches/*/; do echo \"== $d ==\"; ls \"$d\"; done",
+  "expect": "ask:parse: unquoted glob"
+ },
+ {
+  "id": 7,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && git show origin/agents/develop:docs/kb/agent-hooks.md 2>/dev/null | head -70; echo \"===CLINE REFS===\"; grep -ril \"cline\" . --exclude-dir=.git 2>/dev/null | head; echo \"===MAIN HANDOFF===\"; git show origin/agents/develop:branches/refactor/main.md 2>/dev/null | head -40",
+  "expect": "run"
+ },
+ {
+  "id": 8,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && git status --short --branch; echo \"---CLINE DOTFILES---\"; ls -a | grep -i cline; cd /home/user/projects/orcpub && ls -a | grep -i cline; echo \"---\"; ls .claude 2>/dev/null",
+  "expect": "run"
+ },
+ {
+  "id": 9,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && echo \"=== agent-harnesses.md ===\" && ls docs/kb/agent-harnesses.md 2>/dev/null || echo \"NOT FOUND\"; echo \"=== clj-grep.py ===\" && ls scripts/clj-grep.py 2>/dev/null || echo \"NOT FOUND\"; echo \"=== .devcontainer on agents/develop ===\" && ls -d .devcontainer 2>/dev/null && cat .devcontainer/devcontainer.json 2>/dev/null | head -30 || echo \"NOT FOUND\"; echo \"=== pre-commit guard ===\" && grep -n \"CLAUDE.md\\|AGENTS.md\\|BRANCH.md\\|\\.claude\\|\\.clinerules\" .githooks/pre-commit",
+  "expect": "run"
+ },
+ {
+  "id": 10,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub && echo \"=== .devcontainer on code branch ===\" && ls -d .devcontainer 2>/dev/null || echo \"NOT FOUND on integration\"; echo \"=== .clinerules anywhere ===\" && find . -name \".clinerules\" -not -path \"./.git/*\" 2>/dev/null || echo \"NOT FOUND\"; echo \"=== docs/kb listing ===\" && ls docs/kb/ | head -40",
+  "expect": "run"
+ },
+ {
+  "id": 11,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && echo \"=== agent-harnesses.md ===\" && ls docs/kb/agent-harnesses.md 2>/dev/null && wc -l docs/kb/agent-harnesses.md || echo \"NOT FOUND\"; echo \"=== clj-grep.py ===\" && ls scripts/clj-grep.py 2>/dev/null && wc -l scripts/clj-grep.py || echo \"NOT FOUND\"; echo \"=== pre-commit guard ===\" && grep -n \"CLAUDE.md\\|AGENTS.md\\|BRANCH.md\\|\\.claude\\|\\.clinerules\" .githooks/pre-commit",
+  "expect": "run"
+ },
+ {
+  "id": 12,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && echo \"=== agent-harnesses.md ===\" && ls -la docs/kb/agent-harnesses.md 2>/dev/null || echo \"NOT FOUND\"; echo \"=== git status ===\" && git status --short --branch; echo \"=== check agent-harnesses in git ===\" && git ls-files docs/kb/agent-harnesses.md 2>/dev/null || echo \"NOT TRACKED\"",
+  "expect": "run"
+ },
+ {
+  "id": 13,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && echo \"=== copilot-instructions.md on agents/develop ===\" && ls -la .github/copilot-instructions.md 2>/dev/null && cat .github/copilot-instructions.md || echo \"NOT FOUND\"; echo \"=== copilot-instructions.md on integration ===\" && cd /home/user/projects/orcpub && ls -la .github/copilot-instructions.md 2>/dev/null || echo \"NOT FOUND on integration\"; echo \"=== agent-harnesses.md on agents/develop ===\" && cd /home/user/projects/orcpub-agents && ls -la docs/kb/agent-harnesses.md 2>/dev/null || echo \"NOT FOUND\"; echo \"=== git status agents/develop ===\" && git status --short --branch",
+  "expect": "run"
+ },
+ {
+  "id": 14,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && echo \"=== DOC-CONVENTIONS.md ===\" && ls docs/DOC-CONVENTIONS.md 2>/dev/null && grep -n \"import\\|depth\\|@\\|hop\" docs/DOC-CONVENTIONS.md 2>/dev/null | head -20 || echo \"NOT FOUND\"; echo \"=== docker-heavy.yml paths ===\" && grep -n \"paths:\" -A 20 .github/workflows/docker-heavy.yml 2>/dev/null | head -30 || echo \"NOT FOUND\"; echo \"=== current commit ===\" && git rev-parse HEAD",
+  "expect": "run"
+ },
+ {
+  "id": 15,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && ls -la .github/workflows/docker-heavy.yml 2>/dev/null || echo \"docker-heavy.yml NOT FOUND on agents/develop\"; echo \"---\"; grep -rn \"devcontainer\\|\\.devcontainer\" .github/workflows/ 2>/dev/null | head -10 || echo \"no devcontainer refs in workflows\"",
+  "expect": "run"
+ },
+ {
+  "id": 16,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && wc -l AGENTS.md BRANCH.md CLAUDE.md 2>/dev/null; echo \"---AGENTS.md line 35---\"; sed -n '35p' AGENTS.md; echo \"---CLAUDE.md first lines---\"; sed -n '1,5p' CLAUDE.md; echo \"---DOC-CONVENTIONS line 28---\"; sed -n '28p' docs/DOC-CONVENTIONS.md",
+  "expect": "run"
+ },
+ {
+  "id": 17,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && grep -n \"git fetch\" scripts/agent-setup.sh && echo \"---\" && grep -n \"Safe to re-run\" START-HERE.md && echo \"---\" && grep -n \"DANGLING\\|ORPHAN\\|MISSING\\|superset\" scripts/check-docs.sh | head -20",
+  "expect": "run"
+ },
+ {
+  "id": 18,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "echo hi",
+  "expect": "run"
+ },
+ {
+  "id": 19,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "ls -la test.txt 2>&1 || echo 'test.txt not found'",
+  "expect": "run"
+ },
+ {
+  "id": 20,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cat test.txt",
+  "expect": "run"
+ },
+ {
+  "id": 21,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "echo hi",
+  "expect": "run"
+ },
+ {
+  "id": 22,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "echo hi",
+  "expect": "run"
+ },
+ {
+  "id": 23,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "echo BLOCKME",
+  "expect": "run"
+ },
+ {
+  "id": 24,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "echo hi",
+  "expect": "run"
+ },
+ {
+  "id": 25,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub && git log --oneline -15 && git status --short",
+  "expect": "run"
+ },
+ {
+  "id": 26,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub && git log --format='%s' -20",
+  "expect": "run"
+ },
+ {
+  "id": 27,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub && git status --short --branch 2>/dev/null | head -20 && git remote -v 2>/dev/null",
+  "expect": "run"
+ },
+ {
+  "id": 28,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub && git fetch --prune origin 2>&1 | tail -5 && echo \"---REV-PARSE---\" && git rev-parse origin/agents/develop origin/integration && echo \"---DATES---\" && git log -1 --format='%h %ci %s' origin/agents/develop && git log -1 --format='%h %ci %s' origin/integration && echo \"---LS-REMOTE email---\" && git ls-remote origin | grep -i 'email-and-alerts' ; echo \"exit=$?\" && echo \"---REMOTE BRANCHES---\" && git branch -r | grep -iE 'email|agents/develop|integration$|develop$'",
+  "expect": "run"
+ },
+ {
+  "id": 29,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub && echo \"---LS-REMOTE email (expect empty)---\" ; git ls-remote origin | grep -i 'email-and-alerts' ; echo \"grep_exit=$?\" ; echo \"---integration date---\" ; git log -1 --format='%h %ci %s' origin/integration ; echo \"---agents/develop unchanged since 11-21?---\" ; git log origin/agents/develop --since=2026-11-21 --until=2026-11-24 --oneline ; echo \"---remote branches---\" ; git branch -r | grep -iE 'email|agents/develop|integration$|develop$'",
+  "expect": "run"
+ },
+ {
+  "id": 30,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub && mkdir -p /tmp/orcrev/ad /tmp/orcrev/int && git log origin/agents/develop --since=2026-11-21 --until=2026-11-24 --oneline; echo \"---BRANCHES---\"; git branch -r | grep -iE 'agents/develop|integration$|develop$'; echo \"---EXTRACT---\"; cd /tmp/orcrev/ad && for f in AGENTS.md CLAUDE.md BRANCH.md START-HERE.md scripts/agent-setup.sh scripts/check-docs.sh scripts/clj-grep.py scripts/fold-branch-changelog.sh scripts/srd/check-srd-data.py scripts/srd/open5e_records.py .claude/hooks/kb-audit-reminder.sh .claude/hooks/kb-doc-reminder.sh .claude/settings.json .claude/config.json .githooks/pre-commit docs/DOC-CONVENTIONS.md docs/GIT_WORKFLOW.md docs/TESTING.md docs/kb/README.md docs/kb/copilot-agents.md docs/kb/agent-hooks.md docs/kb/open5e-upstream-notes.md docs/kb/monolith-decomposition-plan.md docs/kb/tools/topic-index.sh docs/kb/tools/kb.py .github/copilot-instructions.md docs/branch-changelog.template.md .gitignore scripts/cline/orcpub-guard.js scripts/cline/command-allowlist.txt docs/kb/agent-harnesses.md; do out=ad_$(echo \"$f\" | tr '/' '_'); git show origin/agents/develop:\"$f\" > \"$out\" 2>/dev/null && echo \"OK $f\" || echo \"MISSING $f\"; done; cd /tmp/orcrev/int && for f in .gitignore .github/workflows/docker-heavy.yml; do out=int_$(echo \"$f\" | tr '/' '_'); git show origin/integration:\"$f\" > \"$out\" 2>/dev/null && echo \"OK int $f\" || echo \"MISSING int $f\"; done; cd /home/user/projects/orcpub && git show 3cb53584922c540432a0078fb91dc951ecb7f81b --stat > /tmp/orcrev/commit_3cb53584.txt 2>&1 && echo \"OK commit 3cb53584\" || echo \"MISSING commit 3cb53584\"; wc -l /tmp/orcrev/ad_AGENTS.md /tmp/orcrev/ad_CLAUDE.md /tmp/orcrev/ad_scripts_agent-setup.sh /tmp/orcrev/ad_scripts_check-docs.sh /tmp/orcrev/ad_docs_GIT_WORKFLOW.md /tmp/orcrev/ad_docs_TESTING.md /tmp/orcrev/ad_docs_kb_README.md /tmp/orcrev/ad_docs_DOC-CONVENTIONS.md",
+  "expect": "ask:parse: expansion"
+ },
+ {
+  "id": 31,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "echo \"SHELL_OK $(date +%s)\" && ls /tmp/orcrev/ad/ 2>/dev/null | head -40; echo \"---\"; ls /tmp/orcrev/int/ 2>/dev/null",
+  "expect": "ask:parse: expansion inside double quotes"
+ },
+ {
+  "id": 32,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /tmp/orcrev/ad && for f in AGENTS.md CLAUDE.md BRANCH.md START-HERE.md scripts/agent-setup.sh scripts/check-docs.sh scripts/clj-grep.py scripts/fold-branch-changelog.sh; do out=ad_$(echo \"$f\" | tr '/' '_'); if git show origin/agents/develop:\"$f\" > \"$out\" 2>/dev/null; then echo \"OK $f\"; else echo \"MISSING $f\"; fi; done; echo BATCH1_DONE",
+  "expect": "ask:parse: expansion"
+ },
+ {
+  "id": 33,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub && git --no-pager show origin/agents/develop:AGENTS.md | head -5; echo \"EXIT=$?\"; git --no-pager show origin/agents/develop --stat | head -5; echo \"EXIT2=$?\"",
+  "expect": "run"
+ },
+ {
+  "id": 34,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub && for f in AGENTS.md CLAUDE.md BRANCH.md START-HERE.md scripts/agent-setup.sh scripts/check-docs.sh scripts/clj-grep.py scripts/fold-branch-changelog.sh scripts/srd/check-srd-data.py scripts/srd/open5e_records.py .claude/hooks/kb-audit-reminder.sh .claude/hooks/kb-doc-reminder.sh .claude/settings.json .claude/config.json .githooks/pre-commit docs/DOC-CONVENTIONS.md docs/GIT_WORKFLOW.md docs/TESTING.md docs/kb/README.md docs/kb/copilot-agents.md docs/kb/agent-hooks.md docs/kb/open5e-upstream-notes.md docs/kb/monolith-decomposition-plan.md docs/kb/tools/topic-index.sh docs/kb/tools/kb.py .github/copilot-instructions.md docs/branch-changelog.template.md .gitignore scripts/cline/orcpub-guard.js scripts/cline/command-allowlist.txt docs/kb/agent-harnesses.md; do out=/tmp/orcrev/ad_$(echo \"$f\" | tr '/' '_'); if git --no-pager show origin/agents/develop:\"$f\" > \"$out\" 2>/dev/null; then echo \"OK $f\"; else echo \"MISSING $f\"; fi; done; echo BATCH_AD_DONE",
+  "expect": "ask:parse: expansion"
+ },
+ {
+  "id": 35,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub && for f in .gitignore .github/workflows/docker-heavy.yml; do out=/tmp/orcrev/int_$(echo \"$f\" | tr '/' '_'); if git --no-pager show origin/integration:\"$f\" > \"$out\" 2>/dev/null; then echo \"OK int $f\"; else echo \"MISSING int $f\"; fi; done; git --no-pager show 3cb53584922c540432a0078fb91dc951ecb7f81b --stat > /tmp/orcrev/commit_3cb53584.txt 2>&1; echo \"commit_exit=$?\"; echo DONE",
+  "expect": "ask:parse: expansion"
+ },
+ {
+  "id": 36,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "wc -l /tmp/orcrev/ad_AGENTS.md /tmp/orcrev/ad_CLAUDE.md /tmp/orcrev/ad_scripts_agent-setup.sh /tmp/orcrev/ad_scripts_check-docs.sh /tmp/orcrev/ad_docs_GIT_WORKFLOW.md /tmp/orcrev/ad_docs_TESTING.md /tmp/orcrev/ad_docs_kb_README.md /tmp/orcrev/ad_docs_DOC-CONVENTIONS.md /tmp/orcrev/ad_.claude_hooks_kb-audit-reminder.sh /tmp/orcrev/ad_.claude_hooks_kb-doc-reminder.sh /tmp/orcrev/int_.gitignore /tmp/orcrev/int_.github_workflows_docker-heavy.yml /tmp/orcrev/commit_3cb53584.txt",
+  "expect": "run"
+ },
+ {
+  "id": 37,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub && echo \"---config.json refs---\"; grep -rIl 'config.json' /tmp/orcrev/ 2>/dev/null; echo \"---ls-remote develop/main/HEAD---\"; git ls-remote origin | grep -E 'refs/heads/(develop|integration|main)$|refs/heads/agents/develop|HEAD' ; echo \"---kb.py head---\"; head -40 /tmp/orcrev/ad_docs_kb_tools_kb.py; echo \"---topic-index head---\"; head -30 /tmp/orcrev/ad_docs_kb_tools_topic-index.sh; echo \"---fold head---\"; head -20 /tmp/orcrev/ad_scripts_fold-branch-changelog.sh; echo \"---check-srd head---\"; head -20 /tmp/orcrev/ad_scripts_srd_check-srd-data.py; echo \"---open5e_records head---\"; head -20 /tmp/orcrev/ad_scripts_srd_open5e_records.py",
+  "expect": "run"
+ },
+ {
+  "id": 38,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub && echo \"---docs/kb file count (rejected item says 239)---\"; git ls-tree -r --name-only origin/agents/develop -- docs/kb/ | wc -l; echo \"---inbox already in kb/README?---\"; git show origin/agents/develop:docs/kb/README.md | grep -n 'inbox' ; echo \"inbox_grep_exit=$?\"; echo \"---agents.md at f732010?---\"; git show origin/agents/develop:agents.md >/dev/null 2>&1; echo \"agents.md_exit=$? (1=deleted)\"; echo \"---any .clinerules on agents/develop?---\"; git ls-tree -r --name-only origin/agents/develop | grep -i clinerules; echo \"clinerules_exit=$? (1=none)\"; echo \"---row0.patch refs in plan (informational)---\"; grep -n 'row0.patch' /home/user/projects/agent-harness-plan.md",
+  "expect": "run"
+ },
+ {
+  "id": 39,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub && git fetch --prune origin 2>&1 | tail -3; echo FETCH_DONE; git rev-parse origin/agents/develop",
+  "expect": "run"
+ },
+ {
+  "id": 40,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub && echo \"---views.cljs at integration 18a091a---\"; git --no-pager show origin/integration:views.cljs | wc -l; echo \"---views.cljs at agents/develop f732010---\"; git --no-pager show origin/agents/develop:views.cljs | wc -l; echo \"---skill-referenced KB pages exist?---\"; for f in docs/kb/auth-abuse-limits.md docs/kb/class-builder-extraction-plan.md docs/kb/monolith-decomposition-plan.md; do git --no-pager show origin/agents/develop:\"$f\" >/dev/null 2>&1 && echo \"EXISTS $f\" || echo \"MISSING $f\"; done; echo \"---GIT_WORKFLOW.md:174---\"; git --no-pager show origin/agents/develop:docs/GIT_WORKFLOW.md | sed -n '174p'",
+  "expect": "ask:parse: expansion inside double quotes"
+ },
+ {
+  "id": 41,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub && echo \"---locate views.cljs---\"; git ls-tree -r --name-only origin/integration | grep -i 'views.cljs'; echo \"---locate at agents/develop---\"; git ls-tree -r --name-only origin/agents/develop | grep -i 'views.cljs'; echo \"---counts---\"; for ref in origin/integration origin/agents/develop; do p=$(git ls-tree -r --name-only $ref | grep -i 'views.cljs' | head -1); echo \"$ref -> $p: $(git --no-pager show $ref:$p 2>/dev/null | wc -l)\"; done",
+  "expect": "ask:parse: expansion"
+ },
+ {
+  "id": 42,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub && git fetch --prune origin 2>&1 | tail -1; git rev-parse origin/agents/develop origin/integration; echo \"--- removed block line counts at f732010 ---\"; for spec in \"297 337\" \"361 368\" \"372 377\" \"384 392\" \"394 402\" \"409 421\"; do set -- $spec; n=$(git --no-pager show origin/agents/develop:AGENTS.md | sed -n \"${1},${2}p\" | wc -l); echo \"lines $1-$2: $n\"; done; echo \"--- tenets already present? ---\"; git --no-pager show origin/agents/develop:AGENTS.md | grep -in 'tenet' ; echo \"grep_exit=$?\"; echo \"--- skills dir exists at f732010? ---\"; git ls-tree origin/agents/develop --name-only .claude/ | head; echo \"--- check-docs.sh references skills? ---\"; git --no-pager show origin/agents/develop:scripts/check-docs.sh | grep -c 'skill' ; echo \"--- pre-push hook exists and content head ---\"; git --no-pager show origin/agents/develop:.githooks/pre-push 2>/dev/null | head -30; echo \"prepush_exit=$?\"",
+  "expect": "ask:parse: expansion"
+ },
+ {
+  "id": 43,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub && git fetch --prune origin && echo \"---ORIGIN/AGENTS/DEVELOP---\" && git rev-parse origin/agents/develop && echo \"---ORIGIN/INTEGRATION---\" && git rev-parse origin/integration && echo \"---HEAD---\" && git rev-parse HEAD && git branch --show-current && echo \"---STATUS---\" && git status --porcelain | head -20",
+  "expect": "run"
+ },
+ {
+  "id": 44,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub && echo \"===AGENTS.md headings===\" && git show origin/agents/develop:AGENTS.md | grep -n '^## ' && echo \"===lines 295,359,370,407===\" && git show origin/agents/develop:AGENTS.md | sed -n '295p;359p;370p;407p' && echo \"===check-docs.sh===\" && git show origin/agents/develop:scripts/check-docs.sh",
+  "expect": "run"
+ },
+ {
+  "id": 45,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub && git show origin/agents/develop:scripts/check-docs.sh > /tmp/check-docs.sh && wc -l /tmp/check-docs.sh && cat /tmp/check-docs.sh",
+  "expect": "run"
+ },
+ {
+  "id": 46,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub && echo \"===tree root entries===\" && git ls-tree origin/agents/develop -- .claude scripts .githooks docs .github && echo \"===claude sub===\" && git ls-tree origin/agents/develop -- .claude/ && echo \"===skills===\" && git ls-tree origin/agents/develop -- .claude/skills && echo \"===hooks===\" && git ls-tree origin/agents/develop -- .claude/hooks && echo \"===cline scripts===\" && git ls-tree origin/agents/develop -- scripts/cline && echo \"===agent-harnesses.md===\" && git ls-tree origin/agents/develop -- docs/kb/agent-harnesses.md docs/kb/copilot-agents.md && echo \"===copilot instructions===\" && git ls-tree origin/agents/develop -- .github/copilot-instructions.md && echo \"===config.json at f732010===\" && (git cat-file -e origin/agents/develop:.claude/config.json 2>/dev/null && echo EXISTS || echo MISSING) && echo \"===3cb53584 stat===\" && git show 3cb53584 --stat 2>/dev/null | head -8",
+  "expect": "ask:parse: grouping"
+ },
+ {
+  "id": 47,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub && echo \"===root docs===\" && git ls-tree origin/agents/develop -- CLAUDE.md START-HERE.md AGENTS.md BRANCH.md && echo \"===GIT_WORKFLOW 170-178===\" && git show origin/agents/develop:docs/GIT_WORKFLOW.md | sed -n '170,178p' && echo \"===views.cljs at integration===\" && git ls-tree -r origin/integration -- | grep -i 'views.cljs' && echo \"===kb count f732010===\" && git ls-tree -r origin/agents/develop -- docs/kb | wc -l && echo \"===expertise===\" && git ls-tree -r origin/agents/develop -- | grep -i expertise; echo \"===agent-setup 80-100===\" && git show origin/agents/develop:scripts/agent-setup.sh | sed -n '80,100p' && echo \"===workflows===\" && git ls-tree origin/agents/develop -- .github/workflows && git ls-tree origin/integration -- .github/workflows",
+  "expect": "run"
+ },
+ {
+  "id": 48,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub && echo \"===views.cljs lines at integration===\" && git show origin/integration:src/cljs/orcpub/dnd/e5/views.cljs | wc -l && echo \"===AGENTS.md total lines===\" && git show origin/agents/develop:AGENTS.md | wc -l && echo \"===range counts===\" && for r in \"297 337\" \"361 368\" \"372 377\" \"384 392\" \"394 402\" \"409 421\"; do set -- $r; echo -n \"$1-$2: \"; git show origin/agents/develop:AGENTS.md | sed -n \"${1},${2}p\" | wc -l; done && echo \"===boundaries===\" && git show origin/agents/develop:AGENTS.md | sed -n '296p;337p;360p;368p;371p;377p;383p;392p;393p;402p;408p;421p;422p' && echo \"===expertise-chats head===\" && git show origin/agents/develop:docs/kb/expertise-chats.md | head -30 && echo \"===nemotron in expertise===\" && git show origin/agents/develop:docs/kb/expertise-chats.md | grep -c -i nemotron",
+  "expect": "ask:parse: expansion"
+ },
+ {
+  "id": 49,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub && echo \"===kb files===\" && git ls-tree origin/agents/develop -- docs/kb/agent-harnesses.md docs/kb/README.md docs/kb/agent-hooks.md docs/kb/ux-guide.md docs/kb/homebrew-guard.md docs/kb/documentation-discipline.md && echo \"===claude hooks===\" && git ls-tree origin/agents/develop -- .claude/hooks && echo \"===model in expertise-chats===\" && git show origin/agents/develop:docs/kb/expertise-chats.md | grep -c -i model && echo \"===docker-heavy integration===\" && git ls-tree origin/integration -- .github/workflows && echo \"===start-here===\" && git show origin/agents/develop:START-HERE.md | head -5",
+  "expect": "run"
+ },
+ {
+  "id": 50,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub && echo \"===agent-harnesses anywhere===\" && git ls-tree -r origin/agents/develop -- | grep -i 'agent-harness' ; echo \"===model line in expertise===\" && git show origin/agents/develop:docs/kb/expertise-chats.md | grep -i -n model && echo \"===hooks files===\" && git ls-tree origin/agents/develop -- .claude/hooks/kb-audit-reminder.sh .claude/hooks/kb-doc-reminder.sh .claude/hooks/kb-audit.sh 2>/dev/null; echo \"===row0 in refs===\" && git log origin/agents/develop --oneline --all 2>/dev/null | head -5",
+  "expect": "run"
+ },
+ {
+  "id": 51,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub && git status --porcelain && git diff --stat HEAD | tail -3",
+  "expect": "run"
+ },
+ {
+  "id": 52,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "env | grep -i cline; echo \"exit=$?\"",
+  "expect": "ask:not listed: env"
+ },
+ {
+  "id": 53,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "ls -la /home/user/projects/ 2>/dev/null; echo \"---\"; ls -la /home/user/projects/orcpub-agents 2>/dev/null | head -30",
+  "expect": "run"
+ },
+ {
+  "id": 54,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents 2>/dev/null && git fetch --prune origin && echo \"FETCH_OK\" || echo \"FETCH_FAILED_OR_NO_REPO\"",
+  "expect": "ask:git fetch --prune outside the session folder"
+ },
+ {
+  "id": 55,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && git diff e2bdd68fb..3b484425f -- . ':!docs/kb/topic-index.md'",
+  "expect": "run"
+ },
+ {
+  "id": 56,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && grep -n \"### Row 1\" agent-harness-plan.md",
+  "expect": "run"
+ },
+ {
+  "id": 57,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && grep -n \"Row 1\" agent-harness-plan.md | head -20",
+  "expect": "run"
+ },
+ {
+  "id": 58,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && git rev-parse origin/agents/develop origin/integration 2>/dev/null; echo \"---is diff process done?---\"; jobs 2>/dev/null; ps aux 2>/dev/null | grep -c \"git diff\" || true",
+  "expect": "ask:not listed: jobs"
+ },
+ {
+  "id": 59,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && echo \"=== commit e2bdd68fb ===\"; git cat-file -t e2bdd68fb 2>&1; echo \"=== commit 3b484425f ===\"; git cat-file -t 3b484425f 2>&1; echo \"=== HEAD ===\"; git rev-parse HEAD; echo \"=== branch ===\"; git branch --show-current",
+  "expect": "run"
+ },
+ {
+  "id": 60,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && wc -l docs/kb/agent-harnesses.md && grep -n \"Cline in VS Code, tested\\|## Models\\|Copilot\\|START-HERE\\|copilot\" docs/kb/agent-harnesses.md",
+  "expect": "run"
+ },
+ {
+  "id": 61,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && (git diff e2bdd68fb..3b484425f -- . ':!docs/kb/topic-index.md' > /tmp/row1.diff 2>&1; echo \"DIFF_EXIT=$?\"; wc -l /tmp/row1.diff) &\nsleep 60; echo \"---LOG---\"; cat /tmp/row1.diff 2>/dev/null | head -100; echo \"===CHECK PROC===\"; ps aux | grep -c \"[g]it diff\" || true",
+  "expect": "ask:parse: grouping"
+ },
+ {
+  "id": 62,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && echo \"=== Heavy Docker section in GIT_WORKFLOW.md ===\" && grep -n \"Heavy Docker\\|#75\\|#32\\|2026-10-26\\|2026-11-05\\|docker-heavy.yml\" docs/GIT_WORKFLOW.md && echo \"=== BRANCH.md lines 22, 72 ===\" && sed -n '22p;72p' BRANCH.md && echo \"=== git log integration dates ===\" && git log origin/integration --oneline | head -5 && echo \"=== git log agents/develop dates ===\" && git log origin/agents/develop --oneline | head -5",
+  "expect": "run"
+ },
+ {
+  "id": 63,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && echo \"=== #75 on origin/integration ===\" && git log origin/integration --grep=\"#75\" --format=\"%h %ad %s\" --date=short; echo \"=== #32 on origin/develop ===\" && git log origin/develop --grep=\"#32\" --format=\"%h %ad %s\" --date=short; echo \"=== #32 on origin/integration ===\" && git log origin/integration --grep=\"#32\" --format=\"%h %ad %s\" --date=short; echo \"=== #75 on origin/develop ===\" && git log origin/develop --grep=\"#75\" --format=\"%h %ad %s\" --date=short",
+  "expect": "run"
+ },
+ {
+  "id": 64,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && git log origin/integration --grep=\"#75\" --format=\"%h %ad %s\" --date=short > /tmp/g75.txt 2>&1; git log origin/develop --grep=\"#32\" --format=\"%h %ad %s\" --date=short > /tmp/g32.txt 2>&1; git log origin/integration --grep=\"#32\" --format=\"%h %ad %s\" --date=short > /tmp/g75i.txt 2>&1; echo DONE; wc -l /tmp/g75.txt /tmp/g32.txt /tmp/g75i.txt",
+  "expect": "run"
+ },
+ {
+  "id": 65,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/ && sed -n '800,957p' agent-harness-plan.md",
+  "expect": "run"
+ },
+ {
+  "id": 66,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && git rev-parse origin/agents/develop origin/integration && git log origin/integration --grep=\"#75\" --format=\"%h %ad %s\" --date=short && git log origin/develop --grep=\"#32\" --format=\"%h %ad %s\" --date=short | head -1",
+  "expect": "run"
+ },
+ {
+  "id": 67,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cat > /tmp/findings.json << 'JSON_EOF'\n[\n  {\"n\": 1, \"where\": \"plan lines 194-211 vs docs/kb/agent-harnesses.md lines 77-93\", \"part\": \"1a\", \"evidence\": \"plan line 196 = file line 79: \\\"Cline 4.1.26 in WSL, 2026-11-23. Re-test after a Cline update that mentions hooks, plugins, rules or skills.\\\"; bullets plan lines 198-210 = file lines 81-93 line for line\", \"verdict\": \"CONFIRMED\"},\n  {\"n\": 2, \"where\": \"plan lines 226-236 vs docs/kb/agent-harnesses.md lines 95-104\", \"part\": \"1a\", \"evidence\": \"plan line 226 \\\"## Models\\\" = file line 95; plan line 231 \\\"**- Nemotron 3.5 Super VL** (Cline, free). Uses a skill only when the task names it.\\\" = file line 100\", \"verdict\": \"CONFIRMED\"},\n  {\"n\": 3, \"where\": \"plan line 216 vs docs/kb/copilot-agents.md line 43\", \"part\": \"1a\", \"evidence\": \"plan line 216 \\\"First read `START-HERE.md` on agents/develop (`git show origin/agents/develop:START-HERE.md`) and follow it.\\\" appears verbatim inside file line 43\", \"verdict\": \"CONFIRMED\"},\n  {\"n\": 4, \"where\": \"plan lines 219-221 vs docs/GIT_WORKFLOW.md lines 164-165\", \"part\": \"1a\", \"evidence\": \"plan line 220 \\\"`integration` since #75 (2026-10-26), `develop` since #32 (2026-11-05), so every such PR into either\\\" = file lines 164-165\", \"verdict\": \"CONFIRMED\"},\n  {\"n\": 5, \"where\": \"diff e2bdd68fb..3b484425f -- . ':!docs/kb/topic-index.md' file list\", \"part\": \"1b\", \"evidence\": \"diff touches exactly: .github/copilot-instructions.md, docs/GIT_WORKFLOW.md, docs/kb/README.md, docs/kb/agent-harnesses.md, docs/kb/copilot-agents.md — all named by row 1; pedestal-0.8.md already carried by 205948a06 (State line 20), topic-index.md regenerated not patched (State line 20)\", \"verdict\": \"OK\"},\n  {\"n\": 6, \"where\": \"git log origin/integration --grep=#75\", \"part\": \"1c\", \"evidence\": \"c74ee1ea9 2026-10-26 Merge pull request #75 from codeGlaze/feature/email-and-alerts\", \"verdict\": \"CONFIRMED\"},\n  {\"n\": 7, \"where\": \"git log origin/develop --grep=#32\", \"part\": \"1c\", \"evidence\": \"4df2033cd 2026-11-05 Merge pull request #32 from codeGlaze/integration\", \"verdict\": \"CONFIRMED\"},\n  {\"n\": 8, \"where\": \"docs/kb/agent-harnesses.md lines 55-57 vs lines 81-82\", \"part\": \"1d\", \"evidence\": \"line 55-57: hook scripts \\\"never runs\\\" and the Hooks table \\\"record what an earlier version of its docs described, for a release that runs hook scripts again\\\" — matches \\\"Cline in VS Code, tested\\\" line 81-82 \\\"Hook scripts ... are listed in the Hooks tab but never run\\\"; nothing in the file contradicts that tested section\", \"verdict\": \"OK\"},\n  {\"n\": 9, \"where\": \"plan \\\"### Row 8\\\" step 9\", \"part\": \"2\", \"evidence\": \"step 9: \\\"When `CLINE_ACTIVE` is set, refuse the push if `~/.cline/orcpub-guard/alive` is missing or over 10 minutes old\\\"; \\\"Source for the variable: fact 10\\\"\", \"verdict\": \"CONFIRMED\"},\n  {\"n\": 10, \"where\": \"plan \\\"### Row 8\\\" step 9\", \"part\": \"2\", \"evidence\": \"step 9: \\\"refuse the push if `~/.cline/orcpub-guard/alive` is missing or over 10 minutes old: \\\"Cline's guard is not running; tell the owner\\\"\\\".\", \"verdict\": \"CONFIRMED\"},\n  {\"n\": 11, \"where\": \"plan \\\"### Row 8\\\" step 9\", \"part\": \"2\", \"evidence\": \"step 9: \\\"When `CLINE_ACTIVE` is unset, do nothing new: a push from any other shell is never blocked because the guard is down.\\\"\", \"verdict\": \"CONFIRMED\"},\n  {\"n\": 12, \"where\": \"plan \\\"### Row 8\\\" step 9\", \"part\": \"2\", \"evidence\": \"step 9: \\\"**Operational only after a runtime test:** a Cline task runs `git push` in a Cline terminal against a test remote, once with a fresh `alive` and once with it removed; the hook must see `CLINE_ACTIVE` and refuse only the second.\\\"\", \"verdict\": \"CONFIRMED\"},\n  {\"n\": 13, \"where\": \"plan \\\"### Row 8\\\" step 9\", \"part\": \"2\", \"evidence\": \"step 9: \\\"**If the variable does not reach the hook, stop and report;** do not substitute another way to detect Cline.\\\"\", \"verdict\": \"CONFIRMED\"},\n  {\"n\": 14, \"where\": \"plan \\\"### Row 8\\\" step 9\", \"part\": \"2\", \"evidence\": \"step 9 states all five required bullets strictly and adds no looser alternative (e.g. no fallback detection when CLINE_ACTIVE is absent)\", \"verdict\": \"OK\"},\n  {\"n\": 15, \"where\": \"plan rows table line 169-171, State line 22-23, step 9\", \"part\": \"2\", \"evidence\": \"table line 169-171: \\\"Rows 4, 5, 7, 8 (its `pre-push` step) and 9 touch protected files and also need the owner's yes per push\\\"; State line 22-23: row 8 gains a `pre-push` hard stop \\\"which makes row 8 touch a protected file\\\"; step 9: \\\"`.githooks/pre-push` is protected, so its push needs the owner's yes\\\"\", \"verdict\": \"CONFIRMED\"},\n  {\"n\": 16, \"where\": \"plan Sources line 80 vs `git rev-parse origin/agents/develop origin/integration`\", \"part\": \"1c context\", \"evidence\": \"plan pins agents/develop f732010 and integration 18a091a; this clone's origin/agents/develop=46b304f33d01f609fdfe79a0291051c1bbe463a3, origin/integration=b14a515e473f667c8df958aa3cdf56d6a254783d (State separately says agents/develop now at 0563c819f); PR dates above were verified against this clone's live origin refs\", \"verdict\": \"CONFIRMED\"}\n]\nJSON_EOF\necho \"written\"; python3 -c \"import json;d=json.load(open('/tmp/findings.json'));print(len(d),'findings');from collections import Counter;print(Counter(f['verdict'] for f in d))\"",
+  "expect": "block:self: the guard's own files are the owner's; tell the owner"
+ },
+ {
+  "id": 68,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "git branch --show-current",
+  "expect": "run"
+ },
+ {
+  "id": 69,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "pwd; echo \"---\"; ls -la /home/user/projects/ 2>/dev/null; echo \"---\"; ls /home/user/projects/orcpub-agents 2>/dev/null || echo \"orcpub-agents NOT found\"; echo \"---\"; ls /home/user/projects/orcpub 2>/dev/null || echo \"orcpub NOT found\"",
+  "expect": "run"
+ },
+ {
+  "id": 70,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "git branch --show-current; git status -s | head -20",
+  "expect": "run"
+ },
+ {
+  "id": 71,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "git rev-parse --abbrev-ref HEAD; echo \"---status-b---\"; git status -b; echo \"---log---\"; git log --oneline -1",
+  "expect": "run"
+ },
+ {
+  "id": 72,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "ls -la docs/kb/tools/ 2>/dev/null; echo \"---\"; ls -la scripts/check-docs.sh 2>/dev/null || echo \"check-docs.sh NOT found\"; echo \"---inbox dir---\"; ls -la docs/kb/inbox 2>/dev/null || echo \"docs/kb/inbox NOT found\"",
+  "expect": "run"
+ },
+ {
+  "id": 73,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "git branch -a -v; echo \"---is-9057-agents-develop---\"; git rev-parse origin/agents/develop 2>/dev/null || echo \"no origin/agents/develop\"",
+  "expect": "run"
+ },
+ {
+  "id": 74,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "ls docs/kb/tools/; echo \"---scripts check-docs---\"; test -f scripts/check-docs.sh && echo EXISTS || echo MISSING; echo \"---scripts dir sample---\"; ls scripts/ | head -40",
+  "expect": "run"
+ },
+ {
+  "id": 75,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "timeout 15 git rev-parse HEAD; echo \"rc=$?\"; timeout 15 git symbolic-ref --short HEAD || echo \"DETACHED-or-ERROR\"; echo \"---log---\"; timeout 15 git log --oneline -3",
+  "expect": "run"
+ },
+ {
+  "id": 76,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "timeout 15 find docs/kb -maxdepth 3 -type d; echo \"---tools files---\"; timeout 15 find docs/kb -name \"topic-index*\" -o -name \"kb.py\" 2>/dev/null; echo \"---check-docs---\"; timeout 15 find . -maxdepth 4 -name \"check-docs.sh\" 2>/dev/null | head",
+  "expect": "run"
+ },
+ {
+  "id": 77,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "git -C /home/user/projects/orcpub-agents branch -a -v; echo \"===abbrev===\"; git -C /home/user/projects/orcpub-agents rev-parse --abbrev-ref HEAD || true; echo \"===symref===\"; git -C /home/user/projects/orcpub-agents symbolic-ref --short HEAD || true",
+  "expect": "run"
+ },
+ {
+  "id": 78,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "git -C /home/user/projects/orcpub-agents branch -a -v > /tmp/ob.txt 2>&1; echo \"rc=$?\"; git -C /home/user/projects/orcpub-agents rev-parse agents/develop > /tmp/ob2.txt 2>&1; echo \"rc2=$?\"; git -C /home/user/projects/orcpub-agents rev-parse HEAD > /tmp/ob3.txt 2>&1; echo \"rc3=$?\"",
+  "expect": "run"
+ },
+ {
+  "id": 79,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "git -C /home/user/projects/orcpub-agents symbolic-ref --short HEAD; echo \"rc=$?\"; echo \"---status---\"; git -C /home/user/projects/orcpub-agents status -s; echo \"---plan block (cat -A)---\"; sed -n '241,254p' /home/user/projects/agent-harness-plan.md | cat -A",
+  "expect": "run"
+ },
+ {
+  "id": 80,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "mkdir -p /home/user/projects/orcpub-agents/docs/kb/inbox && sed -n '241,254p' /home/user/projects/agent-harness-plan.md > /home/user/projects/orcpub-agents/docs/kb/inbox/README.md && echo \"=== new file bytes ===\" && cat -A /home/user/projects/orcpub-agents/docs/kb/inbox/README.md && echo \"=== line count ===\" && wc -l /home/user/projects/orcpub-agents/docs/kb/inbox/README.md",
+  "expect": "ask:mkdir outside /tmp"
+ },
+ {
+  "id": 81,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && echo \"=== A1 diff (empty=exact match) ===\" && diff <(sed -n '241,254p' /home/user/projects/agent-harness-plan.md) docs/kb/inbox/README.md && echo \"DIFF_CLEAN\" && echo \"=== full file content ===\" && cat docs/kb/inbox/README.md",
+  "expect": "ask:parse: here-doc or process substitution"
+ },
+ {
+  "id": 82,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && python3 -c \"\npath='docs/kb/README.md'\nlines=open(path,encoding='utf-8').read().splitlines(keepends=True)\nanchor='| [agent-harnesses.md](agent-harnesses.md)'\nfound=[i for i,l in enumerate(lines) if l.rstrip('\\n').startswith(anchor)]\nassert len(found)==1, f'anchor found {len(found)} times: {found}'\ni=found[0]\nnew='| [inbox/README.md](inbox/README.md) | Notes from Cline tasks waiting for review |\\n'\nlines.insert(i+1,new)\nopen(path,'w',encoding='utf-8').writelines(lines)\nprint('inserted at 1-based line', i+2)\nprint('total lines now:', len(lines))\n\"",
+  "expect": "ask:runner outside the session folder"
+ },
+ {
+  "id": 83,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && echo \"=== git diff README.md ===\" && git diff docs/kb/README.md && echo \"=== line counts before/after ===\" && echo \"before: $(git show HEAD:docs/kb/README.md | wc -l)\" && echo \"after:  $(wc -l < docs/kb/README.md)\" && echo \"=== confirm new line directly follows anchor ===\" && grep -n -A1 \"agent-harnesses.md](agent-harnesses.md)\" docs/kb/README.md",
+  "expect": "ask:parse: expansion inside double quotes"
+ },
+ {
+  "id": 84,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && echo \"BEFORE=$(git show HEAD:docs/kb/README.md | wc -l) AFTER=$(wc -l < docs/kb/README.md)\" && echo \"=== diff stat ===\" && git diff --stat docs/kb/README.md && echo \"=== added lines ===\" && git diff docs/kb/README.md | grep '^+' | grep -v '^+++'",
+  "expect": "ask:parse: expansion inside double quotes"
+ },
+ {
+  "id": 85,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && git status -s && echo \"=== diff stat all ===\" && git diff --stat && echo \"=== README.md changed? ===\" && git diff --quiet docs/kb/README.md && echo \"NO_CHANGES\" || echo \"HAS_CHANGES\"",
+  "expect": "run"
+ },
+ {
+  "id": 86,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "pwd; echo \"=== new file exists? ===\"; ls -la /home/user/projects/orcpub-agents/docs/kb/inbox/README.md; echo \"=== git -C status -s ===\"; git -C /home/user/projects/orcpub-agents status -s; echo \"=== git -C diff --stat ===\"; git -C /home/user/projects/orcpub-agents diff --stat",
+  "expect": "run"
+ },
+ {
+  "id": 87,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "echo \"=== README.md line count ===\"; wc -l < /home/user/projects/orcpub-agents/docs/kb/README.md; echo \"=== contains inbox line? ===\"; grep -n \"inbox/README.md\" /home/user/projects/orcpub-agents/docs/kb/README.md; echo \"=== anchor context ===\"; grep -n \"agent-harnesses.md](agent-harnesses.md)\" /home/user/projects/orcpub-agents/docs/kb/README.md; echo \"=== git check-ignore new file ===\"; git -C /home/user/projects/orcpub-agents check-ignore -v docs/kb/inbox/README.md; echo \"rc=$?\"; echo \"=== git status --ignored (inbox) ===\"; git -C /home/user/projects/orcpub-agents status --ignored --short docs/kb/inbox/",
+  "expect": "run"
+ },
+ {
+  "id": 88,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "echo \"=== toplevel ===\"; git -C /home/user/projects/orcpub-agents rev-parse --show-toplevel; echo \"=== status -s (long) ===\"; git -C /home/user/projects/orcpub-agents status; echo \"=== ls-files inbox ===\"; git -C /home/user/projects/orcpub-agents ls-files docs/kb/inbox/; echo \"(end ls-files)\"; echo \"=== diff README ===\"; git -C /home/user/projects/orcpub-agents diff -- docs/kb/README.md | head -40; echo \"(end diff)\"",
+  "expect": "run"
+ },
+ {
+  "id": 89,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "echo \"=== HEAD inbox/README.md vs plan block (empty=identical) ===\"; git -C /home/user/projects/orcpub-agents show HEAD:docs/kb/inbox/README.md | diff - <(sed -n '241,254p' /home/user/projects/agent-harness-plan.md) && echo \"HEAD_INBOX_MATCHES_PLAN\"; echo \"=== HEAD README.md inbox line ===\"; git -C /home/user/projects/orcpub-agents show HEAD:docs/kb/README.md | grep -n \"inbox/README.md\"; echo \"=== HEAD README.md line count ===\"; git -C /home/user/projects/orcpub-agents show HEAD:docs/kb/README.md | wc -l",
+  "expect": "ask:parse: here-doc or process substitution"
+ },
+ {
+  "id": 90,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && bash docs/kb/tools/topic-index.sh > /tmp/ck1.txt 2>&1; echo \"rc1=$?\"; echo \"--- last line ---\"; tail -1 /tmp/ck1.txt",
+  "expect": "ask:runner outside the session folder"
+ },
+ {
+  "id": 91,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && python3 docs/kb/tools/kb.py lint > /tmp/ck2.txt 2>&1; echo \"rc2=$?\"; echo \"--- last line ---\"; tail -1 /tmp/ck2.txt",
+  "expect": "ask:runner outside the session folder"
+ },
+ {
+  "id": 92,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects/orcpub-agents && bash scripts/check-docs.sh > /tmp/ck3.txt 2>&1; echo \"rc3=$?\"; echo \"--- full output ---\"; cat /tmp/ck3.txt",
+  "expect": "ask:runner outside the session folder"
+ },
+ {
+  "id": 93,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "echo \"=== git status -s ===\"; git -C /home/user/projects/orcpub-agents status -s; echo \"(end status)\"; echo \"=== inbox README lines ===\"; wc -l < /home/user/projects/orcpub-agents/docs/kb/inbox/README.md; echo \"=== README.md lines ===\"; wc -l < /home/user/projects/orcpub-agents/docs/kb/README.md",
+  "expect": "run"
+ },
+ {
+  "id": 94,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "git -C /home/user/projects/orcpub-agents fetch --prune origin; echo \"rc=$?\"",
+  "expect": "ask:git fetch --prune outside the session folder"
+ },
+ {
+  "id": 95,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md > /tmp/agents.md; echo \"rc=$?\"; echo \"=== line count ===\"; wc -l /tmp/agents.md\necho \"--- 17 ---\"; sed -n '17p' /tmp/agents.md\necho \"--- 64-68 ---\"; sed -n '64,68p' /tmp/agents.md\necho \"--- 103-107 ---\"; sed -n '103,107p' /tmp/agents.md\necho \"--- 142-147 ---\"; sed -n '142,147p' /tmp/agents.md\necho \"--- 151-153 ---\"; sed -n '151,153p' /tmp/agents.md\necho \"--- 168-180 ---\"; sed -n '168,180p' /tmp/agents.md\necho \"--- 193 ---\"; sed -n '193p' /tmp/agents.md\necho \"--- 241 ---\"; sed -n '241p' /tmp/agents.md\necho \"--- 269 ---\"; sed -n '269p' /tmp/agents.md",
+  "expect": "run"
+ },
+ {
+  "id": 96,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "A=/tmp/agents.md\necho \"--- 298-338 (Shrinking) ---\"; sed -n '298,338p' $A\necho \"--- 362-369 (SRD) ---\"; sed -n '362,369p' $A\necho \"--- 373-378 (Tests before-commit) ---\"; sed -n '373,378p' $A\necho \"--- 379-384 (Tests --no-verify STAY) ---\"; sed -n '379,384p' $A\necho \"--- 385-393 (Tests fail-first) ---\"; sed -n '385,393p' $A\necho \"--- 394 (schema STAY) ---\"; sed -n '394p' $A\necho \"--- 395-402 (Deployment) ---\"; sed -n '395,402p' $A\necho \"--- 403-405 (test layers STAY) ---\"; sed -n '403,405p' $A\necho \"--- 409-428 (Changelogs) ---\"; sed -n '409,428p' $A",
+  "expect": "ask:parse: expansion"
+ },
+ {
+  "id": 97,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "A=/tmp/agents.md\necho \"--- 298-338 (Shrinking) ---\"; sed -n '298,338p' $A\necho \"--- 362-369 (SRD) ---\"; sed -n '362,369p' $A\necho \"--- 373-378 (Tests before-commit) ---\"; sed -n '373,378p' $A\necho \"--- 385-393 (Tests fail-first) ---\"; sed -n '385,393p' $A\necho \"--- 395-402 (Deployment) ---\"; sed -n '395,402p' $A",
+  "expect": "ask:parse: expansion"
+ },
+ {
+  "id": 98,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "echo \"=== 298-338 Shrinking at 6aeea4ab8 ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '298,338p'; echo \"=== END 298-338 ===\"",
+  "expect": "run"
+ },
+ {
+  "id": 99,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "echo \"=== AGENTS.md 395-402 (deployment, old) at 6aeea4ab8 ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '395,402p'; echo \"=== AGENTS.md 416-422 (changelog upstream-issues) at 6aeea4ab8 ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '416,422p'; echo \"=== GIT_WORKFLOW Heavy Docker checks at 6aeea4ab8 ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:docs/GIT_WORKFLOW.md | grep -n -i \"heavy docker\\|landmark\\|label\\|20 minutes\\|docker-heavy\" ",
+  "expect": "run"
+ },
+ {
+  "id": 100,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "echo \"=== GIT_WORKFLOW 150-178 (Heavy Docker) at 6aeea4ab8 ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:docs/GIT_WORKFLOW.md | sed -n '150,178p'\necho \"=== AGENTS.md 362-369 (SRD old) at 6aeea4ab8 ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '362,369p'\necho \"=== AGENTS.md 373-393 (Tests old) at 6aeea4ab8 ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '373,393p'",
+  "expect": "run"
+ },
+ {
+  "id": 101,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "echo \"=== GIT_WORKFLOW 154-172 (Heavy Docker full) at 6aeea4ab8 ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:docs/GIT_WORKFLOW.md | sed -n '154,172p'",
+  "expect": "run"
+ },
+ {
+  "id": 102,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "echo \"=== AGENTS.md 103-107 (footer) ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '103,107p'\necho \"=== AGENTS.md 151-153 (budget) ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '151,153p'\necho \"=== AGENTS.md 168-180 (subagents) ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '168,180p'",
+  "expect": "run"
+ },
+ {
+  "id": 103,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "echo \"=== AGENTS.md 151-153 (budget) ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '151,153p'\necho \"=== AGENTS.md 168-180 (subagents) ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '168,180p'",
+  "expect": "run"
+ },
+ {
+  "id": 104,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "echo \"=== AGENTS.md 151-153 (budget) ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '151,153p'\necho \"=== AGENTS.md 17 ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '17p'\necho \"=== AGENTS.md 64-68 (claude/* branches) ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '64,68p'\necho \"=== AGENTS.md 142-147 (subagent limits) ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '142,147p'",
+  "expect": "run"
+ },
+ {
+  "id": 105,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "echo \"=== AGENTS.md 151-153 (budget) ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '151,153p'\necho \"=== AGENTS.md 17 ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '17p'\necho \"=== AGENTS.md 64-68 (claude/* branches) ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '64,68p'",
+  "expect": "run"
+ },
+ {
+  "id": 106,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "echo \"=== AGENTS.md 148-156 ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '148,156p'\necho \"=== AGENTS.md 17 ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '17p'\necho \"=== AGENTS.md 64-68 ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '64,68p'",
+  "expect": "run"
+ },
+ {
+  "id": 107,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "echo \"=== AGENTS.md 17 ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '17p'\necho \"=== AGENTS.md 148-156 (cat -A to see blanks) ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '148,156p' | cat -A",
+  "expect": "run"
+ },
+ {
+  "id": 108,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '148,156p' | cat -A",
+  "expect": "run"
+ },
+ {
+  "id": 109,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "echo \"=== AGENTS.md 193 ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '193p'\necho \"=== AGENTS.md 241 ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '241p'\necho \"=== AGENTS.md 269 ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '269p'\necho \"=== AGENTS.md 362-369 (SRD old) ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '362,369p'",
+  "expect": "run"
+ },
+ {
+  "id": 110,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "echo \"=== AGENTS.md 193 ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '193p'; echo \"=== AGENTS.md 241 ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '241p'",
+  "expect": "run"
+ },
+ {
+  "id": 111,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "echo \"=== AGENTS.md 269 ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '269p'; echo \"=== AGENTS.md 190-195 (context for 193) ===\"; git -C /home/user/projects/orcpub-agents show 6aeea4ab8:AGENTS.md | sed -n '190,195p'",
+  "expect": "run"
+ },
+ {
+  "id": 112,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "echo \"done-gathering\"",
+  "expect": "run"
+ },
+ {
+  "id": 113,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "cd /home/user/projects && grep -n \"Block editor writes\\|gh pr merge\\|gh pr create\\|gh label\\|gh issue\\|gh api\\|touch protected files and also need\\|Claude is the default reviewer\\|another model reviews\\|Anything touching protected files\\|owner's yes per push\\|none given\\|Three tenets\\|use the one named here\\|gh pr comment\" agent-harness-plan.md",
+  "expect": "run"
+ },
+ {
+  "id": 114,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "git status",
+  "expect": "run"
+ },
+ {
+  "id": 115,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "printf 'probe-ask one\n'",
+  "expect": "run"
+ },
+ {
+  "id": 116,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "printf 'probe-ask two\n'",
+  "expect": "run"
+ },
+ {
+  "id": 117,
+  "cwd": "/home/user/projects/orcpub",
+  "command": "echo BLOCKME",
+  "expect": "run"
+ }
+]
