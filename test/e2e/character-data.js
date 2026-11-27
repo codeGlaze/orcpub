@@ -1,3 +1,4 @@
+// Needs: ledger (the Data View page's own script, ledger.js; run.sh builds it when missing or stale).
 // The character data page (/pages/dnd/5e/characters/<id>/data): it lists a saved character's
 // stored choices with the app bundle BLOCKED, so it works when the app cannot open the character.
 //
