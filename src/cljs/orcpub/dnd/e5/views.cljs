@@ -4211,7 +4211,7 @@
   [:div.b-b-2.f-w-b.pointer.p-10.hover-opacity-full
    (merge {:class (if selected? "b-orange" "b-gray")
            :on-click on-select}
-          (comps/tab-attrs selected? (s/capitalize title) on-select
+          (comps/tab-attrs selected? (s/capitalize title)
                      {:id (str "sheet-tab-" scope "-" title)
                       :panel-id (str "sheet-tabpanel-" scope)}))
    [:div.hover-opacity-full

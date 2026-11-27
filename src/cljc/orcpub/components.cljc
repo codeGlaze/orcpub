@@ -55,18 +55,17 @@
 
 (defn tab-attrs
   "Attributes for a clickable tab: its role and selected state, the accessible name `label`, a roving
-   tabindex (0 on the selected tab, -1 on the rest), Space or Enter calling `handler` (the tab's click
-   handler, given the key event), and arrow, Home and End keys moving to and activating a sibling.
+   tabindex (0 on the selected tab, -1 on the rest), Space or Enter clicking the tab (so its own
+   on-click runs), and arrow, Home and End keys moving to and activating a sibling.
    With `{:id tab-id :panel-id id}` the tab also gets its id, and the selected tab aria-controls the
    one rendered panel."
-  ([selected? label handler] (tab-attrs selected? label handler nil))
-  ([selected? label handler {:keys [id panel-id]}]
+  ([selected? label] (tab-attrs selected? label nil))
+  ([selected? label {:keys [id panel-id]}]
    (cond-> {:role "tab" :aria-selected (str (boolean selected?)) :aria-label label
             :tabIndex (if selected? 0 -1)
             :on-key-down (fn [e]
                            #?(:cljs (if (#{" " "Enter"} (.-key e))
-                                      (do (.preventDefault e)
-                                          (handler e))
+                                      (press-to-click e)
                                       (step-tab! e))
                               :clj e))}
      id (assoc :id id)

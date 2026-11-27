@@ -295,19 +295,20 @@
 (deftest tab-attrs-name-and-operate-a-tab
   (testing "role, state, name and focus, for a selected and an unselected tab"
     (doseq [[selected? state] [[true "true"] [false "false"] [nil "false"]]]
-      (let [a (comps/tab-attrs selected? "Combat" (fn [_]))]
+      (let [a (comps/tab-attrs selected? "Combat")]
         (is (= "tab" (:role a)))
         (is (= state (:aria-selected a)) (pr-str selected?))
         (is (= "Combat" (:aria-label a)))
         (is (= (if selected? 0 -1) (:tabIndex a)) "roving tabindex: only the selected tab is in the Tab order"))))
-  (testing "Enter and Space call the handler and stop the page scrolling; other keys do not"
+  (testing "Enter and Space click the tab and stop the page scrolling; other keys do not"
     (doseq [[k calls] [["Enter" 1] [" " 1] ["a" 0] ["Tab" 0] ["Escape" 0]]]
-      (let [handled (atom 0)
+      (let [clicked (atom 0)
             prevented (atom 0)
-            a (comps/tab-attrs true "Details" (fn [_] (swap! handled inc)))]
+            a (comps/tab-attrs true "Details")]
         ((:on-key-down a) #js {:key k :preventDefault #(swap! prevented inc)
-                               :currentTarget #js {:closest (fn [_] nil)}})
-        (is (= calls @handled) (str "handler calls for " (pr-str k)))
+                               :currentTarget #js {:click #(swap! clicked inc)
+                                                   :closest (fn [_] nil)}})
+        (is (= calls @clicked) (str "clicks for " (pr-str k)))
         (is (= calls @prevented) (str "preventDefault calls for " (pr-str k)))))))
 
 (deftest tab-key-target-moves-between-tabs
@@ -326,14 +327,14 @@
 
 (deftest tab-attrs-ids-and-controls
   (testing "with ids, the selected tab controls the one rendered panel; others name no panel"
-    (let [on (comps/tab-attrs true "Combat" (fn [_]) {:id "sheet-tab-combat" :panel-id "sheet-tabpanel"})
-          off (comps/tab-attrs false "Spells" (fn [_]) {:id "sheet-tab-spells" :panel-id "sheet-tabpanel"})]
+    (let [on (comps/tab-attrs true "Combat" {:id "sheet-tab-combat" :panel-id "sheet-tabpanel"})
+          off (comps/tab-attrs false "Spells" {:id "sheet-tab-spells" :panel-id "sheet-tabpanel"})]
       (is (= "sheet-tab-combat" (:id on)))
       (is (= "sheet-tabpanel" (:aria-controls on)))
       (is (= "sheet-tab-spells" (:id off)))
       (is (not (contains? off :aria-controls)))))
   (testing "without ids, neither is added"
-    (let [a (comps/tab-attrs true "Combat" (fn [_]))]
+    (let [a (comps/tab-attrs true "Combat")]
       (is (not (contains? a :id)))
       (is (not (contains? a :aria-controls)))))
   (testing "the panel is a tabpanel labelled by the selected tab"

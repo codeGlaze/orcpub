@@ -2194,7 +2194,7 @@
   [:span.builder-tab
    (merge {:class (when (= current-tab key) "selected-builder-tab")
            :on-click (set-builder-tab key)}
-          (comps/tab-attrs (= current-tab key) title (set-builder-tab key)
+          (comps/tab-attrs (= current-tab key) title
                              {:id (str "builder-tab-" (name key)) :panel-id "builder-tabpanel"}))
    [:span.builder-tab-text title]])
 
