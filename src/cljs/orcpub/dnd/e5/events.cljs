@@ -4521,10 +4521,10 @@
 
 (defn update-character-fx
   "Effects for a sheet or list edit: applies `update-fn` to the stored copy of character `id` and
-   autosaves it, recording its changed values keys under ::sheet-edited and option keys under
-   ::sheet-edited-options (for the save's reply, and for re-applying after a refused save). When the
-   builder has that character open, the edit is applied there too. With no `id` the character is
-   unsaved, so the edit goes to the builder's copy."
+   autosaves it, recording changed values keys under ::sheet-edited and option keys under
+   ::sheet-edited-options (for the save's reply and re-applying after a refused save); the builder's
+   open copy gets the edit too. Someone else's character is edited on screen only: no save, and `id`
+   goes in ::viewer-edited. With no `id` the edit goes to the builder's unsaved character."
   [db id update-fn]
   ;; Any sheet edit closes an open Rest result, so its Undo cannot overwrite the edit; the rest
   ;; events put their own result back (with-rest-result).
@@ -4533,7 +4533,8 @@
     (let [int-id (js/parseInt id)
           stored (get-in db [::char5e/character-map int-id])
           updated (update-fn stored)
-          open (when (= int-id (get-in db [:character :db/id])) (update-fn (:character db)))]
+          open (when (= int-id (get-in db [:character :db/id])) (update-fn (:character db)))
+          viewer? (event-utils/others-character? db stored)]
       (cond-> {:db (cond-> (-> db
                                (assoc-in [::char5e/character-map int-id] updated)
                                (update-in [::sheet-edited int-id] (fnil into #{})
@@ -4541,8 +4542,9 @@
                                (update-in [::sheet-edited-options int-id] (fnil into #{})
                                           (inventory/changed-option-keys stored updated)))
                      (get-in db [::in-flight int-id]) (assoc-in [::edited-in-flight int-id] true)
-                     open (assoc :character open))
-               ::char5e/save-character-throttled id}
+                     open (assoc :character open)
+                     viewer? (update ::viewer-edited (fnil conj #{}) int-id))}
+        (not viewer?) (assoc ::char5e/save-character-throttled id)
         (and open (not (:draft/held db))) (assoc ::builder-draft->local-store open)))
     ;; No id: the character being built has never been saved, so this is an
     ;; edit to the one in hand, not a switch.
@@ -6200,9 +6202,10 @@
              n-fixed (count-items kept-items)
              n-left (count-items still-bad)
              {db' :db ok? :ok? refused :dispatch-n} (commit-library db live {})]
-         ;; Persist live + quarantine together so they never disagree, and show now.
+         ;; Persist live + quarantine together so they never disagree, and show now. A failed
+         ;; write restores nothing, not even in memory (homebrew-safety-net.md).
          (if-not ok?
-           {:db db' :dispatch-n refused}
+           {:db (if (seq refused) db' db) :dispatch-n refused}
            (do (set-rejected-plugins new-rejected)
                ;; a restored entry that still breaks the character options is set aside again,
                ;; by the homebrew-shapes interceptor's check of what this wrote

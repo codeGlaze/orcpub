@@ -63,6 +63,9 @@
             [orcpub.routes.party :as party]
             [orcpub.routes.folder :as folder]
             [orcpub.routes.share :as share]
+            [orcpub.ledger-page :as ledger-page]
+            [orcpub.dnd.e5.ledger :as ledger]
+            [orcpub.datomic :as odb]
             [hiccup.page :as page]
             [hiccup2.core :as h]
             [orcpub.env :as env]
@@ -1257,45 +1260,77 @@
          ::se/game-version :e5
          ::se/type :character))
 
+(defn- held-entity-ids
+  "The :db/id of each entity `entity` holds directly: its selections, values and summary."
+  [entity]
+  (into [] (comp (mapcat (fn [[_ v]] (cond (map? v) [v] (sequential? v) v :else [])))
+                 (keep #(when (map? %) (:db/id %))))
+        (dissoc entity :db/id)))
+
+(defn- cas-failed?
+  "True when `e`, thrown by a transaction, is Datomic refusing a :db/cas."
+  [e]
+  (loop [t e]
+    (cond (nil? t) false
+          (= :db.error/cas-failed (:db/error (ex-data t))) true
+          :else (recur (.getCause ^Throwable t)))))
+
+(defn- stale!
+  "Throw the refusal for a save made from an older copy of character `id`."
+  [id]
+  (throw (ex-info "Character changed since this copy was read" {:error :stale-character :id id})))
+
+(def ^:private saved-by-server
+  "Character attributes the save writes itself, never removed for being absent from what was sent."
+  #{::se/owner ::se/version ::se/game ::se/game-version ::se/type})
+
 (defn update-character
-  "Stores `character` (strict, with its :db/id) over the stored one, as owned by `username`, and
-   returns the stored character pulled after the save. Throws ExceptionInfo :character-gone when
-   nothing is stored at its id (deleted), :not-user-character when someone else owns it."
+  "Save `character` (strict, with its :db/id) over the stored one, as `username`. Every save bumps
+   ::se/version with :db/cas in the same transaction, and stores what the save left out of a record it
+   keeps (entity/removed-value-retractions). A save whose version differs from the stored one, or
+   that sends none for a character that has one, throws :stale-character and writes nothing.
+   Returns the stored character; throws :character-gone when nothing is stored at its id.
+   character-rescue.md item 4; tracked-issues.md, #295."
   [db conn character username]
-  (let [id (:db/id character)]
+  (let [id (:db/id character)
+        sent (::se/version character)
+        character (dissoc character ::se/version)]
     (if (owns-entity? db username id)
       (let [current-character (d/pull db '[*] id)
+            stored (::se/version current-character)
             problems [] #_(dnd-e5-char-type-problems current-character)
-            current-valid? (spec/valid? ::se/entity current-character)]
+            current-valid? (spec/valid? ::se/entity current-character)
+            bump [:db/cas id ::se/version stored (inc (or stored 0))]]
         (when-not current-valid?
-          (prn "INVALID CHARACTER FOUND, REPLACING" #_current-character)
+          (prn "INVALID CHARACTER FOUND, REPLACING ITS CONTENTS" #_current-character)
           (prn "INVALID CHARACTER EXPLANATION" #_(spec/explain-data ::se/entity current-character)))
+        (when (not= sent stored) (stale! id))
         (if (seq problems)
           (throw (ex-info "Character has problems"
                           {:error :character-problems :problems problems}))
-          (if-not current-valid?
-            (let [new-character (entity/remove-ids character)
-                  tx [[:db/retractEntity (:db/id current-character)]
-                      (-> new-character
-                          (assoc :db/id "tempid"
-                                 :orcpub.entity.strict/owner username)
-                          add-dnd-5e-character-tags)]
-                  result @(d/transact conn tx)]
-              (d/pull (d/db conn) '[*] (-> result :tempids (get "tempid"))))
-            (let [new-character (entity/remove-orphan-ids character)
-                  current-ids (entity/db-ids current-character)
-                  new-ids (entity/db-ids new-character)
-                  retract-ids (sets/difference current-ids new-ids)
-                  retractions (map
-                               (fn [retract-id]
-                                 [:db/retractEntity retract-id])
-                               retract-ids)
-                  tx (conj retractions
-                           (-> new-character
-                               (assoc :orcpub.entity.strict/owner username)
-                               add-dnd-5e-character-tags))]
-              @(d/transact conn tx)
-              (d/pull (d/db conn) '[*] id)))))
+          (let [tx (if-not current-valid?
+                     ;; Replaces the contents, never the character: folders, parties and share records
+                     ;; point at this id. character-rescue.md, "Save replaces an invalid character".
+                     (let [new-character (entity/remove-ids character)]
+                       (-> (mapv (fn [child-id] [:db/retractEntity child-id])
+                                 (held-entity-ids current-character))
+                           (conj (-> new-character
+                                     (assoc :db/id id
+                                            :orcpub.entity.strict/owner username)
+                                     add-dnd-5e-character-tags))))
+                     (let [new-character (entity/remove-orphan-ids character)
+                           retract-ids (sets/difference (entity/db-ids current-character)
+                                                        (entity/db-ids new-character))]
+                       (-> (mapv (fn [retract-id] [:db/retractEntity retract-id]) retract-ids)
+                           (into (entity/removed-value-retractions current-character new-character
+                                                                   saved-by-server))
+                           (conj (-> new-character
+                                     (assoc :orcpub.entity.strict/owner username)
+                                     add-dnd-5e-character-tags)))))]
+            (if-let [saved (try @(d/transact conn (conj tx bump))
+                                (catch Exception e (if (cas-failed? e) nil (throw e))))]
+              (d/pull (:db-after saved) '[*] id)
+              (stale! id)))))
       (throw (if (empty? (d/datoms db :eavt id))
                (ex-info "Character gone" {:error :character-gone})
                (ex-info "Not user character" {:error :not-user-character}))))))
@@ -1310,7 +1345,8 @@
     (let [result @(d/transact conn
                               [(-> character
                                    (assoc :db/id "tempid"
-                                          ::se/owner username)
+                                          ::se/owner username
+                                          ::se/version 1)
                                    add-dnd-5e-character-tags)])
           new-id (get-new-id "tempid" result)]
       (d/pull (d/db conn) '[*] new-id))))
@@ -1365,6 +1401,8 @@
           (case (:error data)
             :character-problems {:status 400 :body (:problems data)}
             :not-user-character {:status 401 :body "You do not own this character"}
+            :stale-character {:status 409 :body {:error :stale-character
+                                                 :current (d/pull (d/db conn) '[*] (:id data))}}
             :character-gone {:status 410 :body {:error :character-gone}}
             (throw e))))   ; re-throw unrecognised ExceptionInfo (e.g. :db/error from Datomic)
       (catch Exception e (prn "ERROR" e) (throw e)))))
@@ -1565,20 +1603,34 @@
                     (Long/parseLong id))]
     (get-character-for-id db parsed-id)))
 
+(defn character-report-details
+  "What the support email adds for reported character `char-id` (as the client sent it): the
+   Data View repair address under `site-url`, and the saved character's stored choices as text
+   (nil when they cannot be read). Both nil when `char-id` names no saved character."
+  [db site-url char-id]
+  (let [id (some->> char-id str (re-matches #"\d{1,18}") parse-long)
+        stored (when id (d/pull db '[*] id))]
+    (if (::se/owner stored)
+      {:repair-url (str site-url (route-map/path-for route-map/dnd-e5-char-repair-page-route :id id))
+       :stored-choices (when-let [character (:character (ledger/read-character (pr-str stored)))]
+                         (ledger/support-text (ledger/support-heading id character) (ledger/rows character)))}
+      {:repair-url nil :stored-choices nil})))
+
 (defn report-character-problem
   "User-initiated report that a character failed to load. Auth required. Emails
    the client-supplied diagnostic (char-id, reader error, raw undecodable data)
    to the configured support address, cc'ing the reporting user. Rate-limited
    and gated on email config inside email/send-character-report; returns its
    {:sent? .. :reason ..} so the client can fall back to the copyable report."
-  [{:keys [db transit-params identity]}]
+  [{:keys [db transit-params identity] :as request}]
   (let [username   (:user identity)
         user       (auth/find-user-by-username-or-email db username)
         user-email (:orcpub.user/email user)
         {:keys [char-id error raw]} transit-params]
     {:status 200
      :body   (email/send-character-report
-              {:char-id char-id :user-email user-email :error error :raw raw})}))
+              (merge {:char-id char-id :user-email user-email :error error :raw raw}
+                     (character-report-details db (auth/base-url request) char-id)))}))
 
 (defn get-user [{:keys [db identity]}]
   (let [username (:user identity)
@@ -2052,6 +2104,12 @@
 
        [(route-map/path-for route-map/dnd-e5-char-page-route :id ":id") ^:interceptors [parse-id]
         {:get #'character-page}]
+       [(route-map/path-for route-map/dnd-e5-char-data-page-route :id ":id") ^:interceptors [parse-id]
+        {:get [:char-data-page #'ledger-page/page-response]}]
+       [(route-map/path-for route-map/dnd-e5-char-repair-page-route :id ":id") ^:interceptors [parse-id]
+        {:get [:char-repair-page #'ledger-page/page-response]}]
+       [(route-map/path-for route-map/dnd-e5-draft-data-page-route)
+        {:get [:draft-data-page #'ledger-page/page-response]}]
        [(route-map/path-for route-map/dnd-e5-char-portrait-route :id ":id") ^:interceptors [parse-id]
         {:get #'character-portrait-png}]
        [(route-map/path-for route-map/artists-page-route)

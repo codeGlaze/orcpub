@@ -64,3 +64,11 @@
   ;; `inherit` is only valid as a whole value: inside the font shorthand the browser drops the line
   (let [css (garden/css {:pretty-print? false} styles/styles)]
     (is (empty? (re-seq #"[{;]font:[^;}]*inherit" css)))))
+
+(deftest a-pasted-picture-fills-the-thumbnail-without-stretching
+  ;; The thumbnail frame is 100x125; without object-fit a picture of another shape is squashed.
+  (let [css (garden/css {:pretty-print? false} styles/styles)
+        body (second (re-find #"\.pl-thumb-box>img\{([^}]*)\}" css))]
+    (is (some? body) "the rule is there")
+    (is (s/includes? (str body) "object-fit:cover"))
+    (is (s/includes? (str body) "object-position:center top") "cropped from the top, where a face is")))

@@ -6,6 +6,26 @@ const ex = require(path.join(process.cwd(), 'scripts/e2e/export-character-pdf.js
 const lib = require(path.join(process.cwd(), 'scripts/e2e/lib.js'));
 const { settle, BASE, EXECUTABLE } = ex;
 const OUT = process.env.SHOTS || require('os').tmpdir();
+// The :db/id of the top-level map in the save reply (EDN). The reply holds nested entities with
+// ids of their own, printed before the character's, so the first ":db/id" in the text is not
+// necessarily the character's. Reads only keys at the outer map's own depth, skipping strings and
+// character literals (\{, \").
+function topLevelId(bodyText) {
+  let depth = 0, inStr = false;
+  for (let i = 0; i < bodyText.length; i++) {
+    const c = bodyText[i];
+    if (inStr) { if (c === '\\') i++; else if (c === '"') inStr = false; continue; }
+    if (c === '\\') i++;
+    else if (c === '"') inStr = true;
+    else if ('{[('.includes(c) || (c === '#' && bodyText[i + 1] === '{')) { if (c === '#') i++; depth++; }
+    else if ('}])'.includes(c)) depth--;
+    else if (depth === 1 && bodyText.startsWith(':db/id', i)) {
+      const m = /^:db\/id\s+(\d+)/.exec(bodyText.slice(i));
+      if (m) return m[1];
+    }
+  }
+  return null;
+}
 let failures = 0;
 const check = (ok, m) => { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${m}`); if (!ok) failures++; };
 
@@ -175,8 +195,9 @@ const kitIconsAndGrid = async (page, sec, theme) => {
   await save.click();
   const resp = await saved; await settle(page, 1500);
   const bodyText = resp ? await resp.text().catch(() => '') : '';
-  const m = bodyText.match(/db\/id\D{0,6}(\d{5,})/);
-  const id = m && m[1];
+  const id = topLevelId(bodyText);
+  const firstMatch = bodyText.match(/db\/id\D{0,6}(\d{5,})/);
+  console.log('  first :db/id in the text:', firstMatch && firstMatch[1], ' the character\'s own:', id);
   if (!id) console.log('  save reply:', resp && resp.status(), bodyText.slice(0, 300));
   console.log('  saved id:', id, page.url());
   check(!!id, 'the character was saved');

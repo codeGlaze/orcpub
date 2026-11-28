@@ -272,6 +272,11 @@
             "fig:test" ["run" "-m" "figwheel.main" "--" "--build-once" "test"]
             ;; only the junk-pack test, for test/e2e/junk-pack-audit.js
             "fig:junk" ["run" "-m" "figwheel.main" "--" "--build-once" "junk-audit"]
+            ;; The character data page's own script (ledger.cljs.edn), separate from the app, built
+            ;; like cljs:prod so figwheel stays out of the jar.
+            "cljs:ledger" ["with-profile" "-dev,+cljs-prod" "run" "-m" "cljs.main" "-co" "ledger.cljs.edn"
+                           "-d" "target/cljs-ledger-out" "-c" "orcpub.ledger"]
+            "fig:ledger" ["cljs:ledger"]
             ;; Preview the character-load report email (no send) — email endpoint dev tool
             "report-preview" ["with-profile" "+tools" "run" "-m" "orcpub.dev.report-preview"]
             ;; Single-command production build: clean → CLJS → uberjar.
@@ -279,7 +284,7 @@
             ;; resources/public/js/compiled (the CLJS output dir).
             ;; The :uberjar profile itself never cleans — CLJS is compiled
             ;; BEFORE the uberjar step and must not be deleted.
-            "build" ["do" "clean," "cljs:prod," ["with-profile" "uberjar" "uberjar"]]
+            "build" ["do" "clean," "cljs:prod," "cljs:ledger," ["with-profile" "uberjar" "uberjar"]]
             "figwheel-native" ["with-profile" "native-dev" "run" "-m" "user" "--figwheel"]
             "externs" ["do" "clean"
                        ["run" "-m" "externs"]]
@@ -297,16 +302,15 @@
             ;; trampoline re-execs in a fresh JVM so System/exit propagates
             ;; (without it, lein suppresses the exit code).
             ;; native/ is excluded — directory only exists for React Native builds.
-            ;; dev/ is linted for its ERRORS. It contributes ~41 warnings that are the
-            ;; scripts' own idiom -- they load-file each other, so re-requiring and
-            ;; re-defining is normal -- and --fail-level error ignores those. Not silenced
-            ;; via :config-in-ns: the scripts have no ns form, so kondo does not resolve
-            ;; them to `user` and the suppression only caught 3 of the 41.
+            ;; dev/ is linted too. Every dev script has its own ns form: without one, kondo
+            ;; lints them all as one shared namespace and reports each script's requires
+            ;; and defs as duplicates of the others'. Warnings are held by the CI ratchet
+            ;; (scripts/lint-ratchet.py, test/lint-baseline.txt), not by this alias.
             ;; Added because this refactor shipped an unbalanced paren in 5 dev scripts
             ;; across 2 commits, unseen: kondo calls it an error, and dev/ was unlinted.
             "lint" ["trampoline" "with-profile" "lint" "run" "-m" "clj-kondo.main" "--lint" "src" "test" "web" "dev" "--fail-level" "error"]
             "prod-build" ^{:doc "Recompile code with prod profile."}
-            ["externs" "cljs:prod"]}
+            ["externs" "cljs:prod" "cljs:ledger"]}
   :profiles {;; Minimal profile to run dev/ command-line tools (e.g. report-preview)
              ;; with base runtime deps but WITHOUT the heavy cljs/devtools :dev-config.
              :tools {:source-paths ["dev"]}

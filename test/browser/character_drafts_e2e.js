@@ -137,7 +137,7 @@ async function reloadBuilder(page) {
   const legacy = await t1.evaluate(a => {
     const raw = localStorage.getItem('character') || localStorage.getItem('character-draft/' + a) || '';
     // The old slot predates drafts having an account, so the copy carries none.
-    return raw.replace(/(:orcpub\.dnd\.e5\.character\/character-name )"[^"]*"/, '$1"Legacy draft"')
+    return raw.replace(/(:orcpub\.dnd\.e5\.character\/character-name )"[^"]*"/g, '$1"Legacy draft"')
       .replace(/,? ?:draft\/owner "[^"]*"/, '');
   }, A);
   const ctx2 = await newContext(browser);
@@ -303,7 +303,7 @@ async function reloadBuilder(page) {
       await p.route('**/dnd/5e/characters', async r => {
         if (r.request().method() !== 'POST' || left-- <= 0) return r.continue();
         const real = await r.fetch();
-        const stored = (await real.text()).replace(/(:orcpub\.dnd\.e5\.character\/character-name )"[^"]*"/, '$1"Theirs elsewhere"');
+        const stored = (await real.text()).replace(/(:orcpub\.dnd\.e5\.character\/character-name )"[^"]*"/g, '$1"Theirs elsewhere"');
         await r.fulfill({ status: 409, contentType: 'application/edn', body: `{:error :stale-character :current ${stored}}` });
       });
     };

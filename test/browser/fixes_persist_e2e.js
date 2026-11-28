@@ -26,7 +26,7 @@ const { chromium } = require('playwright');
 const { findChrome } = require('./lib/find-chrome');
 const fs = require('fs'), os = require('os'), path = require('path');
 
-const BASE = process.env.ORCPUB_E2E_URL || 'http://localhost:8890';
+const BASE = process.env.E2E_BASE || process.env.ORCPUB_E2E_URL || 'http://localhost:8890';
 const OUT = process.env.PROBE_OUT || fs.mkdtempSync(path.join(os.tmpdir(), 'fixes-persist-'));
 const PAGE = '/dnd/5e/my-content';
 

@@ -11,6 +11,7 @@
             [reagent.dom :as rdom]
             [cljs.reader :as reader]
             [re-frame.core :as rf]
+            [orcpub.components :as comps]
             [orcpub.pdf-spec :as pdf-spec]
             [orcpub.dnd.e5.character :as char]
             [orcpub.dnd.e5.portrait :as portrait]
@@ -290,3 +291,73 @@
                       [". hidden ." "hidden"]
                       ["a​b" "ab"]]]
       (is (= out (pdf-spec/file-safe in)) (pr-str in)))))
+
+(deftest tab-attrs-name-and-operate-a-tab
+  (testing "role, state, name and focus, for a selected and an unselected tab"
+    (doseq [[selected? state] [[true "true"] [false "false"] [nil "false"]]]
+      (let [a (comps/tab-attrs selected? "Combat")]
+        (is (= "tab" (:role a)))
+        (is (= state (:aria-selected a)) (pr-str selected?))
+        (is (= "Combat" (:aria-label a)))
+        (is (= (if selected? 0 -1) (:tabIndex a)) "roving tabindex: only the selected tab is in the Tab order"))))
+  (testing "Enter and Space click the tab and stop the page scrolling; other keys do not"
+    (doseq [[k calls] [["Enter" 1] [" " 1] ["a" 0] ["Tab" 0] ["Escape" 0]]]
+      (let [clicked (atom 0)
+            prevented (atom 0)
+            a (comps/tab-attrs true "Details")]
+        ((:on-key-down a) #js {:key k :preventDefault #(swap! prevented inc)
+                               :currentTarget #js {:click #(swap! clicked inc)
+                                                   :closest (fn [_] nil)}})
+        (is (= calls @clicked) (str "clicks for " (pr-str k)))
+        (is (= calls @prevented) (str "preventDefault calls for " (pr-str k)))))))
+
+(deftest tab-key-target-moves-between-tabs
+  (testing "n tabs, index i, key: the index moved to, or nil"
+    (doseq [[n i k want] [[4 0 "ArrowRight" 1] [4 3 "ArrowRight" 0]
+                          [4 1 "ArrowLeft" 0] [4 0 "ArrowLeft" 3]
+                          [4 2 "Home" 0] [4 0 "End" 3] [1 0 "ArrowRight" 0]
+                          [4 1 "ArrowDown" nil] [4 1 "a" nil] [4 1 "Tab" nil] [4 1 "Escape" nil]
+                          [0 0 "ArrowRight" nil]]]
+      (is (= want (comps/tab-key-target n i k)) (pr-str [n i k])))))
+
+(deftest sheet-tab-scope-ids
+  (is (= "new" (views/sheet-tab-scope nil)))
+  (is (= "17592186045418" (views/sheet-tab-scope 17592186045418)))
+  (is (= "abc" (views/sheet-tab-scope "abc")))
+  (testing "a sheet's instance number keeps one character shown twice apart"
+    (is (= "new-3" (views/sheet-tab-scope nil 3)))
+    (is (= "17592186045418-4" (views/sheet-tab-scope 17592186045418 4)))))
+
+(deftest shown-tab-picks-a-rendered-tab
+  (let [all [["summary" {}] ["combat" {}] ["equipment" {}]]
+        two-column (rest all)]
+    (is (= "combat" (views/shown-tab "combat" all)) "a rendered tab stays selected")
+    (is (= "combat" (views/shown-tab "summary" two-column))
+        "Summary is not a tab on the two-column layout: the first rendered tab is selected")
+    (is (= "summary" (views/shown-tab nil all)) "no selection: the first tab")))
+
+(deftest tab-attrs-ids-and-controls
+  (testing "with ids, the selected tab controls the one rendered panel; others name no panel"
+    (let [on (comps/tab-attrs true "Combat" {:id "sheet-tab-combat" :panel-id "sheet-tabpanel"})
+          off (comps/tab-attrs false "Spells" {:id "sheet-tab-spells" :panel-id "sheet-tabpanel"})]
+      (is (= "sheet-tab-combat" (:id on)))
+      (is (= "sheet-tabpanel" (:aria-controls on)))
+      (is (= "sheet-tab-spells" (:id off)))
+      (is (not (contains? off :aria-controls)))))
+  (testing "without ids, neither is added"
+    (let [a (comps/tab-attrs true "Combat")]
+      (is (not (contains? a :id)))
+      (is (not (contains? a :aria-controls)))))
+  (testing "the panel is a tabpanel labelled by the selected tab"
+    (is (= {:role "tabpanel" :id "p" :aria-labelledby "t"} (comps/tab-panel-attrs "p" "t")))))
+
+(deftest typed-hit-points
+  (testing "a whole number is taken, 0 included"
+    (is (= 7 (views/typed-hit-points "7")))
+    (is (= 0 (views/typed-hit-points "0"))))
+  (testing "a blank or unreadable box gives nothing, so nothing is saved and leaving it restores the number"
+    (is (nil? (views/typed-hit-points "")))
+    (is (nil? (views/typed-hit-points "-")))
+    (is (nil? (views/typed-hit-points "3.5")) "a pasted decimal is not rounded down")
+    (is (nil? (views/typed-hit-points "1e3")))
+    (is (nil? (views/typed-hit-points nil)))))

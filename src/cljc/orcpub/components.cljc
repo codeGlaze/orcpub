@@ -3,7 +3,7 @@
             #?(:cljs [re-frame.core :refer [dispatch]])
             #?(:cljs [reagent.core :as r :refer [atom]])))
 
-(defn- press-to-click
+(defn press-to-click
   "A keydown handler that turns Space or Enter into a click on the element, so whatever handles
    its clicks (on it or an ancestor) handles the key too."
   [e]
@@ -11,6 +11,81 @@
              (.preventDefault e)
              (.click (.-currentTarget e)))
      :clj e))
+
+(defn event-value
+  "The value of the input a DOM event `e` came from."
+  [e]
+  (.. e -target -value))
+
+(defn on-enter
+  "A keydown handler that calls `f` with the event when the key is Enter."
+  [f]
+  (fn [e] (when (= "Enter" (.-key e)) (f e))))
+
+(defn switch-attrs
+  "Attributes for a `.dev-mode-switch`: its role and state, keyboard focus, and Space or Enter
+   calling `handler` (the switch's click handler, given the key event). `handler` nil: disabled."
+  [on? handler]
+  (cond-> {:role "switch" :aria-checked (str (boolean on?)) :tabIndex (if handler 0 -1)}
+    handler (assoc :on-key-down (fn [e]
+                                  #?(:cljs (when (#{" " "Enter"} (.-key e))
+                                             (.preventDefault e)
+                                             (handler e))
+                                     :clj e)))
+    (nil? handler) (assoc :aria-disabled "true")))
+
+(defn tab-key-target
+  "Index of the tab an arrow key moves to among `n` tabs from index `i`: ArrowRight and ArrowLeft
+   step with wrap-around, Home the first, End the last. Returns nil for any other key or `n` < 1."
+  [n i k]
+  (when (pos? n)
+    (case k
+      "ArrowRight" (mod (inc i) n)
+      "ArrowLeft" (mod (dec i) n)
+      "Home" 0
+      "End" (dec n)
+      nil)))
+
+#?(:cljs
+(defn step-tab!
+  "Moves from the tab that `e` came from to the sibling tab in its closest [role=tablist] that
+   `tab-key-target` names for the key, clicks it (automatic activation) and focuses it. Returns true
+   when a tab was moved to, nil when the key moves nowhere."
+  [e]
+  (let [tab (.-currentTarget e)
+        tabs (when-let [list (.closest tab "[role=tablist]")]
+               (vec (array-seq (.querySelectorAll list "[role=tab]"))))
+        i (when tabs (.indexOf tabs tab))]
+    (when-let [target (and i (not (neg? i)) (tab-key-target (count tabs) i (.-key e)))]
+      (let [el (nth tabs target)]
+        (.preventDefault e)
+        (.click el)
+        (.focus el)
+        true)))))
+
+(defn tab-attrs
+  "Attributes for a clickable tab: its role and selected state, the accessible name `label`, a roving
+   tabindex (0 on the selected tab, -1 on the rest), Space or Enter clicking the tab (so its own
+   on-click runs), and arrow, Home and End keys moving to and activating a sibling.
+   With `{:id tab-id :panel-id id}` the tab also gets its id, and the selected tab aria-controls the
+   one rendered panel."
+  ([selected? label] (tab-attrs selected? label nil))
+  ([selected? label {:keys [id panel-id]}]
+   (cond-> {:role "tab" :aria-selected (str (boolean selected?)) :aria-label label
+            :tabIndex (if selected? 0 -1)
+            :on-key-down (fn [e]
+                           #?(:cljs (if (#{" " "Enter"} (.-key e))
+                                      (press-to-click e)
+                                      (step-tab! e))
+                              :clj e))}
+     id (assoc :id id)
+     (and selected? panel-id) (assoc :aria-controls panel-id))))
+
+(defn tab-panel-attrs
+  "Attributes for the one shown tab panel: role tabpanel with id `panel-id`, labelled by the selected
+   tab whose id is `tab-id`."
+  [panel-id tab-id]
+  {:role "tabpanel" :id panel-id :aria-labelledby tab-id})
 
 (defn checkbox-mark
   "The box drawn alone, hidden from screen readers: for a row that is itself the control (a
@@ -37,17 +112,31 @@
 
 (defn labeled-checkbox
   "`label` beside a tick box, the two one checkbox control: clicked, or Space or Enter on it, calls
-   `on-click`. Checked when `selected?`, dimmed and skipped when `disabled?`."
-  [label selected? disabled? on-click]
+   `on-click`. Checked when `selected?`, dimmed and skipped when `disabled?`. The optional
+   `row-class` (a string such as \"m-b-10 f-s-14\") is added to the row's own classes, so a caller
+   sets the row's margin or text size; nil leaves the row as it is."
+  ([label selected? disabled? on-click] (labeled-checkbox label selected? disabled? on-click nil))
+  ([label selected? disabled? on-click row-class]
   [:div.flex.align-items-c.pointer.checkbox-row
    (cond-> {:on-click on-click
             :role "checkbox"
             :aria-checked (str (boolean selected?))
             :tab-index (if disabled? -1 0)}
+     row-class (assoc :class row-class)
      disabled? (assoc :aria-disabled "true")
      (not disabled?) (assoc :on-key-down press-to-click))
    [checkbox-mark selected? disabled?]
-   [:span.m-l-5 label]])
+   [:span.m-l-5 label]]))
+
+(defn checkbox-grid
+  "A wrapping row of `labeled-checkbox`es, spaced as the builders' choice grids are.
+   `cells` is a seq of maps `{:key :label :checked? :on-click}`, `:key` unique among them.
+   Returns hiccup: a flex-wrap div with one checkbox per cell."
+  [cells]
+  [:div.flex.flex-wrap
+   (for [{:keys [key label checked? on-click]} cells]
+     ^{:key key}
+     [labeled-checkbox label checked? false on-click "m-r-20 m-b-10"])])
 
 (defn selection-item [key name selected?]
   [:option.builder-dropdown-item
@@ -61,7 +150,7 @@
       [:select.builder-option.builder-option-dropdown
        {:value @selected-value
         :on-change (fn [e]
-                     (let [v (-> e .-target .-value)]
+                     (let [v (event-value e)]
                        (on-change e)
                        (reset! selected-value "")))}
        [:option.builder-dropdown-item
@@ -101,7 +190,7 @@
          :on-click #(.stopPropagation %)
          :on-change (fn [e]
                       #?(:cljs
-                         (let [v (.. e -target -value)]
+                         (let [v (event-value e)]
                            (reset! local-val v)
                            (on-change v))))})])))
 
@@ -208,6 +297,15 @@
 
 (def text-color "#484848")
 
+(defn caret
+  "The open/closed icon of a toggle: up while `open?`, down while closed, hidden from screen
+   readers (the toggle's own text names it). `opts` may give :kind, :caret (the default) or
+   :angle, and :class, extra classes as a string. Returns hiccup: an <i> icon."
+  ([open?] (caret open? nil))
+  ([open? {:keys [kind class]}]
+   (let [[up down] (if (= kind :angle) ["fa-angle-up" "fa-angle-down"] ["fa-caret-up" "fa-caret-down"])]
+     [:i.fa {:class (str (if open? up down) (when class (str " " class))) :aria-hidden true}])))
+
 (defn expand-button
   "An orange underlined toggle with a caret: `collapse-text` while `expanded?` (an atom) is false,
    `expand-text` while true. A click flips the atom and stops there."
@@ -217,8 +315,7 @@
                 (swap! expanded? not)
                 #?(:cljs (.stopPropagation e)))}
    [:span.underline.orange.p-0.m-r-2 (if @expanded? expand-text collapse-text)]
-   [:i.fa.orange
-    {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]])
+   [caret @expanded? {:class "orange"}]])
 
 (defn show-info-button
   "The \"show info\" / \"hide info\" toggle for an option's help, flipping `expanded?` (an atom)."
@@ -226,14 +323,15 @@
   [:div.f-w-n.m-l-5 [expand-button "hide info" "show info" expanded?]])
 
 (defn themed-icon
-  "Icon `icon-name` from /image at `size` px (32 by default): the black set, faded, in the light
-   theme (`theme` \"light-theme\"), else the white set."
+  "Icon `icon-name` from /image at `size` px (32 by default; :css leaves the size to the stylesheet):
+   the black set, faded, in the light theme (`theme` \"light-theme\"), else the white set."
   [icon-name size theme]
   (let [light-theme? (= "light-theme" theme)
         size (or size 32)]
     [:img.svg-icon
-     {:style {:height (str size "px")
-              :width (str size "px")}
+     {:style (when-not (= :css size)
+               {:height (str size "px")
+                :width (str size "px")})
       :class (when light-theme? " opacity-7")
       ;; Decorative: every icon sits beside its text or inside a labelled control.
       :alt ""

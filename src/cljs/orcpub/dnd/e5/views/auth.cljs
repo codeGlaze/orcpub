@@ -7,13 +7,13 @@
   (:require [re-frame.core :refer [subscribe dispatch reg-fx]]
             [reagent.core :as r]
             [orcpub.route-map :as routes]
-            [orcpub.components :as comps :refer [base-input form-input make-event-handler]]
+            [orcpub.components :as comps :refer [event-value base-input form-input make-event-handler]]
             [orcpub.registration :as registration]
             [orcpub.errors :as errors]
             [orcpub.fork.branding :as branding]
             [orcpub.dnd.e5.views-shared :as views-shared]
             [orcpub.dnd.e5.views.notifications :as notifications]
-            [orcpub.dnd.e5.views.builder-fields :refer [event-value set-value]]
+            [orcpub.dnd.e5.views.builder-fields :refer [set-value]]
             [clojure.string :as s]))
 
 ;; ---- Cloudflare Turnstile widget (sign-up form, managed mode) ----

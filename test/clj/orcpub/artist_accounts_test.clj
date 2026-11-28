@@ -1,5 +1,6 @@
 (ns orcpub.artist-accounts-test
   (:require [clojure.test :refer [deftest is testing]]
+            [clojure.string]
             [datomic.api :as d]
             [buddy.hashers :as hashers]
             [orcpub.artist-accounts :as aa]

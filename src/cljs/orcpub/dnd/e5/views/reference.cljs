@@ -7,7 +7,7 @@
             [reagent.core :as r]
             [orcpub.route-map :as routes]
             [orcpub.common :as common]
-            [orcpub.components :as comps :refer [make-event-handler]]
+            [orcpub.components :as comps :refer [event-value make-event-handler]]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.character :as char]
             [orcpub.dnd.e5.magic-items :as mi]
@@ -15,8 +15,7 @@
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.srd-conditions :as srd-conditions]
             [orcpub.dnd.e5.srd-rules :as srd-rules]
-            [orcpub.dnd.e5.views :as views]
-            [orcpub.dnd.e5.views.builder-fields :refer [event-value]]))
+            [orcpub.dnd.e5.views :as views]))
 
 (defn monster-page
   "The page for one monster, from the route's :key."
@@ -260,8 +259,7 @@
             [:span.underline (if expanded?
                                "collapse"
                                "open")])
-          [:i.fa.m-l-5
-           {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]
+          [comps/caret expanded? {:class "m-l-5"}]]]
         (when expanded?
           [:div.p-10
            {:style views/character-display-style}
@@ -362,16 +360,21 @@
            subtypes))]])])
 
 (defn monster-filter-toggle
-  "The link that shows or hides the monster trait filters; `filters-expanded?` is a ratom."
+  "The control that shows or hides the monster trait filters; `filters-expanded?` is a ratom. A
+   button by role and name (\"Show filters\" / \"Hide filters\"), since a phone shows only its caret."
   [filters-expanded?]
   [:div.orange.pointer.m-r-10
-   {:on-click (toggle-handler filters-expanded?)}
+   {:on-click (toggle-handler filters-expanded?)
+    :role "button"
+    :tab-index 0
+    :aria-label (if @filters-expanded? "Hide filters" "Show filters")
+    :aria-expanded (str (boolean @filters-expanded?))
+    :on-key-down comps/press-to-click}
    (when (not= @(subscribe [:device-type]) :mobile)
      [:span.underline (if @filters-expanded?
                         "hide"
                         "filters")])
-   [:i.fa.m-l-5
-    {:class (if @filters-expanded? "fa-caret-up" "fa-caret-down")}]])
+   [comps/caret @filters-expanded? {:class "m-l-5"}]])
 
 (defn monster-list
   "The Monsters page: text filter, trait filters and the filtered list."
@@ -421,8 +424,7 @@
         (when (not= device-type :mobile) [:span.underline (if expanded?
                                                           "collapse"
                                                           "open")])
-        [:i.fa.m-l-5
-         {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]
+        [comps/caret expanded? {:class "m-l-5"}]]]
       (when expanded?
         [:div.p-10
          {:style views/character-display-style}
@@ -485,8 +487,7 @@
         (when (not= device-type :mobile) [:span.underline (if expanded?
                                                           "collapse"
                                                           "open")])
-        [:i.fa.m-l-5
-         {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]
+        [comps/caret expanded? {:class "m-l-5"}]]]
       (when expanded?
         [:div.p-10
          {:style views/character-display-style}

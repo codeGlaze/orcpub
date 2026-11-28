@@ -159,7 +159,11 @@ for kind in $ORDER; do
   # The bundle builds while the shared server boots; neither needs the other (about 1 min saved).
   # Empty E2E_SKIP_BUILD: this is the one build of the batch, so a caller's setting must not turn
   # it into a run on stale client code.
-  E2E_SKIP_BUILD= ./scripts/e2e/run.sh --build-only "${all[0]}" > "$LOGDIR/build-$kind.log" 2>&1 &
+  # A batch's later suites skip the build, so the build runs for its first Needs: ledger suite when it
+  # has one: that builds the bundle and ledger.js together.
+  build_for="${all[0]}"
+  for f in "${all[@]}"; do grep -qiE '^//.*Needs:.*ledger' "$f" && { build_for="$f"; break; }; done
+  E2E_SKIP_BUILD= ./scripts/e2e/run.sh --build-only "$build_for" > "$LOGDIR/build-$kind.log" 2>&1 &
   BUILDPID=$!
   if [ $(( ${#tests[@]} + ${#probes[@]} )) -gt 0 ]; then
     if ./scripts/e2e/server.sh start init-db > "$LOGDIR/server-$kind.log" 2>&1; then
@@ -176,6 +180,13 @@ for kind in $ORDER; do
   fi
 
   if [ "$SHARED_UP" = 1 ]; then
+    # The place census runs alone and first: a moved control then fails as one named line there
+    # before it times out deep in the suites that use it (plan-browser-toolbox.md, step 6).
+    rest=()
+    for f in "${tests[@]}"; do
+      if [ "$(basename "$f")" = place_census_e2e.js ]; then run_one "$f" "$kind" 1 1; else rest+=("$f"); fi
+    done
+    tests=("${rest[@]}")
     run_parallel "$kind" "${tests[@]}"
   else
     fail_all "$kind" "the shared server did not start" "${tests[@]}" "${probes[@]}"; probes=()

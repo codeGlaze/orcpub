@@ -3,6 +3,7 @@
      subs.cljs -> events.cljs -> (can't import subs.cljs)."}
   orcpub.dnd.e5.event-utils
   (:require [orcpub.modifiers :as mod]
+            [orcpub.entity :as entity]
             [orcpub.route-map :as routes]
             [clojure.string :as s]
             #?(:cljs [re-frame.core :refer [dispatch after]])
@@ -120,3 +121,10 @@
            (sorted? mod-set))
     mod-set
     (into (sorted-set-by compare-mod-keys) mod-set)))
+
+(defn others-character?
+  "Whether `stored` (a character as kept in ::char5e/character-map) belongs to someone other than
+   the signed-in user of `db`: it has an owner, and the user is signed out or is someone else."
+  [db stored]
+  (let [owner (::entity/owner stored)]
+    (boolean (and owner (not= owner (get-in db [:user-data :user-data :username]))))))

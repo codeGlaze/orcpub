@@ -4,7 +4,8 @@
    app-db :portrait/draft, in portrait-assets' shape; :portrait/save writes it back.
    Each layer is a div tinted by background-blend multiply, clipped to the asset by a mask.
    See PORTRAIT-COMPOSITOR.md and PORTRAIT-TINTING.md."
-  (:require [re-frame.core :refer [dispatch subscribe]]
+  (:require [orcpub.components :as comps]
+            [re-frame.core :refer [dispatch subscribe]]
             [orcpub.art-mark :as art-mark]
             [re-frame.db]
             [reagent.core :as r]
@@ -21,7 +22,6 @@
 
 (defn- classes [& cs] (s/join " " (remove nil? cs)))
 
-(defn- target-value [e] (.. e -target -value))
 
 (defn- z-label [layer-key]
   (let [z (.indexOf pa/layer-order layer-key)]
@@ -958,13 +958,13 @@
                :value (or override eff)
                :aria-label (str "Override " label " color")
                :on-change #(dispatch [:portrait/set-layer-tweak layer-key
-                                      {:override (target-value %)}])}]]
+                                      {:override (comps/event-value %)}])}]]
      [:input {:type "range" :min -30 :max 30 :step 5
               :value shade
               :disabled (some? override)
               :aria-label (str "Shade " label)
               :on-change #(dispatch [:portrait/set-layer-tweak layer-key
-                                     {:shade (js/parseInt (target-value %) 10)}])}]
+                                     {:shade (js/parseInt (comps/event-value %) 10)}])}]
      [:span.pl-sub-shade-val (str (when (pos? shade) "+") shade "%")]
      [:button.pl-sub-clear
       {:type "button" :disabled (not any?)
@@ -983,7 +983,7 @@
           :aria-label (str "Brightness of " label)
           :title "Brightness: lift or deepen the colour, keeping the shading"
           :on-change #(dispatch [:portrait/set-layer-tweak layer-key
-                                 {:depth (js/parseInt (target-value %) 10)}])}]
+                                 {:depth (js/parseInt (comps/event-value %) 10)}])}]
         [:span.pl-sub-shade-val (str (when (pos? depth) "+") depth)]])]))
 
 (defn- slot-chip [portrait slot open-slot]
@@ -1033,7 +1033,7 @@
     [:input {:type "range" :min 0 :max 100 :step 5
              :value (js/Math.round (* 100 value))
              :aria-label label
-             :on-change #(dispatch [event k (/ (js/parseInt (target-value %) 10) 100)])}]
+             :on-change #(dispatch [event k (/ (js/parseInt (comps/event-value %) 10) 100)])}]
     [:span.pl-sub-shade-val (str (js/Math.round (* 100 value)))]]))
 
 (defn- segmented
@@ -1075,7 +1075,7 @@
         [:span.pl-preset.custom {:title "Custom colour for the right eye"}
          [:input {:type "color" :value (or second-eye "#3d5c8f")
                   :aria-label "Custom second eye colour"
-                  :on-change #(dispatch [:portrait/set-face :second-eye (target-value %)])}]]]
+                  :on-change #(dispatch [:portrait/set-face :second-eye (comps/event-value %)])}]]]
        (let [{:keys [glow glow-strength]} (light/light-settings portrait)]
          [:<>
           [:span.pl-panel-heading "Glow"]
@@ -1090,7 +1090,7 @@
                :on-click #(dispatch [:portrait/set-light :glow c])}])
            [:span.pl-preset.custom {:title "Custom glow colour"}
             [:input {:type "color" :value (or glow "#ff8a3a") :aria-label "Custom glow colour"
-                     :on-change #(dispatch [:portrait/set-light :glow (target-value %)])}]]]
+                     :on-change #(dispatch [:portrait/set-light :glow (comps/event-value %)])}]]]
           (when glow [ombre-slider "Strength" :glow-strength glow-strength :portrait/set-light])])])))
 
 (defn- light-controls
@@ -1157,7 +1157,7 @@
       [:span.pl-preset.custom {:title "Custom tips colour"}
        [:input {:type "color" :value (or tip "#c0a080")
                 :aria-label "Custom tips colour"
-                :on-change #(dispatch [:portrait/set-ombre :tip (target-value %)])}]]]
+                :on-change #(dispatch [:portrait/set-ombre :tip (comps/event-value %)])}]]]
      (when tip
        [:<>
         ;; on a split, where the line falls
@@ -1191,7 +1191,7 @@
       [:span.pl-ombre-label "Runs"]
       [:select {:value (cond split "split" angle "angle" :else "roots")
                 :aria-label "Which way the tips run"
-                :on-change #(dispatch [:portrait/set-run (target-value %)])}
+                :on-change #(dispatch [:portrait/set-run (comps/event-value %)])}
        [:option {:value "roots"} "From the roots"]
        [:option {:value "angle"} "At an angle"]
        ;; not ready: one line across every piece, which is not how a split
@@ -1203,7 +1203,7 @@
         [:span.pl-ombre-label "Angle"]
         [:input {:type "range" :min 0 :max 345 :step 15 :value angle
                  :aria-label "Tips angle"
-                 :on-change #(dispatch [:portrait/set-ombre :angle (js/parseInt (target-value %) 10)])}]
+                 :on-change #(dispatch [:portrait/set-ombre :angle (js/parseInt (comps/event-value %) 10)])}]
         [:span.pl-sub-shade-val (str angle "\u00b0")]])]))
 
 (defn- slot-panel [portrait slot]
@@ -1228,7 +1228,7 @@
                  :value (let [c (get-in portrait [:colors slot])]
                           (if (and (string? c) (re-matches #"#[0-9a-fA-F]{6}" c)) c "#c0a080"))
                  :aria-label (str "Custom " (pa/color-slot-labels slot) " color")
-                 :on-change #(dispatch [:portrait/set-slot-color slot (target-value %)])}]]]]
+                 :on-change #(dispatch [:portrait/set-slot-color slot (comps/event-value %)])}]]]]
      (when (= slot :hair) [ombre-controls portrait])
      (when (= slot :eyes) [eye-controls portrait])
      (when (= slot :skin) [skin-controls portrait])
@@ -1442,8 +1442,9 @@
    rendering fault, and inventing something to put there is worse, so the
    whole strip says so plainly instead."
   [layers]
-  (let [_ @(subscribe [:portrait/artist-overrides]) ; re-render when the credits arrive
-        infos (pa/artists-for-layers layers)
+  (let [infos (pa/artists-for-layers layers)
+        ;; credits are fetched and watched only when there is someone to credit
+        _ (when (seq infos) @(subscribe [:portrait/artist-overrides]))
         named (filter :artist/name infos)]
     [:div.pl-attribution
      (cond
@@ -1676,7 +1677,8 @@
    A composed portrait carries its artists' names under it. This is the one
    surface a reader lands on, so it is where the credit does the most good."
   [portrait-data image-url editable?]
-  (let [_ @(subscribe [:portrait/artist-overrides])] ; re-render when the credits arrive
+  ;; only a composed portrait has a credit, so only then are the credits fetched and watched
+  (let [_ (when (pa/drawable? portrait-data) @(subscribe [:portrait/artist-overrides]))]
     (cond
       (pa/drawable? portrait-data)
       [:div.m-r-20.m-t-10.m-b-10

@@ -23,7 +23,7 @@
 const { chromium } = require('playwright');
 const { findChrome } = require('./lib/find-chrome');
 const fs = require('fs'), path = require('path');
-const BASE = 'http://localhost:8890';
+const BASE = process.env.E2E_BASE || 'http://localhost:8890';
 const OUT = process.env.PROBE_OUT || '/tmp/character-heal';
 
 // A homebrew race renamed by an import conflict: it records the key it used to have.

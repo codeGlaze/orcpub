@@ -14,22 +14,23 @@
 ;; Goes through the same calls as routes.clj in the same order, so what comes out
 ;; is what a download gives: grow, add pages, merge, spill, write, stamp.
 
+(ns style-gallery
+  (:require [orcpub.pdf :as pdf]
+            [orcpub.pdf.draw :as draw]
+            [orcpub.dnd.e5.spells :as spells]
+            [orcpub.dnd.e5.spell-lists :as sl]
+            [orcpub.dnd.e5.spell-packing :as pk]
+            [orcpub.dnd.e5.spell-annotations :as spell-annotations]
+            [orcpub.common :as common]
+            [clojure.java.io :as io])
+  (:import [org.apache.pdfbox Loader]
+           [org.apache.pdfbox.rendering PDFRenderer]
+           [javax.imageio ImageIO]
+           [java.io File FileOutputStream]))
+
 (load-file "dev/sample_character.clj")
 
-(require '[orcpub.pdf :as pdf]
-         '[orcpub.pdf.draw :as draw]
-         '[orcpub.dnd.e5.spells :as spells]
-         '[orcpub.dnd.e5.spell-lists :as sl]
-         '[orcpub.dnd.e5.spell-packing :as pk]
-         '[orcpub.dnd.e5.spell-annotations :as spell-annotations]
-         '[orcpub.common :as common]
-         '[clojure.java.io :as io])
-(import '[org.apache.pdfbox Loader]
-        '[org.apache.pdfbox.rendering PDFRenderer]
-        '[javax.imageio ImageIO]
-        '[java.io File FileOutputStream])
-
-(def fixture @#'sample-character/wizard-20)
+(def fixture @(ns-resolve 'sample-character 'wizard-20))
 
 (defn- spell-rows
   "The spell-name fields for one class, filled to `style`'s own row counts."

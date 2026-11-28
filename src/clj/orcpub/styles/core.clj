@@ -205,6 +205,9 @@
    [:.cast-go {:margin "0 0 0 auto" :min-height "36px" :padding "0 12px" :font-size "12px" :font-weight 600}]
    [:.cast-go.unavailable {:opacity 0.5 :cursor :default}]
    [:.cast-spell {:max-height "40vh" :overflow-y :auto :margin "8px 0" :font-size "13px"}]
+   ;; the spell table's Mod. roll button, no taller than the row's text
+   [:.spell-mod [:.roll-button {:min-width 0 :font-size "14px" :line-height "18px" :padding "0 8px" :margin 0 :vertical-align :middle}]
+                [:.tooltip {:border-bottom 0 :vertical-align :middle}]]
    [".app.light-theme .cast-sheet" {:background-color :white :color "#222"}]
    [".app.light-theme .cast-panel" {:background "rgba(255,255,255,.6)" :border-color "rgba(0,0,0,.14)"}]
    [".app.light-theme .cast-level.on" ".app.light-theme .cast-spell-pick.on" {:color "#33658A" :border-color "#33658A"
@@ -224,6 +227,8 @@
    [:.rest-fab-handle {:width "36px" :height "4px" :border-radius "2px" :background "rgba(255,255,255,.5)" :margin "0 auto 2px"}]
    [".rest-fab-sheet .rest-box" ".rest-fab-card .rest-box" {:background :none :border 0 :padding 0 :margin 0}]
    ["body:has(.rest-fab-slot) .import-log-button" {:bottom "84px"}]
+   ;; room under the footer, so the page's last line scrolls clear of the 72px the button takes
+   ["body:has(.rest-fab-slot) .content:has(> .site-footer)" {:padding-bottom "72px"}]
    [".app.light-theme .rest-fab" {:background-image "linear-gradient(to bottom,#33658A,#33658A)"}]
    [".app.light-theme .rest-fab-sheet" ".app.light-theme .rest-fab-card" {:background-color "#fff" :color "#363636"}]
    [".app.light-theme .rest-fab-card" {:border-color "rgba(0,0,0,.14)"}]
@@ -1608,8 +1613,9 @@
       :padding "1px"
       :pointer-events :none
       :background (str "linear-gradient(90deg, " orange ", rgba(255, 255, 255, 0.12) 30%, "
-                       "rgba(255, 255, 255, 0.12) 70%, " orange ")")
-      :-webkit-mask "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)"
+                       "rgba(255, 255, 255, 0.12) 70%, " orange ")")}
+     ;; Its own map, so the order holds: `mask` resets `mask-composite` (garden-declaration-order.md).
+     {:-webkit-mask "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)"
       :-webkit-mask-composite "xor"
       :mask "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)"
       :mask-composite "exclude"}]]
@@ -2588,6 +2594,20 @@
     [:.share-action:disabled {:opacity 0.6 :cursor :default :text-decoration :none}]
     [:.share-action-danger {:color "#ef8592"}]
     [:.share-action-quiet {:color "rgba(255,255,255,0.7)"}]
+    ;; Data View: an icon-only gear, quieter than the actions beside it; 44px to tap.
+    [:.data-view-gear
+     {:display :inline-flex
+      :align-items :center
+      :justify-content :center
+      :width "44px"
+      :height "44px"
+      :flex-shrink 0
+      :border-radius "6px"
+      :font-size "18px"
+      :color "rgba(255,255,255,0.7)"
+      :vertical-align :middle}]
+    (at-media {:hover "hover"} [:.data-view-gear:hover {:color orange :background-color "rgba(255,255,255,0.06)"}])
+    [:.data-view-gear:focus-visible {:outline (str "2px solid " orange) :outline-offset "2px"}]
     (at-media xs-query [:.share-line {:column-gap "16px"}])
 
     [:.roll-button
@@ -3036,6 +3056,7 @@
      [:.share-action:focus-visible {:outline-color "#33658A"}]
      [:.share-action-danger {:color "#9a031e"}]
      [:.share-action-quiet {:color "#4a4a4a"}]
+     [:.data-view-gear {:color "#4a4a4a"}]
 
      [:.builder-option-dropdown
       (merge

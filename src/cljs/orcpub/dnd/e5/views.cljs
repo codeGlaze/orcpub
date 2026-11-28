@@ -4,7 +4,7 @@
             [orcpub.route-map :as routes]
             [orcpub.common :as common]
             [orcpub.entity :as entity]
-            [orcpub.components :as comps :refer [orange text-color make-event-handler make-arg-event-handler]]
+            [orcpub.components :as comps :refer [event-value orange make-event-handler make-arg-event-handler]]
             [orcpub.entity-spec :as es]
             [orcpub.pdf-spec :as pdf-spec]
             [orcpub.dnd.e5.spell-packing :as packing]
@@ -39,6 +39,7 @@
             [orcpub.dnd.e5.encounters :as encounters]
             [orcpub.dnd.e5.combat :as combat]
             [orcpub.dnd.e5.spells :as spells]
+            [orcpub.dnd.e5.spell-annotations :as spell-ann]
             [orcpub.dnd.e5.skills :as skills]
             [orcpub.dnd.e5.equipment :as equip]
             [orcpub.dnd.e5.weapons :as weapon]
@@ -53,10 +54,11 @@
             [orcpub.dnd.e5.views.whats-new :as whats-new-view]
             [orcpub.dnd.e5.views-shared :as views-shared]
             [orcpub.dnd.e5.views.pdf-options :as pdf-options]
-            [orcpub.dnd.e5.views.builder-fields :refer [event-value dropdown labeled-dropdown
-                                                        labeled-checkbox with-help option-checkbox option-group
-                                                        base-builder-field builder-field
+            [orcpub.dnd.e5.views.builder-fields :refer [dropdown labeled-dropdown
+                                                        with-help
+                                                        base-builder-field
                                                         input-builder-field textarea-field
+                                                        builder-input-field builder-field-cue
                                                         number-field]]
             [orcpub.dnd.e5.views.charges-builder :as charges-builder]
             [orcpub.dnd.e5.views.rest-controls :as rest-controls]
@@ -85,20 +87,6 @@
 ;; the `amount` of "uses" an action may have before it warrants
 ;; using a dropdown instead of a list of checkboxes
 (def actions-amount-many 5)
-
-(def input-style
-  {:height "38px"
-   :border-style "solid"
-   :border-width "1px"
-   :border-radius "3px"
-   :font-size "14px"
-   :padding-left "10px"
-   :color text-color})
-
-(def default-input-style
-  (merge
-   input-style
-   {:border-color "rgba(72,72,72,0.37)"}))
 
 (defn validation-messages [messages]
   (when messages
@@ -344,7 +332,7 @@
   (dispatch [:route routes/default-route]))
 
 (defn search-input-keypress [e]
-  (when (= "Enter" (.-key e)) (dispatch [:set-search-text (.. e -target -value)])))
+  (when (= "Enter" (.-key e)) (dispatch [:set-search-text (comps/event-value e)])))
 
 (defn set-search-text [e]
   (dispatch [:set-search-text (event-value e)]))
@@ -432,10 +420,7 @@
                {:role "button"
                 :tab-index 0
                 :on-click #(dispatch [::e5/open-whats-new])
-                :on-key-down (fn [e]
-                               (when (#{"Enter" " "} (.-key e))
-                                 (.preventDefault e)
-                                 (dispatch [::e5/open-whats-new])))
+                :on-key-down comps/press-to-click
                 :title "What's New"}
                [:i.fa.fa-gift] "What's New"]
               (when-let [url (not-empty (:facebook branding/social-links))]
@@ -570,17 +555,6 @@
        (dispatch (vec (cons event-kw args)))
        (.stopPropagation e)))))
 
-(defn switch-attrs
-  "Attributes for a `.dev-mode-switch`: its role and state, keyboard focus, and Space or Enter
-   calling `handler` (the switch's click handler, given the key event). `handler` nil: disabled."
-  [on? handler]
-  (cond-> {:role "switch" :aria-checked (str (boolean on?)) :tabIndex (if handler 0 -1)}
-    handler (assoc :on-key-down (fn [e]
-                                  (when (#{" " "Enter"} (.-key e))
-                                    (.preventDefault e)
-                                    (handler e))))
-    (nil? handler) (assoc :aria-disabled "true")))
-
 (def loading-style
   {:position :fixed
    :height "100%"
@@ -694,7 +668,7 @@
          ;; unlabelled icons sitting in the footer of every page.
          [:div.dev-mode-row
           [:span.dev-mode-switch
-           (merge (switch-attrs dev? (make-event-handler ::e5/toggle-dev-mode))
+           (merge (comps/switch-attrs dev? (make-event-handler ::e5/toggle-dev-mode))
                   {:class (when dev? "on")
                    :title "Show diagnostic tools for getting your content out"
                    :on-click (make-event-handler ::e5/toggle-dev-mode)})]
@@ -706,7 +680,7 @@
            (let [quiet? @(subscribe [::e5/quiet-pick-counts?])]
              [:div.dev-mode-row
               [:span.dev-mode-switch
-               (merge (switch-attrs quiet? (make-event-handler ::e5/toggle-quiet-pick-counts))
+               (merge (comps/switch-attrs quiet? (make-event-handler ::e5/toggle-quiet-pick-counts))
                       {:class (when quiet? "on")
                        :title "Hide \"select any number / complete\" on builder sections that need nothing"
                        :on-click (make-event-handler ::e5/toggle-quiet-pick-counts)})]
@@ -726,7 +700,7 @@
              "Debug info"]]
            [:div.dev-mode-row
             [:span.dev-mode-switch.compact
-             (merge (switch-attrs @cast-inline-on-phones toggle-cast-inline!)
+             (merge (comps/switch-attrs @cast-inline-on-phones toggle-cast-inline!)
                     {:class (when @cast-inline-on-phones "on") :on-click toggle-cast-inline!})]
             [:span.dev-mode-label {:on-click toggle-cast-inline!} "Open item casting under the item on phones"]]])
          ;; One box, not the two identical ones that were here: the same map was
@@ -1934,8 +1908,7 @@
   [:span.orange.underline.pointer
    {:on-click on-click}
    [:span (if expanded? "hide" "details")]
-   [:i.fa.m-l-5
-    {:class (if expanded? "fa-caret-up" "fa-caret-down")}]])
+   [comps/caret expanded? {:class "m-l-5"}]])
 
 (defn spellcaster-levels-table []
   (let [expanded? (r/atom false)]
@@ -2044,8 +2017,7 @@
                    [:td.p-10 (spell-slots (inc level))])
                  (range (apply max (keys spell-slots)))))
                [:td.p-r-5
-                [:i.fa.orange
-                 {:class (if @checkboxes-expanded? "fa-caret-up" "fa-caret-down")}]]])]]]
+                [comps/caret @checkboxes-expanded? {:class "orange"}]]])]]]
          (when @checkboxes-expanded?
            [:div.bg-light.p-5
             (doall
@@ -2142,7 +2114,12 @@
                   (.stopPropagation e))}
      (comps/checkbox selected? (or disabled? always-prepared?) (str spell-name " prepared"))]))
 
-(defn spell-row [id lvl spell-modifiers prepares-spells prepared-spells-by-class {:keys [key ability qualifier class always-prepared?]} expanded? on-click prepare-spell-count prepared-spell-count]
+(defn spell-row
+  "The table rows for one known spell (a map of :key, :ability, :class, :always-prepared?) of
+  character `id` at level `lvl`: prepared box and name, class, ability, save DC and Mod. (a roll
+  button for a spell that makes a spell attack), and the open caret; when `expanded?`, a second
+  row with casting and the full spell. `on-click` toggles it. Returns a vector of row hiccup."
+  [id lvl spell-modifiers prepares-spells prepared-spells-by-class {:keys [key ability qualifier class always-prepared?]} expanded? on-click prepare-spell-count prepared-spell-count]
   (let [spell-map @(subscribe [::spells/spells-map])
         spell (spell-map key)
         cls-mods (get spell-modifiers class)
@@ -2160,18 +2137,18 @@
       [:td.p-l-10.p-b-5.p-t-5 class]
       [:td.p-l-10.p-b-5.p-t-5 (when ability (s/upper-case (common/safe-name ability)))]
       [:td.p-l-10.p-b-5.p-t-5 (get cls-mods :spell-save-dc)]
-      [:td.p-l-10.p-b-5.p-t-5 (common/bonus-str (get cls-mods :spell-attack-modifier))]
-      [:td.p-l-10.p-b-5.p-t-5
-       (roll-button
-        (str (:name spell) " attack: ")
-        (str "1d20" (common/mod-str (get cls-mods :spell-attack-modifier)))
-        :text (str "1d20" (common/mod-str (get cls-mods :spell-attack-modifier))))]
+      ;; Only a spell that makes a spell attack rolls: its Mod. is the roll button.
+      (let [mod (get cls-mods :spell-attack-modifier)]
+        [:td.p-l-10.p-b-5.p-t-5.spell-mod
+         (if (spell-ann/attack-roll? spell)
+           (roll-button (str (:name spell) " attack: ") (str "1d20" (common/mod-str mod))
+                        :text (common/bonus-str mod))
+           (common/bonus-str mod))])
       [:td.p-l-10.p-b-5.p-t-5.pointer.orange
-       [:i.fa
-        {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]
+       [comps/caret expanded?]]]
      (when expanded?
        [:tr {:style expanded-spell-background-style}
-        [:td {:col-span 7}
+        [:td {:col-span 6}
          [:div.p-10
           (when (pos? lvl)
             [cast-spell-component id lvl])
@@ -2208,10 +2185,7 @@
             [:th.p-l-10.p-b-5.p-t-5 (if mobile? "Src" "Source")]
             [:th.p-l-10.p-b-5.p-t-5 (if mobile? "Aby" "Ability")]
             [:th.p-l-10.p-b-5.p-t-5 "DC"]
-            [:th
-             {:class (when (not mobile?) "p-b-10 p-t-10")}
-             "Mod."]
-            [:th.p-l-10.p-b-5.p-t-5 "Attack"]
+            [:th.p-l-10.p-b-5.p-t-5 "Mod."]
             [:th.p-l-10.p-b-5.p-t-5]]
            (doall
             (map-indexed
@@ -2436,7 +2410,7 @@
              :name (str i)}))
 
         (fn on-change [e]
-          (let [v (-> e .-target .-value)]
+          (let [v (comps/event-value e)]
             (when initial-value
               ; dispatch-sync: when id is nil this handler dispatches too, so the call
               ; below would read a stale db and overwrite this value. See
@@ -2533,26 +2507,41 @@
                      (fn [{:keys [class-level hit-die]}] (str class-level "d" hit-die))
                      (vals levels))) false)))
 
-(defn set-current-hit-points-fn [id]
-  #(dispatch [::char/set-current-hit-points
-              id
-              (or (-> %
-                      event-value
-                      js/parseInt)
-                  0)]))
+(defn typed-hit-points
+  "The HP typed in the sheet's box `text` as a whole number, or nil when the box is blank or is
+   not whole-integer text such as 3.5 (nothing is saved then; leaving the box puts back the
+   stored HP)."
+  [text]
+  (when (and (string? text) (re-matches #"-?\d+" (clojure.string/trim text)))
+    (js/parseInt text 10)))
 
-(def set-current-hit-points-handler (memoize set-current-hit-points-fn))
+(defn current-hit-points-input
+  "The sheet's current HP box for character `id`. What is typed is kept here while editing and
+   saved only when it is a number; leaving the box blank shows the stored HP again."
+  [id]
+  (let [typing (r/atom nil)]
+    (fn [id]
+      [:input.input
+       {:style current-hit-points-editor-style
+        :type :number
+        :value (if (some? @typing)
+                 @typing
+                 (or @(subscribe [::char/current-hit-points id])
+                     @(subscribe [::char/max-hit-points id])))
+        :on-change (fn [e]
+                     (let [text (event-value e)
+                           hp (typed-hit-points text)]
+                       (reset! typing text)
+                       (when hp (dispatch [::char/set-current-hit-points id hp]))))
+        :on-blur #(reset! typing nil)}])))
 
-(defn hit-points-section-2 [id]
+(defn hit-points-section-2
+  "The sheet's hit points box for character `id`: the editable current HP over the maximum."
+  [id]
   (basic-section "Max Hit Points"
                  "health-normal"
                  [:div.flex.align-items-c
-                  [:input.input
-                   {:style current-hit-points-editor-style
-                    :type :number
-                    :value (or @(subscribe [::char/current-hit-points id])
-                               @(subscribe [::char/max-hit-points id]))
-                    :on-change (set-current-hit-points-handler id)}]
+                  [current-hit-points-input id]
                   [:span.m-l-5 "/"]
                   [:span.m-l-5 @(subscribe [::char/max-hit-points id])]] false))
 
@@ -3000,8 +2989,7 @@
                    [:div.orange
                     #_(if (not mobile?)
                         [:span.underline (if expanded? "less" "more")])
-                    [:i.fa.m-l-5
-                     {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]])))]]]]))))
+                    [comps/caret expanded? {:class "m-l-5"}]]]])))]]]]))))
 
 (defn section-header [icon title]
   [:div.flex.align-items-c
@@ -3364,7 +3352,7 @@
          :on-click (fn [e] (.stopPropagation e) (swap! state update :open? not))}
         [:span.weapon-name nm]
         hand-pill
-        [:i.fa.weapon-caret {:class (if open? "fa-caret-up" "fa-caret-down") :aria-hidden true}]]
+        [comps/caret open? {:class "weapon-caret"}]]
        (if (and (or hands (seq item-toggles)) (not controls-below?))
          [:div.weapon-grey-line
           [:span kind]
@@ -3573,8 +3561,8 @@
                (str "Roll " (::mi/charges-start item))]
               [:input.input.item-charges-input
                {:type "number" :min 0 :placeholder "or type" :aria-label "Starting charges"
-                :on-key-down #(when (= "Enter" (.-key %)) (.blur (.-target %)))
-                :on-blur #(let [v (js/parseInt (.. % -target -value))]
+                :on-key-down (comps/on-enter #(.blur (.-target %)))
+                :on-blur #(let [v (js/parseInt (comps/event-value %))]
                             (when-not (js/isNaN v)
                               (dispatch [::char/set-item-charges-max id selection-key item-kw i (max 0 v)])))}]]
 
@@ -3739,8 +3727,7 @@
             [:div.orange
              #_(if (not mobile?)
                  [:span.underline (if expanded? "less" "more")])
-             [:i.fa.m-l-5
-              {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]]
+             [comps/caret expanded? {:class "m-l-5"}]]]]
           (when (and (not mobile?) (= item-kw @cast-open))
             [:tr.cast-row
              [:td {:col-span 3}
@@ -4189,10 +4176,33 @@
        (when @managing?
          [inventory-views/done-managing managing?])])))
 
-(defn details-tab [title icon device-type selected? on-select]
+(defn sheet-tab-scope
+  "Id fragment that keeps one sheet's tab and panel ids apart from other sheets on the page: the
+   character's id as a string, or \"new\" when the sheet has none (the builder's own character),
+   then `-instance` when given, so one character shown twice on a page keeps distinct ids."
+  [id & [instance]]
+  (str (if (nil? id) "new" (str id)) (when instance (str "-" instance))))
+
+(defonce ^{:doc "Counts mounted character sheets; each takes the next number for its tab ids."}
+  sheet-instances (atom 0))
+
+(defn shown-tab
+  "The sheet tab to select: `tab` when it is among `shown` (the [title spec] pairs rendered), else
+   the first shown title. Returns a title string."
+  [tab shown]
+  (if (some #(= tab (first %)) shown) tab (ffirst shown)))
+
+(defn details-tab
+  "One tab of the character sheet's tab bar: `title`, `icon`, `device-type` (:desktop shows the
+   label), `selected?` and the `on-select` click handler. `scope` (see `sheet-tab-scope`) goes into
+   the tab's id. Returns hiccup."
+  [title icon device-type selected? on-select scope]
   [:div.b-b-2.f-w-b.pointer.p-10.hover-opacity-full
-   {:class (if selected? "b-orange" "b-gray")
-    :on-click on-select}
+   (merge {:class (if selected? "b-orange" "b-gray")
+           :on-click on-select}
+          (comps/tab-attrs selected? (s/capitalize title)
+                     {:id (str "sheet-tab-" scope "-" title)
+                      :panel-id (str "sheet-tabpanel-" scope)}))
    [:div.hover-opacity-full
     {:class (when (not selected?) "opacity-5")}
     [:div (svg-icon icon 24)]
@@ -4470,18 +4480,22 @@
                          :on-click #(dispatch [:edit-character character])}])}])))))
 
 (defn character-display []
-  (let [show-selections? (r/atom false)]
+  (let [show-selections? (r/atom false)
+        instance (swap! sheet-instances inc)]
     (fn [id show-summary? num-columns]
       (let [device-type @(subscribe [:device-type])
             selected-tab @(subscribe [::char/selected-display-tab])
             two-columns? (= 2 num-columns)
-            tab (or selected-tab
-                    (if two-columns?
-                      "combat"
-                      "summary"))]
+            shown (if two-columns? (rest details-tabs) details-tabs)
+            tab (shown-tab (or selected-tab (if two-columns? "combat" "summary")) shown)
+            scope (sheet-tab-scope id instance)]
         [:div.w-100-p
          [:div
           [character-health-warning id]
+          (when @(subscribe [::char/viewer-edited? id])
+            [notifications/callout
+             {:icon "fa-info-circle" :tone :note :compact? true
+              :text "This is someone else's character: your changes show here but are not saved."}])
           (when show-summary?
             [:div.f-s-24.f-w-600.m-b-16.m-l-20.text-shadow.flex
              [character-summary id true true]])
@@ -4492,6 +4506,7 @@
            [:div
             {:class (if two-columns? "w-50-p" "w-100-p")}
             [:div.flex.p-l-10.m-b-10.m-r-10
+             {:role "tablist" :aria-label "Character sheet sections"}
              (doall
               (map
                (fn [[title {:keys [view icon]}]]
@@ -4502,14 +4517,15 @@
                    icon
                    device-type
                    (= title tab)
-                   (make-event-handler ::char/set-selected-display-tab title)]])
-               (if two-columns?
-                 (rest details-tabs)
-                 details-tabs)))]
+                   (make-event-handler ::char/set-selected-display-tab title)
+                   scope]])
+               shown))]
             ^{:key tab}
-            [error-boundary
-             (fn [error stack retry] [feature-render-error (s/capitalize tab) id error stack retry])
-             [(-> tab details-tabs :view) num-columns id]]]]
+            [:div (comps/tab-panel-attrs (str "sheet-tabpanel-" scope)
+                                  (str "sheet-tab-" scope "-" tab))
+             [error-boundary
+              (fn [error stack retry] [feature-render-error (s/capitalize tab) id error stack retry])
+              [(-> tab details-tabs :view) num-columns id]]]]]
           [rest-controls/rest-fab id tab]
           [:div.p-10
            [:span.orange.underline.pointer
@@ -4517,8 +4533,7 @@
             [:span (if @show-selections?
                      "hide selections"
                      "show selections")]
-            [:i.fa.m-l-5
-             {:class (if @show-selections? "fa-caret-up" "fa-caret-down")}]]
+            [comps/caret @show-selections? {:class "m-l-5"}]]
            (when @show-selections?
              [character-selections id])]]]))))
 
@@ -4581,6 +4596,18 @@
    {}
    vals))
 
+(defn data-view-path
+  "Address of the Data View page for saved character `id`, opened as a full page load: it runs
+   without the app (`orcpub.ledger-page`)."
+  [id]
+  (routes/path-for routes/dnd-e5-char-data-page-route :id id))
+
+(defn data-view-gear
+  "The muted gear that opens saved character `id` in Data View; for its owner only."
+  [id]
+  [:a.data-view-gear {:href (data-view-path id) :title "Data View" :aria-label "Data View"}
+   [:i.fa.fa-cog]])
+
 (defn character-load-recovery
   "Shown in place of the character sheet when the character's server data could
    not be read even after self-heal. Never a blank sheet, never a dead-end: the
@@ -4604,8 +4631,11 @@
           [:div.f-w-b.f-s-24.m-b-10 "This character couldn’t be loaded"]
           [:div.m-b-15.l-h-19
            "This character’s data appears to be corrupted and couldn’t be read. "
-           "Your saved data is safe — you can delete this character, or head back to your characters."]
+           "Your saved data is safe. You can repair it, delete it, or head back to your characters."]
           [:div.flex.flex-wrap.m-b-15
+           [:button.form-button.m-r-10.m-b-5
+            {:on-click #(set! (.-location js/window) (routes/path-for routes/dnd-e5-char-repair-page-route :id id))}
+            "Repair this character"]
            [:button.form-button.m-r-10.m-b-5
             {:on-click #(do (dispatch [:delete-character id])
                             (dispatch [:route routes/dnd-e5-char-list-page-route]))}
@@ -4687,7 +4717,10 @@
           [notifications/shared-content-banner id]
           [character-display id true (if (= :mobile device-type) 1 2)]]
          :frame? frame?
-         :subheader [share-view/share-line id]])))))
+         :subheader [:div.flex.align-items-c.justify-cont-s-b.w-100-p
+                     [share-view/share-line id]
+                     (when (and username owner (= owner username))
+                       [data-view-gear id])]])))))
 
 ;; dead — zero callers
 #_(defn select-builder-field [name value on-change children]
@@ -4699,9 +4732,7 @@
      children (concat children))))
 
 (defn attunement-value [attunement key name]
-  [:div
-   {:on-click (make-event-handler ::mi/toggle-attunement-value key)}
-   [labeled-checkbox name ((set attunement) key)]])
+  [comps/labeled-checkbox name ((set attunement) key) false (make-event-handler ::mi/toggle-attunement-value key) "m-b-10 f-s-14"])
 
 (defn attunement-selector [attunement]
   (base-builder-field
@@ -4713,7 +4744,7 @@
      [:span.f-s-24.f-w-b.m-l-5 "Attunement"]]
     (when attunement
       [:div
-       [labeled-checkbox "Any" (= #{:any} (set attunement))]
+       [comps/labeled-checkbox "Any" (= #{:any} (set attunement)) false nil "m-b-10 f-s-14"]
        [:div.flex.flex-wrap
         [:div.flex-grow-1
          (base-builder-field
@@ -4762,9 +4793,7 @@
           (map
            (fn [{:keys [:key :name]}]
              ^{:key key}
-             [:div
-              {:on-click (make-event-handler ::mi/toggle-subtype key)}
-              [labeled-checkbox name @(subscribe [::mi/has-subtype? key])]])
+             [comps/labeled-checkbox name @(subscribe [::mi/has-subtype? key]) false (make-event-handler ::mi/toggle-subtype key) "m-b-10 f-s-14"])
            (concat
             [{:name "All"
               :key :all}]
@@ -4799,9 +4828,7 @@
           (map
            (fn [{:keys [key name]}]
              ^{:key key}
-             [:div
-              {:on-click (make-event-handler ::mi/toggle-subtype key)}
-              [labeled-checkbox name @(subscribe [::mi/has-subtype? key])]])
+             [comps/labeled-checkbox name @(subscribe [::mi/has-subtype? key]) false (make-event-handler ::mi/toggle-subtype key) "m-b-10 f-s-14"])
            (concat
             [{:name "Custom" :key :other}
              {:name "All" :key :all}
@@ -4815,36 +4842,16 @@
        [:div.main-text-color.m-b-10.m-t-10
         [:span.f-s-18.f-w-b "Base Weapon Details"]
         [:div.flex.flex-wrap.m-t-10
-         [:div
-          {:on-click (make-event-handler ::mi/toggle-item-finesse?)}
-          [labeled-checkbox "Finesse?" @(subscribe [::mi/item-finesse?])]]
-         [:div.m-l-10
-          {:on-click (make-event-handler ::mi/toggle-item-versatile?)}
-          [labeled-checkbox "Versatile?" versatile?]]
-         [:div.m-l-10
-          {:on-click (make-event-handler ::mi/toggle-item-reach?)}
-          [labeled-checkbox "Reach?" @(subscribe [::mi/item-reach?])]]
-         [:div.m-l-10
-          {:on-click (make-event-handler ::mi/toggle-item-two-handed?)}
-          [labeled-checkbox "Two-Handed?" @(subscribe [::mi/item-two-handed?])]]
-         [:div.m-l-10
-          {:on-click (make-event-handler ::mi/toggle-item-thrown?)}
-          [labeled-checkbox "Thrown?" @(subscribe [::mi/item-thrown?])]]
-         [:div.m-l-10
-          {:on-click (make-event-handler ::mi/toggle-item-heavy?)}
-          [labeled-checkbox "Heavy?" @(subscribe [::mi/item-heavy?])]]
-         [:div.m-l-10
-          {:on-click (make-event-handler ::mi/toggle-item-light?)}
-          [labeled-checkbox "Light?" @(subscribe [::mi/item-light?])]]
-         [:div.m-l-10
-          {:on-click (make-event-handler ::mi/toggle-item-ammunition?)}
-          [labeled-checkbox "Ammunition?" @(subscribe [::mi/item-ammunition?])]]
-         [:div.m-l-10
-          {:on-click (make-event-handler ::mi/toggle-item-special?)}
-          [labeled-checkbox "Special?" @(subscribe [::mi/item-special?])]]
-         [:div.m-l-10
-          {:on-click (make-event-handler ::mi/toggle-item-loading?)}
-          [labeled-checkbox "Loading?" @(subscribe [::mi/item-loading?])]]]
+         [comps/labeled-checkbox "Finesse?" @(subscribe [::mi/item-finesse?]) false (make-event-handler ::mi/toggle-item-finesse?) "m-b-10 f-s-14"]
+         [comps/labeled-checkbox "Versatile?" versatile? false (make-event-handler ::mi/toggle-item-versatile?) "m-b-10 f-s-14 m-l-10"]
+         [comps/labeled-checkbox "Reach?" @(subscribe [::mi/item-reach?]) false (make-event-handler ::mi/toggle-item-reach?) "m-b-10 f-s-14 m-l-10"]
+         [comps/labeled-checkbox "Two-Handed?" @(subscribe [::mi/item-two-handed?]) false (make-event-handler ::mi/toggle-item-two-handed?) "m-b-10 f-s-14 m-l-10"]
+         [comps/labeled-checkbox "Thrown?" @(subscribe [::mi/item-thrown?]) false (make-event-handler ::mi/toggle-item-thrown?) "m-b-10 f-s-14 m-l-10"]
+         [comps/labeled-checkbox "Heavy?" @(subscribe [::mi/item-heavy?]) false (make-event-handler ::mi/toggle-item-heavy?) "m-b-10 f-s-14 m-l-10"]
+         [comps/labeled-checkbox "Light?" @(subscribe [::mi/item-light?]) false (make-event-handler ::mi/toggle-item-light?) "m-b-10 f-s-14 m-l-10"]
+         [comps/labeled-checkbox "Ammunition?" @(subscribe [::mi/item-ammunition?]) false (make-event-handler ::mi/toggle-item-ammunition?) "m-b-10 f-s-14 m-l-10"]
+         [comps/labeled-checkbox "Special?" @(subscribe [::mi/item-special?]) false (make-event-handler ::mi/toggle-item-special?) "m-b-10 f-s-14 m-l-10"]
+         [comps/labeled-checkbox "Loading?" @(subscribe [::mi/item-loading?]) false (make-event-handler ::mi/toggle-item-loading?) "m-b-10 f-s-14 m-l-10"]]
         [:div.flex.flex-wrap
          [:div.m-t-10
           [labeled-dropdown
@@ -5011,9 +5018,7 @@
      (map
       (fn [type-kw]
         ^{:key type-kw}
-        [:div
-         {:on-click #(dispatch [toggle-event type-kw])}
-         [labeled-checkbox (common/safe-capitalize-kw type-kw) @(subscribe [has-sub type-kw])]])
+        [comps/labeled-checkbox (common/safe-capitalize-kw type-kw) @(subscribe [has-sub type-kw]) false #(dispatch [toggle-event type-kw]) "m-b-10 f-s-14"])
       item-kws))]))
 
 (defn item-damage-resistances []
@@ -5086,91 +5091,28 @@
     [:div.flex-grow-1
      [item-condition-immunities]]]])
 
-(defn builder-field-cue
-  "Cue class for a required field (or a set of related keys) rendered by a
-   component other than the text inputs — reads the same :builder-field-errors
-   map. Red if any related key is invalid, amber if any is missing."
-  [field-or-keys]
-  (let [errors @(subscribe [:builder-field-errors])
-        ks (if (coll? field-or-keys) field-or-keys [field-or-keys])
-        statuses (keep #(get errors %) ks)]
-    (cond
-      (some #{:invalid} statuses) " builder-field-invalid"
-      (some #{:missing} statuses) " builder-field-unfilled"
-      :else "")))
+(def input-field-events
+  "The event each homebrew builder's text fields set a prop with, by builder kind."
+  {:spell ::spells/set-spell-prop
+   :monster ::monsters/set-monster-prop
+   :encounter ::encounters/set-encounter-prop
+   :language ::langs/set-language-prop
+   :invocation ::classes/set-invocation-prop
+   :boon ::classes/set-boon-prop
+   :selection ::selections/set-selection-prop
+   :background ::bg/set-background-prop
+   :race ::races/set-race-prop
+   :subrace ::races/set-subrace-prop
+   :subclass ::classes/set-subclass-prop
+   :class ::classes/set-class-prop
+   :feat ::feats/set-feat-prop})
 
-(defn builder-input-field [title prop item prop-event & [class-names type]]
-  ;; Flag a required field that failed the last save: amber if it was empty,
-  ;; red if it was filled but rejected (e.g. a name not starting with a letter).
-  ;; Editing the field clears its own save-cue.
-  (let [v (prop item)
-        ;; Live: a name that's present but doesn't start with a letter is wrong
-        ;; the instant it's typed — flag it red immediately, before any save.
-        live-invalid? (and (= prop :name)
-                           (string? v) (not (s/blank? v))
-                           (not (common/starts-with-letter? v)))
-        cue (cond
-              live-invalid? " builder-field-invalid"
-              :else (case (get @(subscribe [:builder-field-errors]) prop)
-                      :missing " builder-field-unfilled"
-                      :invalid " builder-field-invalid"
-                      ""))]
-    [:div.flex-grow-1
-     {:class class-names
-      :name prop}
-     [input-builder-field
-      [:span.f-w-b title]
-      v
-      #(do (dispatch [prop-event prop %])
-           (dispatch [:clear-builder-field-error prop]))
-      {:class (str "input h-40" cue)
-       :type type
-       :maxLength (:text branding/field-limits)}]
-     (when live-invalid?
-       [:div.f-s-12.m-t-2 {:style {:color "#d9534f"}}
-        "Name must start with a letter."])]))
-
-#_(defn item-input-field [title prop item & [class-names]]
-  (builder-input-field title prop item ::mi/set-item-name class-names))
-
-(defn spell-input-field [title prop spell & [class-names]]
-  (builder-input-field title prop spell ::spells/set-spell-prop class-names))
-
-(defn monster-input-field [title prop monster & [class-names type]]
-  (builder-input-field title prop monster ::monsters/set-monster-prop class-names type))
-
-(defn encounter-input-field [title prop encounter & [class-names type]]
-  (builder-input-field title prop encounter ::encounters/set-encounter-prop class-names type))
-
-(defn language-input-field [title prop language & [class-names]]
-  (builder-input-field title prop language ::langs/set-language-prop class-names))
-
-(defn invocation-input-field [title prop invocation & [class-names]]
-  (builder-input-field title prop invocation ::classes/set-invocation-prop class-names))
-
-(defn boon-input-field [title prop boon & [class-names]]
-  (builder-input-field title prop boon ::classes/set-boon-prop class-names))
-
-(defn selection-input-field [title prop selection & [class-names]]
-  (builder-input-field title prop selection ::selections/set-selection-prop class-names))
-
-(defn background-input-field [title prop bg & [class-names]]
-  (builder-input-field title prop bg ::bg/set-background-prop class-names))
-
-(defn race-input-field [title prop race & [class-names]]
-  (builder-input-field title prop race ::races/set-race-prop class-names))
-
-(defn subrace-input-field [title prop subrace & [class-names]]
-  (builder-input-field title prop subrace ::races/set-subrace-prop class-names))
-
-(defn subclass-input-field [title prop subclass & [class-names]]
-  (builder-input-field title prop subclass ::classes/set-subclass-prop class-names))
-
-(defn class-input-field [title prop class & [class-names]]
-  (builder-input-field title prop class ::classes/set-class-prop class-names))
-
-(defn feat-input-field [title prop feat & [class-names]]
-  (builder-input-field title prop feat ::feats/set-feat-prop class-names))
+(defn homebrew-input-field
+  "A homebrew builder's text field for `prop` of `item`, set through the `kind` builder's event in
+   `input-field-events`. Args: kind, title, prop, item, and optional class-names and input type.
+   Returns hiccup (builder-input-field)."
+  [kind title prop item & [class-names type]]
+  (builder-input-field title prop item (input-field-events kind) class-names type))
 
 (defn component-checkbox [component spell]
   [:span.m-r-20.m-b-10
@@ -5180,94 +5122,100 @@
     false
     #(dispatch [::spells/toggle-component component])]])
 
-(defn tool-prof-checkboxes [background tools]
-  [:div.flex.flex-wrap
-   (doall
-    (map
-     (fn [{:keys [name key]}]
-       ^{:key key}
-       [:span.m-r-20.m-b-10
-        [comps/labeled-checkbox
-         name
-         (get-in background [:profs :tool key])
-         false
-         #(dispatch [::bg/toggle-tool-prof key])]])
-     tools))])
+(defn checkbox-section
+  "A titled builder section holding a `comps/checkbox-grid` of `cells`.
+   Args: title; cells, as checkbox-grid takes them; title-class, the heading's size and gap
+   classes (default \"f-s-18 m-b-10\"). Returns hiccup."
+  ([title cells] (checkbox-section title cells "f-s-18 m-b-10"))
+  ([title cells title-class]
+   [:div.m-b-20
+    [:div.f-w-b {:class title-class} title]
+    [comps/checkbox-grid cells]]))
 
-(defn language-checkboxes [race languages]
+(defn path-cells
+  "Checkbox-grid cells for `choices`, each a flag at (conj path k) in `item`.
+   Args: item; path, a vector into item; choices; label-fn and key-fn, a choice to its label
+   and key; event-fn, a key to the event vector its click dispatches. Returns a seq of cells."
+  [item path choices label-fn key-fn event-fn]
+  (for [c choices :let [k (key-fn c)]]
+    {:key k :label (label-fn c) :checked? (get-in item (conj path k))
+     :on-click #(dispatch (event-fn k))}))
+
+(defn value-cells
+  "Checkbox-grid cells picking one of `values` for `path` in `item`, checked when the stored
+   value equals the cell's. Args: item; path; values; label-fn, a value to its label; event-fn,
+   a value to the event vector its click dispatches. Returns a seq of cells."
+  [item path values label-fn event-fn]
+  (for [v values]
+    {:key v :label (label-fn v) :checked? (= v (get-in item path))
+     :on-click #(dispatch (event-fn v))}))
+
+(defn flag-cell
+  "One checkbox-grid cell for the boolean [:props kw] of `feat`, toggled by
+   ::feats/toggle-feat-prop. Returns a cell map."
+  [feat kw label]
+  {:key kw :label label :checked? (get-in feat [:props kw])
+   :on-click #(dispatch [::feats/toggle-feat-prop kw])})
+
+(defn armor-prof-label
+  "The checkbox label for proficiency with `armor-type` (a keyword; :shields reads without
+   \" armor\")."
+  [armor-type]
+  (str "You gain proficiency with " (name armor-type) (when (not= armor-type :shields) " armor")))
+
+(defn tool-prof-checkboxes
+  "The background builder's grid of `tools`, each a flag at [:profs :tool key] of `background`.
+   Returns hiccup."
+  [background tools]
+  [comps/checkbox-grid
+   (path-cells background [:profs :tool] tools :name :key #(vector ::bg/toggle-tool-prof %))])
+
+(defn language-checkboxes
+  "The race builder's language grid, one checkbox per entry of `languages` (by name), with an
+   Add Language link under it. Args: race; languages, maps with :name and :key. Returns hiccup."
+  [race languages]
   [:div
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:span.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in race [:languages name])
-          false
-          #(dispatch [::races/toggle-language name])]])
-      (sort-by
-       :name
-       languages)))]
+   [comps/checkbox-grid
+    (for [{:keys [name key]} (sort-by :name languages)]
+      {:key key :label name :checked? (get-in race [:languages name])
+       :on-click #(dispatch [::races/toggle-language name])})]
    [:div.pointer.m-t-10
     [:span.bg-lighter.p-5
      {:on-click #(dispatch [:route routes/dnd-e5-language-builder-page-route])}
      [:i.fa.fa-plus]
      [:span.orange.underline.m-l-5 "Add Language"]]]])
 
-(defn tool-choice-checkboxes [background key]
-  [:div.flex.flex-wrap
-   (doall
-    (map
-     (fn [num]
-       ^{:key num}
-       [:span.m-r-20.m-b-10
-        [comps/labeled-checkbox
-         (str "Any " num)
-         (= num (get-in background [:profs :tool-options key]))
-         false
-         #(dispatch [::bg/toggle-choice-tool-prof key num])]])
-     (range 1 4)))])
+(defn tool-choice-checkboxes
+  "\"Any 1\" to \"Any 3\" for the background's free choice of tool kind `key`. Returns hiccup."
+  [background key]
+  [comps/checkbox-grid
+   (value-cells background [:profs :tool-options key] (range 1 4) #(str "Any " %)
+                #(vector ::bg/toggle-choice-tool-prof key %))])
 
-(defn language-choice-checkboxes [background]
-  [:div.flex.flex-wrap
-   (doall
-    (map
-     (fn [num]
-       ^{:key num}
-       [:span.m-r-20.m-b-10
-        [comps/labeled-checkbox
-         (str "Any " num)
-         (= num (get-in background [:profs :language-options :choose]))
-         false
-         #(dispatch [::bg/toggle-choice-language-prof num])]])
-     (range 1 4)))])
+(defn language-choice-checkboxes
+  "\"Any 1\" to \"Any 3\" for the background's free choice of languages. Returns hiccup."
+  [background]
+  [comps/checkbox-grid
+   (value-cells background [:profs :language-options :choose] (range 1 4) #(str "Any " %)
+                #(vector ::bg/toggle-choice-language-prof %))])
 
-(defn starting-equipment-choice-checkboxes [background equipment equipment-name]
-  [:div.m-r-20.m-b-10
-   [comps/labeled-checkbox
-    "Any 1"
-    (some
-     (fn [{:keys [name]}]
-       (= name equipment-name))
-     (:equipment-choices background))
-    false
-    #(dispatch [::bg/toggle-starting-equipment-choice equipment equipment-name])]])
+(defn starting-equipment-choice-checkboxes
+  "One \"Any 1\" checkbox: the background lets the player choose one of `equipment`, listed
+   under `equipment-name`. Returns hiccup."
+  [background equipment equipment-name]
+  [comps/labeled-checkbox
+   "Any 1"
+   (some (fn [{:keys [name]}] (= name equipment-name)) (:equipment-choices background))
+   false
+   #(dispatch [::bg/toggle-starting-equipment-choice equipment equipment-name])
+   "m-r-20 m-b-10"])
 
-(defn starting-equipment-checkboxes [background equipment]
-  [:div.flex.flex-wrap
-   (doall
-    (map
-     (fn [{:keys [name key]}]
-       ^{:key key}
-       [:span.m-r-20.m-b-10
-        [comps/labeled-checkbox
-         name
-         (get-in background [:equipment key])
-         false
-         #(dispatch [::bg/toggle-starting-equipment key])]])
-     equipment))])
+(defn starting-equipment-checkboxes
+  "The background builder's grid of `equipment`, each a flag at [:equipment key]. Returns hiccup."
+  [background equipment]
+  [comps/checkbox-grid
+   (path-cells background [:equipment] equipment :name :key
+               #(vector ::bg/toggle-starting-equipment %))])
 
 (def option-source-name-label
   [:span
@@ -5278,12 +5226,12 @@
     [:span.i "Hodor's Guide to Hodors"]
     [:span ")"]]])
 
-(defn option-proficiency-choice [title
-                                 proficiency-choice-key
-                                 proficiency-options
-                                 option
-                                 set-path-prop-event
-                                 toggle-path-prop-event]
+(defn option-proficiency-choice
+  "A \"choose N of these\" proficiency section: a Choose dropdown (1-5) and a grid of
+   `proficiency-options`, stored under [:profs proficiency-choice-key] of `option`.
+   Args: title; proficiency-choice-key; proficiency-options, maps with :name and :key; option;
+   set-path-prop-event and toggle-path-prop-event, dispatched with a path. Returns hiccup."
+  [title proficiency-choice-key proficiency-options option set-path-prop-event toggle-path-prop-event]
   [:div.m-b-20
    [:div.f-s-24.f-w-b.m-b-20 title]
    [:div.m-b-10
@@ -5295,18 +5243,9 @@
       :value (get-in option [:profs proficiency-choice-key :choose] 1)
       :on-change #(dispatch [set-path-prop-event [:profs proficiency-choice-key :choose] (js/parseInt %)])}]]
    [:div.f-s-18.f-w-b.m-b-20 "Options"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:span.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in option [:profs proficiency-choice-key :options key])
-          false
-          #(dispatch [toggle-path-prop-event [:profs proficiency-choice-key :options key]])]])
-      proficiency-options))]])
+   [comps/checkbox-grid
+    (path-cells option [:profs proficiency-choice-key :options] proficiency-options :name :key
+                #(vector toggle-path-prop-event [:profs proficiency-choice-key :options %]))]])
 
 (defn option-weapon-proficiency-choice [option
                                         set-path-prop-event
@@ -5342,109 +5281,60 @@
            :skill-options
            skills/skills))
 
-(defn option-skill-proficiency [option toggle-event]
-  [:div.m-b-20
-   [:div.f-s-24.f-w-b.m-b-20 "Skill Proficiencies"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:span.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in option [:props :skill-prof key])
-          false
-          #(dispatch [toggle-event :skill-prof key])]])
-      skills/skills))]])
+(defn option-skill-proficiency
+  "Skill Proficiencies: a flag per skill at [:props :skill-prof], toggled by
+   [toggle-event :skill-prof key]. Returns hiccup."
+  [option toggle-event]
+  [checkbox-section "Skill Proficiencies"
+   (path-cells option [:props :skill-prof] skills/skills :name :key
+               #(vector toggle-event :skill-prof %)) "f-s-24 m-b-20"])
 
-(defn option-languages [option toggle-map-prop-event]
+(defn option-languages
+  "Languages: a flag per known language at [:props :language], toggled by
+   [toggle-map-prop-event :language key], with an Add Language link. Returns hiccup."
+  [option toggle-map-prop-event]
   (let [languages @(subscribe [::langs/languages])]
     [:div.m-b-20
      [:div.f-s-24.f-w-b.m-b-20 "Languages"]
-     [:div.flex.flex-wrap
-      (doall
-       (map
-        (fn [{:keys [name key]}]
-          ^{:key key}
-          [:span.m-r-20.m-b-10
-           [comps/labeled-checkbox
-            name
-            (get-in option [:props :language key])
-            false
-            #(dispatch [toggle-map-prop-event :language key])]])
-        (sort-by
-         :name
-         languages)))]
+     [comps/checkbox-grid
+      (path-cells option [:props :language] (sort-by :name languages) :name :key
+                  #(vector toggle-map-prop-event :language %))]
      [:div.pointer.m-t-10
       [:span.bg-lighter.p-5
        {:on-click #(dispatch [:route routes/dnd-e5-language-builder-page-route])}
        [:i.fa.fa-plus]
        [:span.orange.underline.m-l-5 "Add Language"]]]]))
 
-(defn option-skill-proficiency-or-expertise [option toggle-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-20 "Skill Proficiency or Expertise"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:span.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in option [:props :skill-prof-or-expertise key])
-          false
-          #(dispatch [toggle-event :skill-prof-or-expertise key])]])
-      skills/skills))]])
+(defn option-skill-proficiency-or-expertise
+  "Skill Proficiency or Expertise: a flag per skill at [:props :skill-prof-or-expertise],
+   toggled by [toggle-event :skill-prof-or-expertise key]. Returns hiccup."
+  [option toggle-event]
+  [checkbox-section "Skill Proficiency or Expertise"
+   (path-cells option [:props :skill-prof-or-expertise] skills/skills :name :key
+               #(vector toggle-event :skill-prof-or-expertise %)) "f-s-18 m-b-20"])
 
-(defn option-tool-proficiency [option toggle-path-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-20 "Tool Proficiency"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:span.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in option [:profs :tool key])
-          false
-          #(dispatch [toggle-path-prop-event [:profs :tool key]])]])
-      equip/tools))]])
+(defn option-tool-proficiency
+  "Tool Proficiency: a flag per tool at [:profs :tool key], toggled by
+   [toggle-path-prop-event path]. Returns hiccup."
+  [option toggle-path-prop-event]
+  [checkbox-section "Tool Proficiency"
+   (path-cells option [:profs :tool] equip/tools :name :key
+               #(vector toggle-path-prop-event [:profs :tool %])) "f-s-18 m-b-20"])
 
-(defn option-tool-proficiency-or-expertise [option toggle-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-20 "Tool Proficiency or Expertise"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:span.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in option [:props :tool-prof-or-expertise key])
-          false
-          #(dispatch [toggle-event :tool-prof-or-expertise key])]])
-      equip/tools))]])
+(defn option-tool-proficiency-or-expertise
+  "Tool Proficiency or Expertise: a flag per tool at [:props :tool-prof-or-expertise],
+   toggled by [toggle-event :tool-prof-or-expertise key]. Returns hiccup."
+  [option toggle-event]
+  [checkbox-section "Tool Proficiency or Expertise"
+   (path-cells option [:props :tool-prof-or-expertise] equip/tools :name :key
+               #(vector toggle-event :tool-prof-or-expertise %)) "f-s-18 m-b-20"])
 
-(defn background-skill-proficiencies [background]
-  [:div.m-b-20
-   [:div.f-s-24.f-w-b.m-b-20 "Skill Proficiencies"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:span.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in background [:profs :skill key])
-          false
-          #(dispatch [::bg/toggle-skill-prof key])]])
-      skills/skills))]])
+(defn background-skill-proficiencies
+  "The background's Skill Proficiencies: a flag per skill at [:profs :skill]. Returns hiccup."
+  [background]
+  [checkbox-section "Skill Proficiencies"
+   (path-cells background [:profs :skill] skills/skills :name :key
+               #(vector ::bg/toggle-skill-prof %)) "f-s-24 m-b-20"])
 
 (defn background-languages [background]
   [:div.m-t-20.m-b-20
@@ -5587,267 +5477,124 @@
                   (when (increases :saves?)
                     " You gain proficiency in the saves using the chosen ability.\""))))]])
 
-(defn feat-skill-proficiency [feat]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Skill or Tool Proficiency"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [num]
-        ^{:key num}
-        [:div.m-r-20.m-b-10
-         (let [kw :skill-tool-choice]
-           [comps/labeled-checkbox
-            (str "You gain proficiency in " num " skills or tools of your choice")
-            (= num (get-in feat [:props kw]))
-            false
-            #(dispatch [::feats/toggle-feat-value-prop kw num])])])
-      (range 1 4)))]])
+(defn feat-skill-proficiency
+  "The feat grants 1 to 3 skills or tools of choice, one value at [:props :skill-tool-choice]. Returns hiccup."
+  [feat]
+  [checkbox-section "Skill or Tool Proficiency"
+   (value-cells feat [:props :skill-tool-choice] (range 1 4) #(str "You gain proficiency in " % " skills or tools of your choice")
+                #(vector ::feats/toggle-feat-value-prop :skill-tool-choice %))])
 
-(defn feat-weapon-proficiency [feat]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Weapon Proficiency"]
-   [:div.flex.flex-wrap
-    [:div.m-r-20.m-b-10
-     (let [kw :improvised-weapons-prof]
-       [comps/labeled-checkbox
-        "You gain proficiency with improvised weapons"
-        (get-in feat [:props kw])
-        false
-        #(dispatch [::feats/toggle-feat-prop kw])])]
-    (doall
-     (map
-      (fn [num]
-        ^{:key num}
-        [:div.m-r-20.m-b-10
-         (let [kw :weapon-prof-choice]
-           [comps/labeled-checkbox
-            (str "You gain proficiency with " num " weapons of your choice")
-            (= num (get-in feat [:props kw]))
-            false
-            #(dispatch [::feats/toggle-feat-value-prop kw num])])])
-      (range 3 5)))]])
+(defn feat-weapon-proficiency
+  "Weapon Proficiency: improvised weapons (a flag), and 3 or 4 weapons of choice, one value at
+   [:props :weapon-prof-choice]. Returns hiccup."
+  [feat]
+  [checkbox-section "Weapon Proficiency"
+   (cons (flag-cell feat :improvised-weapons-prof "You gain proficiency with improvised weapons")
+         (value-cells feat [:props :weapon-prof-choice] (range 3 5)
+                      #(str "You gain proficiency with " % " weapons of your choice")
+                      #(vector ::feats/toggle-feat-value-prop :weapon-prof-choice %)))])
 
-(defn option-armor-proficiency [option toggle-map-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Armor Proficiency"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [armor-type]
-        ^{:key armor-type}
-        [:div.m-r-20.m-b-10
-         (let [kw :armor-prof]
-           [comps/labeled-checkbox
-            (str "You gain proficiency with " (name armor-type) (when (not= armor-type :shields) " armor"))
-            (get-in option [:props kw armor-type])
-            false
-            #(dispatch [toggle-map-prop-event kw armor-type])])])
-      (conj armor/armor-types :shields)))]])
+(defn option-armor-proficiency
+  "Armor Proficiency: a flag per armor type and shields at [:props :armor-prof], toggled by
+   [toggle-map-prop-event :armor-prof type]. Returns hiccup."
+  [option toggle-map-prop-event]
+  [checkbox-section "Armor Proficiency"
+   (path-cells option [:props :armor-prof] (conj armor/armor-types :shields) armor-prof-label identity
+               #(vector toggle-map-prop-event :armor-prof %))])
 
-(defn feat-armor-proficiency [feat]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Armor Proficiency"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [armor-type]
-        ^{:key armor-type}
-        [:div.m-r-20.m-b-10
-         (let [kw :armor-prof]
-           [comps/labeled-checkbox
-            (str "You gain proficiency with " (name armor-type) (when (not= armor-type :shields) " armor"))
-            (get-in feat [:props kw armor-type])
-            false
-            #(dispatch [::feats/toggle-feat-map-prop kw armor-type])])])
-      (conj armor/armor-types :shields)))
-    [:div.m-r-20.m-b-10
-     (let [kw :medium-armor-stealth]
-       [comps/labeled-checkbox
-        "Wearing medium armor doesn't give disadvantage on Stealth checks"
-        (get-in feat [:props kw])
-        false
-        #(dispatch [::feats/toggle-feat-prop kw])])]
-    [:div.m-r-20.m-b-10
-     (let [kw :medium-armor-max-dex-3]
-       [comps/labeled-checkbox
-        "When wearing medium armor, you can add 3 to your AC if your Dexterity is 16+"
-        (get-in feat [:props kw])
-        false
-        #(dispatch [::feats/toggle-feat-prop kw])])]]])
+(defn feat-armor-proficiency
+  "The feat's Armor Proficiency: a flag per armor type and shields at [:props :armor-prof], and
+   the two medium-armor flags. Returns hiccup."
+  [feat]
+  [checkbox-section "Armor Proficiency"
+   (concat
+    (path-cells feat [:props :armor-prof] (conj armor/armor-types :shields) armor-prof-label identity
+                #(vector ::feats/toggle-feat-map-prop :armor-prof %))
+    [(flag-cell feat :medium-armor-stealth
+                "Wearing medium armor doesn't give disadvantage on Stealth checks")
+     (flag-cell feat :medium-armor-max-dex-3
+                "When wearing medium armor, you can add 3 to your AC if your Dexterity is 16+")])])
 
-(defn option-hps [option toggle-value-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Hit Points"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [num]
-        ^{:key num}
-        [:div.m-r-20.m-b-10
-         (let [kw :max-hp-bonus]
-           [comps/labeled-checkbox
-            (str "Your hit point maximum increases by " num " for each of your levels")
-            (= (get-in option [:props kw]) num)
-            false
-            #(dispatch [toggle-value-prop-event kw num])])])
-      (range 1 3)))]])
+(defn option-hps
+  "Hit Points: +1 or +2 per level, one value at [:props :max-hp-bonus], set by
+   [toggle-value-prop-event :max-hp-bonus n]. Returns hiccup."
+  [option toggle-value-prop-event]
+  [checkbox-section "Hit Points"
+   (value-cells option [:props :max-hp-bonus] (range 1 3)
+                #(str "Your hit point maximum increases by " % " for each of your levels")
+                #(vector toggle-value-prop-event :max-hp-bonus %))])
 
 (defn feat-hps [feat]
   (option-hps feat ::feats/toggle-feat-value-prop))
 
-(defn feat-speed-bonuses [feat]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Speed Bonuses"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [v]
-        ^{:key v}
-        [:div.m-r-20.m-b-10
-         (let [kw :speed]
-           [comps/labeled-checkbox
-            (str "Your speed is increased by " v " ft.")
-            (= v (get-in feat [:props kw]))
-            false
-            #(dispatch [::feats/toggle-feat-value-prop kw v])])])
-      (range 5 20 5)))]])
+(defn feat-speed-bonuses
+  "Speed Bonuses: +5 to +15 ft., one value at [:props :speed]. Returns hiccup."
+  [feat]
+  [checkbox-section "Speed Bonuses"
+   (value-cells feat [:props :speed] (range 5 20 5) #(str "Your speed is increased by " % " ft.")
+                #(vector ::feats/toggle-feat-value-prop :speed %))])
 
-(defn feat-initiative-bonuses [feat]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Initiative Bonuses"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [v]
-        ^{:key v}
-        [:div.m-r-20.m-b-10
-         (let [kw :initiative]
-           [comps/labeled-checkbox
-            (str "You gain a +" v " bonus to initiative")
-            (= v (get-in feat [:props kw]))
-            false
-            #(dispatch [::feats/toggle-feat-value-prop kw v])])])
-      (range 1 6)))]])
+(defn feat-initiative-bonuses
+  "Initiative Bonuses: +1 to +5, one value at [:props :initiative]. Returns hiccup."
+  [feat]
+  [checkbox-section "Initiative Bonuses"
+   (value-cells feat [:props :initiative] (range 1 6) #(str "You gain a +" % " bonus to initiative")
+                #(vector ::feats/toggle-feat-value-prop :initiative %))])
 
-(defn feat-languages [feat]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Languages"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [v]
-        ^{:key v}
-        [:div.m-r-20.m-b-10
-         (let [kw :language-choice]
-           [comps/labeled-checkbox
-            (str "You learn " v " languages of your choice.")
-            (= v (get-in feat [:props kw]))
-            false
-            #(dispatch [::feats/toggle-feat-value-prop kw v])])])
-      (range 1 4)))]])
+(defn feat-languages
+  "Languages: 1 to 3 of choice, one value at [:props :language-choice]. Returns hiccup."
+  [feat]
+  [checkbox-section "Languages"
+   (value-cells feat [:props :language-choice] (range 1 4) #(str "You learn " % " languages of your choice.")
+                #(vector ::feats/toggle-feat-value-prop :language-choice %))])
 
-(defn option-damage-resistance [option toggle-map-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Damage Resistances"]
-   (let [kw :damage-resistance]
-     [:div.flex.flex-wrap
-      [:div.m-r-20.m-b-10
-       [comps/labeled-checkbox
-        "Resistance to damage from traps"
-        (get-in option [:props kw :traps])
-        false
-        #(dispatch [toggle-map-prop-event kw :traps])]]
-      (doall
-       (map
-        (fn [damage-type]
-          ^{:key damage-type}
-          [:div.m-r-20.m-b-10
-           [comps/labeled-checkbox
-            (str "Resistance to " (name damage-type) " damage")
-            (get-in option [:props kw damage-type])
-            false
-            #(dispatch [toggle-map-prop-event kw damage-type])]])
-        opt/damage-types))])])
+(defn option-damage-resistance
+  "Damage Resistances: a flag for traps and per damage type at [:props :damage-resistance],
+   toggled by [toggle-map-prop-event :damage-resistance type]. Returns hiccup."
+  [option toggle-map-prop-event]
+  [checkbox-section "Damage Resistances"
+   (path-cells option [:props :damage-resistance] (cons :traps opt/damage-types)
+               #(if (= % :traps) "Resistance to damage from traps" (str "Resistance to " (name %) " damage")) identity
+               #(vector toggle-map-prop-event :damage-resistance %))])
 
-(defn option-damage-immunity [option toggle-map-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Damage Immunities"]
-   (let [kw :damage-immunity]
-     [:div.flex.flex-wrap
-      (doall
-       (map
-        (fn [damage-type]
-          ^{:key damage-type}
-          [:div.m-r-20.m-b-10
-           [comps/labeled-checkbox
-            (str "Immunity to " (name damage-type) " damage")
-            (get-in option [:props kw damage-type])
-            false
-            #(dispatch [toggle-map-prop-event kw damage-type])]])
-        opt/damage-types))])])
+(defn option-damage-immunity
+  "Damage Immunities: a flag per damage type at [:props :damage-immunity], toggled by
+   [toggle-map-prop-event :damage-immunity type]. Returns hiccup."
+  [option toggle-map-prop-event]
+  [checkbox-section "Damage Immunities"
+   (path-cells option [:props :damage-immunity] opt/damage-types
+               #(str "Immunity to " (name %) " damage") identity
+               #(vector toggle-map-prop-event :damage-immunity %))])
 
-(defn option-damage-vulnerability [option toggle-map-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Damage Vulnerabilities"]
-   (let [kw :damage-vulnerability]
-     [:div.flex.flex-wrap
-      (doall
-       (map
-        (fn [damage-type]
-          ^{:key damage-type}
-          [:div.m-r-20.m-b-10
-           [comps/labeled-checkbox
-            (str "Vulnerability to " (name damage-type) " damage")
-            (get-in option [:props kw damage-type])
-            false
-            #(dispatch [toggle-map-prop-event kw damage-type])]])
-        opt/damage-types))])])
+(defn option-damage-vulnerability
+  "Damage Vulnerabilities: a flag per damage type at [:props :damage-vulnerability], toggled by
+   [toggle-map-prop-event :damage-vulnerability type]. Returns hiccup."
+  [option toggle-map-prop-event]
+  [checkbox-section "Damage Vulnerabilities"
+   (path-cells option [:props :damage-vulnerability] opt/damage-types
+               #(str "Vulnerability to " (name %) " damage") identity
+               #(vector toggle-map-prop-event :damage-vulnerability %))])
 
-(defn option-condition-immunity [option toggle-map-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Condition Immunities"]
-   (let [kw :condition-immunity]
-     [:div.flex.flex-wrap
-      (doall
-       (map
-        (fn [{:keys [name key]}]
-          ^{:key key}
-          [:div.m-r-20.m-b-10
-           [comps/labeled-checkbox
-            (str "Immunity to being " name)
-            (get-in option [:props kw key])
-            false
-            #(dispatch [toggle-map-prop-event kw key])]])
-        opt/conditions))])])
+(defn option-condition-immunity
+  "Condition Immunities: a flag per condition at [:props :condition-immunity], toggled by
+   [toggle-map-prop-event :condition-immunity key]. Returns hiccup."
+  [option toggle-map-prop-event]
+  [checkbox-section "Condition Immunities"
+   (path-cells option [:props :condition-immunity] opt/conditions
+               #(str "Immunity to being " (:name %)) :key
+               #(vector toggle-map-prop-event :condition-immunity %))])
 
-(defn option-weapon-proficiency [option toggle-map-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Weapon Proficiencies"]
-   (let [kw :weapon-prof]
-     [:div.flex.flex-wrap
-      (doall
-       (concat
-        (map
-         (fn [weapon-type]
-           ^{:key weapon-type}
-           [:div.m-r-20.m-b-10
-            [comps/labeled-checkbox
-             (str "All " (common/safe-capitalize-kw weapon-type) " Weapons")
-             (get-in option [:props kw weapon-type])
-             false
-             #(dispatch [toggle-map-prop-event kw weapon-type])]])
-         [:simple :martial])
-        (map
-         (fn [{:keys [key name]}]
-           ^{:key key}
-           [:div.m-r-20.m-b-10
-            [comps/labeled-checkbox
-             name
-             (get-in option [:props kw key])
-             false
-             #(dispatch [toggle-map-prop-event kw key])]])
-         @(subscribe [::mi/custom-and-standard-weapons]))))])])
+(defn option-weapon-proficiency
+  "Weapon Proficiencies: all simple, all martial, and each weapon, flags at [:props :weapon-prof]
+   toggled by [toggle-map-prop-event :weapon-prof key]. Returns hiccup."
+  [option toggle-map-prop-event]
+  [checkbox-section "Weapon Proficiencies"
+   (path-cells option [:props :weapon-prof]
+               (concat (for [t [:simple :martial]]
+                         {:key t :name (str "All " (common/safe-capitalize-kw t) " Weapons")})
+                       @(subscribe [::mi/custom-and-standard-weapons]))
+               :name :key
+               #(vector toggle-map-prop-event :weapon-prof %))])
 
 (defn add-trait-button
   "The add button of a builder's traits list.
@@ -5923,22 +5670,14 @@
      [:div.p-t-10.flex.justify-cont-end
       [add-trait-button add-trait-event button-title]])])
 
-(defn option-saving-throw-advantages [option toggle-map-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Saving Throw Advantage"]
-   (let [kw :saving-throw-advantage]
-     [:div.flex.flex-wrap
-      (doall
-       (map
-        (fn [{:keys [name key]}]
-          ^{:key key}
-          [:div.m-r-20.m-b-10
-           [comps/labeled-checkbox
-            (str "You have advantage on saving throws against being " name)
-            (get-in option [:props kw key])
-            false
-            #(dispatch [toggle-map-prop-event kw key])]])
-        opt/conditions))])])
+(defn option-saving-throw-advantages
+  "Saving Throw Advantage: a flag per condition at [:props :saving-throw-advantage], toggled by
+   [toggle-map-prop-event :saving-throw-advantage key]. Returns hiccup."
+  [option toggle-map-prop-event]
+  [checkbox-section "Saving Throw Advantage"
+   (path-cells option [:props :saving-throw-advantage] opt/conditions
+               #(str "You have advantage on saving throws against being " (:name %)) :key
+               #(vector toggle-map-prop-event :saving-throw-advantage %))])
 
 (defn feat-damage-resistance [feat]
   (option-damage-resistance feat ::feats/toggle-feat-map-prop))
@@ -5947,71 +5686,31 @@
 #_(defn subrace-damage-resistance [subrace]
   (option-damage-resistance subrace ::feats/toggle-subrace-map-prop))
 
-(defn feat-misc-modifiers [feat]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Misc. Modifiers"]
-   [:div.flex.flex-wrap
-    [:div.m-r-20.m-b-10
-     (let [kw :two-weapon-ac-1]
-       [comps/labeled-checkbox
-        "+1 AC Bonus while wielding two melee weapons"
-        (get-in feat [:props kw])
-        false
-        #(dispatch [::feats/toggle-feat-prop kw])])]
-    [:div.m-r-20.m-b-10
-     (let [kw :two-weapon-any-one-handed]
-       [comps/labeled-checkbox
-        "You can use two-weapon fighting with any one-handed melee weapon"
-        (get-in feat [:props kw])
-        false
-        #(dispatch [::feats/toggle-feat-prop kw])])]
-    [:div.m-r-20.m-b-10
-     (let [kw :saving-throw-advantage-traps]
-       [comps/labeled-checkbox
-        "Advantage on saving throws against traps"
-        (get-in feat [:props kw])
-        false
-        #(dispatch [::feats/toggle-feat-prop kw])])]
-    [:div.m-r-20.m-b-10
-     (let [kw :passive-perception-5]
-       [comps/labeled-checkbox
-        "You gain a +5 to your passive Perception"
-        (get-in feat [:props kw])
-        false
-        #(dispatch [::feats/toggle-feat-prop kw])])]
-    [:div.m-r-20.m-b-10
-     (let [kw :passive-investigation-5]
-       [comps/labeled-checkbox
-        "You gain a +5 to your passive Investigation"
-        (get-in feat [:props kw])
-        false
-        #(dispatch [::feats/toggle-feat-prop kw])])]]])
+(defn feat-misc-modifiers
+  "Misc. Modifiers: the feat's two-weapon, trap-save and passive-score flags at [:props kw].
+   Returns hiccup."
+  [feat]
+  [checkbox-section "Misc. Modifiers"
+   [(flag-cell feat :two-weapon-ac-1 "+1 AC Bonus while wielding two melee weapons")
+    (flag-cell feat :two-weapon-any-one-handed
+               "You can use two-weapon fighting with any one-handed melee weapon")
+    (flag-cell feat :saving-throw-advantage-traps "Advantage on saving throws against traps")
+    (flag-cell feat :passive-perception-5 "You gain a +5 to your passive Perception")
+    (flag-cell feat :passive-investigation-5 "You gain a +5 to your passive Investigation")]])
 
-(defn feat-spellcasting [feat]
+(defn feat-spellcasting
+  "Spellcasting: the feat's magic-novice, ritual-casting and attack-cantrip flags at [:props kw].
+   Returns hiccup."
+  [feat]
   [:div.m-b-30
    [:div.f-s-18.f-w-b.m-b-10 "Spellcasting"]
-   [:div.flex.flex-wrap
-    [:div.m-r-20.m-b-10
-     (let [kw :magic-novice]
-       [comps/labeled-checkbox
-        "Choose a class, gain (2) cantrips and (1) 1st-level spell from that class's spell list"
-        (get-in feat [:props kw])
-        false
-        #(dispatch [::feats/toggle-feat-prop kw])])]
-    [:div.m-r-20.m-b-10
-     (let [kw :ritual-casting]
-       [comps/labeled-checkbox
-        "Choose a class, gain (2) 1st-level ritual spells from that class's spell list"
-        (get-in feat [:props kw])
-        false
-        #(dispatch [::feats/toggle-feat-prop kw])])]
-    [:div.m-r-20.m-b-10
-     (let [kw :attack-spell]
-       [comps/labeled-checkbox
-        "Choose a class, gain a cantrip requiring an attack roll from that class's spell list"
-        (get-in feat [:props kw])
-        false
-        #(dispatch [::feats/toggle-feat-prop kw])])]]])
+   [comps/checkbox-grid
+    [(flag-cell feat :magic-novice
+                "Choose a class, gain (2) cantrips and (1) 1st-level spell from that class's spell list")
+     (flag-cell feat :ritual-casting
+                "Choose a class, gain (2) 1st-level ritual spells from that class's spell list")
+     (flag-cell feat :attack-spell
+                "Choose a class, gain a cantrip requiring an attack roll from that class's spell list")]]])
 
 ;;;; TODO remove when no longer useful for debugging
 #_(defn print-plugin-names []
@@ -6053,7 +5752,7 @@
                           ""))
             :placeholder "Default Option Source"
             :value (or (:option-pack plugin-val) "")
-            :on-change #(do (dispatch-sync [dispatch-event :option-pack (-> % .-target .-value)])
+            :on-change #(do (dispatch-sync [dispatch-event :option-pack (comps/event-value %)])
                             (dispatch [:clear-builder-field-error :option-pack]))}]
    [:datalist {:id "plugins-list" :class "width-100-p"}
     (for [{:keys [title value]} (get-plugin-names)]
@@ -6101,7 +5800,7 @@
         plugins @(subscribe [::e5/plugins])]
     [:div.p-20.main-text-color
      [:div.m-b-20.flex.flex-wrap
-      [feat-input-field
+      [homebrew-input-field :feat
        "Name"
        :name
        feat]
@@ -6418,7 +6117,7 @@
         [:span.orange.pointer.f-s-18.m-l-5
          {:on-click #(swap! expanded? not)}
          [:i.fa.fa-question-circle.m-r-2]
-         [:i.fa {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]]]
+         [comps/caret @expanded?]]]
        (when @expanded?
          [:div.bg-light.f-s-18
           help])])))
@@ -6733,7 +6432,7 @@
     [:div.p-20.main-text-color
      [:div.flex.flex-wrap
       [:div.m-b-20.flex-grow-1
-       [class-input-field
+       [homebrew-input-field :class
         "Name"
         :name
         class]]
@@ -6770,7 +6469,7 @@
          :value (:subclass-level class)
          :on-change #(dispatch [::classes/set-class-prop :subclass-level (js/parseInt %)])}]]
       [:div.flex-grow-1
-       [class-input-field
+       [homebrew-input-field :class
         "Subclass Title"
         :subclass-title
         class
@@ -6782,7 +6481,7 @@
          {:value (get class :subclass-help)
           :on-change #(dispatch [::classes/set-class-prop :subclass-help %])}]]
      [:div.m-b-20
-      [class-input-field
+      [homebrew-input-field :class
        "Subclass Flavor"
        :subclass-help
        class]]
@@ -7036,7 +6735,7 @@
     [:div.p-20.main-text-color
      [:div.flex.flex-wrap
       [:div.m-b-20
-       [subclass-input-field
+       [homebrew-input-field :subclass
         "Name"
         :name
         subclass]]
@@ -7192,7 +6891,7 @@
     [:div.p-20.main-text-color
      [:div.flex.flex-wrap
       [:div.m-b-20
-       [subrace-input-field
+       [homebrew-input-field :subrace
         "Name"
         :name
         subrace]]
@@ -7490,7 +7189,7 @@
   (let [race @(subscribe [::races/builder-item])]
     [:div.p-20.main-text-color
      [:div.m-b-20.flex.flex-wrap
-      [race-input-field
+      [homebrew-input-field :race
        "Name"
        :name
        race]
@@ -7645,7 +7344,7 @@
   (let [background @(subscribe [::bg/builder-item])]
     [:div.p-20.main-text-color
      [:div.m-b-20.flex.flex-wrap
-      [background-input-field
+      [homebrew-input-field :background
        "Name"
        :name
        background]
@@ -7714,7 +7413,7 @@
         has-empty? (some #(s/blank? (:name %)) options)]
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
-      [selection-input-field
+      [homebrew-input-field :selection
        "Name"
        :name
        selection
@@ -7792,7 +7491,7 @@
   (let [language @(subscribe [::langs/builder-item])]
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
-      [language-input-field
+      [homebrew-input-field :language
        "Name"
        :name
        language
@@ -7813,7 +7512,7 @@
   (let [boon @(subscribe [::classes/boon-builder-item])]
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
-      [boon-input-field
+      [homebrew-input-field :boon
        "Name"
        :name
        boon
@@ -7834,7 +7533,7 @@
   (let [invocation @(subscribe [::classes/invocation-builder-item])]
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
-      [invocation-input-field
+      [homebrew-input-field :invocation
        "Name"
        :name
        invocation
@@ -7878,7 +7577,7 @@
         @(subscribe [::monsters/builder-item])]
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
-      [monster-input-field
+      [homebrew-input-field :monster
        "Name"
        :name
        monster
@@ -7929,7 +7628,7 @@
                   (range 5 25))
          :value (or armor-class 10)
          :on-change #(dispatch [::monsters/set-monster-prop :armor-class (js/parseInt %)])}]]
-      [monster-input-field
+      [homebrew-input-field :monster
        "Armor Notes"
        :armor-notes
        monster
@@ -7970,7 +7669,7 @@
          #(let [v (js/parseInt %)]
             (dispatch [::monsters/set-monster-path-prop [:hit-points :modifier] (when (not (js/isNaN v)) v)]))
          {:class "input h-40"}]]
-      [monster-input-field
+      [homebrew-input-field :monster
        "Speed"
        :speed
        monster
@@ -8035,7 +7734,7 @@
       [:div [option-damage-resistance monster ::monsters/toggle-monster-map-prop]]
       [:div [option-damage-immunity monster ::monsters/toggle-monster-map-prop]]
       [:div [option-condition-immunity monster ::monsters/toggle-monster-map-prop]]
-      [monster-input-field
+      [homebrew-input-field :monster
        "Senses"
        :senses
        monster
@@ -8503,9 +8202,7 @@
                                        [svg-icon (get-in opt/conditions-map [type :icon]) 36]])
                                     conditions))]]))
                             (range num)))]])]
-                     [:i.fa {:class (if (get @expanded-rows path)
-                                           "fa-caret-up"
-                                           "fa-caret-down")}]]
+                     [comps/caret (get @expanded-rows path)]]
                     (when (get @expanded-rows path)
                       (if character
                         [character-display (:db/id character) false (if mobile? 1 2)]
@@ -8579,7 +8276,7 @@
   (let [{:keys [creatures] :as encounter} @(subscribe [::encounters/builder-item])]
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
-      [encounter-input-field
+      [homebrew-input-field :encounter
        "Name"
        :name
        encounter
@@ -8604,7 +8301,7 @@
   (let [{:keys [:level :school] :as spell} @(subscribe [::spells/builder-item])]
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
-      [spell-input-field
+      [homebrew-input-field :spell
        "Name"
        :name
        spell
@@ -8651,8 +8348,8 @@
          false
          #(dispatch [::spells/toggle-spell-prop :attack-roll?])]]]]
      [:div.flex.w-100-p.flex-wrap
-      [spell-input-field "Casting Time" :casting-time spell "m-b-20"]
-      [spell-input-field "Range" :range spell "m-l-5 m-b-20"]]
+      [homebrew-input-field :spell "Casting Time" :casting-time spell "m-b-20"]
+      [homebrew-input-field :spell "Range" :range spell "m-l-5 m-b-20"]]
      [:div [:h2.f-s-24.f-w-b.m-b-10 "Components"]]
      [:div.flex.w-100-p.flex-wrap
       [component-checkbox :verbal spell]
@@ -8663,7 +8360,7 @@
        {:value (get-in spell [:components :material-component])
         :on-change #(dispatch [::spells/set-material-component %])}]]
      [:div.m-b-20
-      [spell-input-field "Duration" :duration spell "m-b-20"]]
+      [homebrew-input-field :spell "Duration" :duration spell "m-b-20"]]
      [:div.w-100-p
       [:div.f-s-24.f-w-b
        "Description"]
@@ -8829,7 +8526,7 @@
                            (fn [e] (.stopPropagation e))
                            (make-stop-prop-event-handler ::e5/toggle-section-disable source-name type-key))}
               [:span.dev-mode-switch.compact
-               (merge (switch-attrs (not eff-off?)
+               (merge (comps/switch-attrs (not eff-off?)
                                     (when-not global-off?
                                       (make-stop-prop-event-handler ::e5/toggle-section-disable source-name type-key)))
                       {:class (when-not eff-off? "on") :title "On in the builder"})]]
@@ -8856,8 +8553,7 @@
              (when (pos? disabled-n)
                [:span.m-l-10.f-s-12.opacity-5 (str "· " disabled-n " disabled")])]
             [:div.orange.pointer
-             [:i.fa.m-r-5
-              {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]
+             [comps/caret @expanded? {:class "m-r-5"}]
              [:span.underline (if @expanded? "collapse" "expand")]]]
            (when @expanded?
              [:div.bg-lighter.p-10
@@ -8896,7 +8592,7 @@
                        {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin-item source-name type-key key)}
                        (let [on? (not (get-in plugin [type-key key :disabled?]))]
                          [:span.dev-mode-switch.compact
-                          (merge (switch-attrs on? (make-stop-prop-event-handler ::e5/toggle-plugin-item source-name type-key key))
+                          (merge (comps/switch-attrs on? (make-stop-prop-event-handler ::e5/toggle-plugin-item source-name type-key key))
                                  {:class (when on? "on") :title "On in the builder"})])]
                       ;; name + (when there's a same-key twin) a small plain note
                       ;; about the mutual-exclusion, so "off" never looks arbitrary.
@@ -8956,7 +8652,7 @@
    [:select.m-l-5.p-5.builder-option-dropdown.w-auto
     {:value ""
      :on-change (fn [e]
-                  (let [v (.. e -target -value)
+                  (let [v (comps/event-value e)
                         spec (first (filter #(= v (name (:type-key %))) missing-specs))]
                     (set! (.. e -target -value) "")
                     (when spec
@@ -9013,7 +8709,7 @@
            {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin name)}
            (let [on? (not (get plugin :disabled?))]
              [:span.dev-mode-switch
-              (merge (switch-attrs on? (make-stop-prop-event-handler ::e5/toggle-plugin name))
+              (merge (comps/switch-attrs on? (make-stop-prop-event-handler ::e5/toggle-plugin name))
                      {:class (when on? "on") :title "On in the builder"})])]
           [:div.flex-grow-1.flex.align-items-c
            [:span.f-s-24 name]
@@ -9029,8 +8725,7 @@
               (when (pos? benign)
                 [:span.lib-badge.lib-badge-benign [:span.lib-dot] (str benign " off")])])]
           [:div.orange
-           [:i.fa.m-r-5
-            {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]
+           [comps/caret @expanded? {:class "m-r-5"}]
            [:span.pointer.underline (if @expanded? "collapse" "expand")]]]
          (when @expanded?
            [:div.bg-lighter.p-10
@@ -9044,13 +8739,13 @@
                 {:type "text"
                  :placeholder "search this source…"
                  :value @search
-                 :on-change #(reset! search (.. % -target -value))}])
+                 :on-change #(reset! search (comps/event-value %))}])
              (when has-content?
                (let [dn (source-disabled-count plugin)]
                  [:div.flex.align-items-c.pointer.f-s-14.mc-source-disabled
                   {:on-click #(swap! show-disabled? not)}
                   [:span.dev-mode-switch.compact
-                   (merge (switch-attrs show? #(swap! show-disabled? not))
+                   (merge (comps/switch-attrs show? #(swap! show-disabled? not))
                           {:class (when show? "on") :aria-label "Show disabled"})]
                   [:span.m-l-5 (str "show disabled" (when (pos? dn) (str " (" dn ")")))]]))
              [:div.flex.align-items-c.uppercase.mc-source-actions
@@ -9107,7 +8802,7 @@
          [:span.m-r-5.f-s-14 "to"]
          [:select.m-r-10.p-5.f-s-14
           {:value (str tgt)
-           :on-change #(reset! target (.. % -target -value))}
+           :on-change #(reset! target (comps/event-value %))}
           (doall (for [s sources] ^{:key s} [:option {:value s} s]))]
          [:button.form-button.m-r-5
           {:class (when none? "disabled") :disabled none?
@@ -9267,7 +8962,7 @@
       [:div.flex.align-items-c.pointer
        {:on-click (make-event-handler ::e5/toggle-global-disable)}
        [:span.dev-mode-switch
-        (merge (switch-attrs (not global-off?) (make-event-handler ::e5/toggle-global-disable))
+        (merge (comps/switch-attrs (not global-off?) (make-event-handler ::e5/toggle-global-disable))
                {:class (when-not global-off? "on") :aria-label "All homebrew"})]
        [:span.m-l-10.f-s-16.f-w-b "All homebrew"]]
       ;; explainer sits right beside the toggle, not floated to the far edge
@@ -9345,7 +9040,7 @@
                 [:div.m-t-5.flex.align-items-c
                  [:span.f-s-12.m-r-5 {:style {:min-width "90px"}} "Name"]
                  [:input.input {:type "text" :value nm
-                                :on-change #(swap! edits assoc nk (.. % -target -value))}]
+                                :on-change #(swap! edits assoc nk (comps/event-value %))}]
                  ;; Preview what Auto-name would do to this entry: salvage a
                  ;; leading number to a real name (orange, keeps intent), or —
                  ;; when unsalvageable — replace it with a placeholder (amber).
@@ -9357,9 +9052,12 @@
                 [:div.m-t-5.flex.align-items-c
                  [:span.f-s-12.m-r-5 {:style {:min-width "90px"}} "Option source"]
                  [:input.input {:type "text" :value (get current ok "")
-                                :on-change #(swap! edits assoc ok (.. % -target -value))}]]]))]
+                                :on-change #(swap! edits assoc ok (comps/event-value %))}]]]))]
            (when (empty? damaged)
-             [:div.f-s-12.m-t-5 "No entries to repair."]))
+             [:div.f-s-12.m-t-5
+              (str "Nothing here can load or be repaired: this copy holds only "
+                   (if-let [ks (seq (keys plugin))] (s/join ", " (map name ks)) "an empty source")
+                   ". Export raw keeps a copy of it; Discard removes it.")]))
          (let [edit-map (into {} (map (fn [[[ct ik field] v]]
                                         [[src-name ct ik field] v])
                                       current))
@@ -9472,10 +9170,11 @@
        {:style {:border "2px solid #d94b20"}}
        [:div.f-w-b.f-s-24.m-b-5
         [:i.fa.fa-exclamation-triangle.m-r-5]
-        (str (s/join " and " (cond-> []
-                               (pos? n-entries) (conj (str n-entries " entr" (if (= 1 n-entries) "y" "ies")))
-                               (pos? n-damaged) (conj (str n-damaged " damaged section"
-                                                           (when (not= 1 n-damaged) "s")))))
+        (str (or (not-empty (s/join " and " (cond-> []
+                                              (pos? n-entries) (conj (str n-entries " entr" (if (= 1 n-entries) "y" "ies")))
+                                              (pos? n-damaged) (conj (str n-damaged " damaged section"
+                                                                          (when (not= 1 n-damaged) "s"))))))
+                 (str (count quarantined) " source" (when (not= 1 (count quarantined)) "s")))
              " couldn't load — needs attention")]
        [:div.f-s-12
         "The rest of each source loaded fine. Fix these back in, or export/discard them."]
@@ -9865,12 +9564,9 @@
              [:div.flex.align-items-c.m-t-5.pointer
               {:on-click toggle}
               [:span.toggle-switch
-               {:class (when send-updates? "on")
-                :role "switch"
-                :aria-checked (str send-updates?)
-                :aria-label (str "Email me news and updates from " branding/app-name)
-                :tabIndex 0
-                :on-key-down #(when (#{"Enter" " "} (.-key %)) (.preventDefault %) (toggle))}]
+               (assoc (comps/switch-attrs send-updates? (fn [_] (toggle)))
+                      :class (when send-updates? "on")
+                      :aria-label (str "Email me news and updates from " branding/app-name))]
               [:span.m-l-10.f-s-16
                (str "Email me news and updates from " branding/app-name)]]
              [:div.f-s-14.m-t-5.opacity-7
@@ -9945,7 +9641,7 @@
                         :value @draft
                         :auto-focus true
                         :placeholder placeholder
-                        :on-change #(reset! draft (-> % .-target .-value))}]
+                        :on-change #(reset! draft (comps/event-value %))}]
                       [:span.pointer.bf-meta-action.m-r-10
                        {:on-click #(do (on-save @draft) (reset! editing? false))}
                        "save"]
@@ -10212,7 +9908,7 @@
          {:style {:width "auto" :align-self "stretch" :box-sizing "border-box"}
           :value (or current-folder-id "")
           :on-change (fn [e]
-                       (let [val (.-value (.-target e))]
+                       (let [val (comps/event-value e)]
                          (if (= val "")
                            (when current-folder-id
                              (dispatch [::folder/remove-character current-folder-id id]))
@@ -10226,7 +9922,9 @@
       (when (= username owner)
         [:button.form-button.m-l-5
          {:on-click (make-event-handler ::char/show-delete-confirmation id)}
-         "delete"])]
+         "delete"])
+      (when (= username owner)
+        [:span.m-l-5 [data-view-gear id]])]
      (when @(subscribe [::char/delete-confirmation-shown? id])
        [:div.p-20.flex.justify-cont-end
         [:div
@@ -10267,8 +9965,7 @@
         (when (not= @(subscribe [:device-type]) :mobile) [:span.underline (if expanded?
                                                             "collapse"
                                                             "open")])
-        [:i.fa.m-l-5
-         {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]
+        [comps/caret expanded? {:class "m-l-5"}]]]
       (when expanded?
         [expanded-character-list-item id owner username char-page-route])]]))
 
@@ -10304,7 +10001,7 @@
             {:auto-focus true
              :value @edit-name
              :style {:width "160px"}
-             :on-change #(reset! edit-name (.-value (.-target %)))
+             :on-change #(reset! edit-name (comps/event-value %))
              :on-key-down (fn [e]
                             (when (= "Enter" (.-key e))
                               (save-fn)))}]
@@ -10331,8 +10028,7 @@
                         (.stopPropagation e)
                         (reset! confirm-delete? true))}
            "delete"]
-          [:i.fa.m-l-10.orange
-           {:class (if folder-expanded? "fa-caret-up" "fa-caret-down")}]])]
+          [comps/caret folder-expanded? {:class "m-l-10 orange"}]])]
       (when @confirm-delete?
         [:div.p-20.flex.justify-cont-end
          [:div
@@ -10403,7 +10099,7 @@
              ;; the buttons' 10px pad) and no top-margin offset from .input.
              :style       {:width "200px" :margin-top 0 :padding "9px 10px" :font-size "12px"}
              :value       name-filter
-             :on-change   #(dispatch [::char/set-char-name-filter (.. % -target -value)])}]
+             :on-change   #(dispatch [::char/set-char-name-filter (comps/event-value %)])}]
            (when (not (s/blank? name-filter))
              [:i.fa.fa-times.posn-abs.pointer.orange.f-s-14
               {:style    {:right "8px" :top "8px"}
@@ -10415,7 +10111,7 @@
            [:button.form-button
             {:on-click (fn [e] (.stopPropagation e) (swap! classes-open? not))}
             (str "Classes" (when (seq class-filters) (str " (" (count class-filters) ")")))
-            [:i.fa.m-l-5 {:class (if @classes-open? "fa-caret-up" "fa-caret-down")}]]
+            [comps/caret @classes-open? {:class "m-l-5"}]]
            (when @classes-open?
              [:div.filter-dropdown.main-text-color
               {:style {:min-width "160px"}}
@@ -10435,7 +10131,7 @@
            [:button.form-button
             {:on-click (fn [e] (.stopPropagation e) (swap! levels-open? not))}
             (str "Levels" (when (seq level-filters) (str " (" (count level-filters) ")")))
-            [:i.fa.m-l-5 {:class (if @levels-open? "fa-caret-up" "fa-caret-down")}]]
+            [comps/caret @levels-open? {:class "m-l-5"}]]
            (when @levels-open?
              [:div.filter-dropdown.main-text-color
               {:style {:min-width "120px"}}
@@ -10649,7 +10345,7 @@
                                :key id})))
                           @(subscribe [::char/characters]))
                          (fn [e]
-                           (let [selected-id (js/parseInt (.. e -target -value))]
+                           (let [selected-id (js/parseInt (comps/event-value e))]
                              (dispatch [::party/add-character id selected-id])))]]
                        [:div.m-t-5
                         [:button.form-button.m-l-10
@@ -10690,8 +10386,7 @@
                              (when (not= device-type :mobile) [:span.underline (if expanded?
                                                                                "collapse"
                                                                                "open")])
-                             [:i.fa.m-l-5
-                              {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]
+                             [comps/caret expanded? {:class "m-l-5"}]]]
                            (when expanded?
                              [:div
                               {:style character-display-style}

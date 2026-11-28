@@ -508,7 +508,21 @@
                {}
                {"S" {:orcpub.dnd.e5/feats {:a {:option-pack "S" :name "A"}}}}))))
   (testing "nil inputs never throw"
-    (is (= {} (e5/reconcile-rejected-items nil nil nil)))))
+    (is (= {} (e5/reconcile-rejected-items nil nil nil))))
+  (testing "a source left holding only its settings, once every entry loads, disappears"
+    ;; homebrew-safety-net.md, "A set-aside source can outlive its entries".
+    (is (= {} (e5/reconcile-rejected-items
+               {"Mega" {:disabled? false :orcpub.dnd.e5/spells {:s {:name "S"}}}}
+               {}
+               {"Mega" {:orcpub.dnd.e5/spells {:s {:option-pack "Mega" :name "S"}}}})))
+    (is (= {} (e5/reconcile-rejected-items {"Mega" {:disabled? true :orcpub.dnd.e5/feats {}}} {} {}))
+        "an empty section is nothing to repair either"))
+  (testing "a source that still holds entries keeps its settings"
+    (is (= {"Mega" {:disabled? false :orcpub.dnd.e5/spells {:t {:name "T"}}}}
+           (e5/reconcile-rejected-items
+            {"Mega" {:disabled? false :orcpub.dnd.e5/spells {:s {:name "S"} :t {:name "T"}}}}
+            {}
+            {"Mega" {:orcpub.dnd.e5/spells {:s {:option-pack "Mega" :name "S"}}}})))))
 
 ;; ---------------------------------------------------------------------------
 ;; Setting aside what cannot be loaded. Reading damaged structure back, and fixing fields:

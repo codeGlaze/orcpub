@@ -3,7 +3,8 @@
    app: the home page, the site footer, the copyright strip and the support links. Code here must
    compile for both; browser-only parts sit behind #?(:cljs ...). Anything else belongs in
    views.cljs or views/*."
-  (:require [orcpub.route-map :as routes]
+  (:require [orcpub.components :as comps]
+            [orcpub.route-map :as routes]
             [clojure.string :as s]
             [orcpub.fork.branding :as branding]
             [orcpub.fork.splash :as splash]
@@ -22,13 +23,6 @@
             (fn [[k v]]
               (str (name k) ": " (if (keyword? v) (name v) v)))
             style))))
-
-(defn svg-icon-2
-  "An <img> of /image/<icon-name>.svg with the svg-icon class. `theme` is accepted and ignored.
-   Returns hiccup."
-  [icon-name & [theme]]
-  [:img.svg-icon
-   {:src (str "/image/" icon-name ".svg")}])
 
 (defn splash-page-button
   "Render a splash page button. If handler is provided, uses on-click;
@@ -51,7 +45,8 @@
                     :justify-content :space-around
                     :font-weight :bold})}
     [:div
-     (svg-icon-2 icon 64 "dark")
+     ;; The splash page is dark in both themes; index.clj's CSS sizes the icon (64 px, 32 on phones).
+     (comps/themed-icon icon :css "dark-theme")
      [:div
       [:span.splash-button-title-prefix {:translate "no" :lang "en"} "D&D 5e "] [:span title]]]]])
 
@@ -79,10 +74,7 @@
    #?(:cljs {:role "button"
              :tab-index 0
              :on-click #(dispatch [:orcpub.dnd.e5/open-whats-new])
-             :on-key-down (fn [e]
-                            (when (#{"Enter" " "} (.-key e))
-                              (.preventDefault e)
-                              (dispatch [:orcpub.dnd.e5/open-whats-new])))}
+             :on-key-down comps/press-to-click}
       :clj {})
    [:i.fa.fa-gift] "What's New"])
 

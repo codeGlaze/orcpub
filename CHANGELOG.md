@@ -92,14 +92,18 @@ Homebrew is repaired instead of lost, a character that used to blank the page no
 - **Server:** admin alerts by email: one email per problem with a count of repeats, a limit on how many are sent an hour, and nothing lost or slowed down when the mail server or the database is down. (#716)
 - **Server:** sign-ins, failed sign-ins, sign-ups, password resets, email changes, deleted accounts and refused logins are written to the server log, without passwords or email addresses. (#716)
 - **Server:** an optional `REDIS_URL` shares the sign-in and email limits across app containers. (#725)
+- **Characters:** a Data View page lists everything stored on a saved character or this browser's draft. Its owner can remove any of it (marked in place, with Undo) and save after a confirmation, even when the character won't load. It opens from a gear on the character page and character list, the Missing Content warning, the can't-load panel's "Repair this character", and a notice when a page never finishes loading.
 
 ### Changed
 - **Characters:** the Missing Content warning also covers spells and languages, and ignores the built-in "Custom" option. (#524)
 - **Characters:** on phones every weapon picker opens in a bottom sheet. (#722)
+- **Character sheet:** the spell table's Attack column is gone; on a spell that makes a spell attack, its Mod. is the roll button, so the table is narrower and long names wrap less on phones.
+- **Character sheet:** the sheet's section tabs and the builder's tabs have names screen readers announce, and work from the keyboard (Tab, the arrow keys, Home, End, Enter, Space).
 - **Homebrew:** opening the app, importing and restoring are faster with a large library. (#723)
 - **Homebrew:** a value in the wrong form whose meaning is plain (`"25"` for a speed, one trait where a list belongs) is corrected once, and the import report lists each field it fixed and each entry it sets aside for repair. (#723)
 - **Homebrew:** content imported without a source lands in the real "Default Option Source".
 - **Homebrew:** saving checks every required field, dropdowns and multi-selects included.
+- **Homebrew:** every checkbox in the homebrew builders and PDF Options can be ticked from the keyboard (Space or Enter), and expand and collapse arrows are no longer read out by screen readers.
 - **Content:** SRD weapon and armor names in Title Case, without the Wikipedia links.
 - **Printing:** PDF Options opens as a full-window panel with grouped options, and Create PDF opens a tab that says the PDF is being made. (#726)
 - **Printing:** spell cards have a new design: the name with ATK and DC, concentration and ritual as ribbons, the casting facts labelled, and more of the spell's text on the front. (#726)
@@ -120,6 +124,7 @@ Homebrew is repaired instead of lost, a character that used to blank the page no
 - **Server:** blank settings count as unset, and Docker secrets work for the app's signing key. (#701)
 - **Server:** runs on Pedestal 0.8.3 and Jetty 12, and the production build leaves out the developer hot-reload tool.
 - **Docs:** the setup and operation guides read as step-by-step instructions, list every server setting, and cover backups and email troubleshooting. (#724)
+- **Support:** the email sent when a player reports a character that won't load now carries the link to repair it in Data View and the character's stored choices.
 
 ### Fixed
 - **Characters:** switching between Race and Class no longer freezes the builder, and an edit rebuilds the character once. (#621)
@@ -138,7 +143,14 @@ Homebrew is repaired instead of lost, a character that used to blank the page no
 - **Characters:** a monk with a low Strength no longer attacks at +0 with a weapon Martial Arts does not cover; the attack uses the real modifier. (#713)
 - **Characters:** the loading spinner no longer stays up after a failed Random character; moving to another page always clears it.
 - **Characters:** Bards regain Bardic Inspiration on a short rest from level 5 (Font of Inspiration). (#310)
+- **Builder:** a pasted portrait picture fills its frame instead of being squashed.
+- **Builder:** the class drop-down no longer disappears when the character's class isn't applied (for example, its homebrew source is turned off or couldn't load); the row stays and says why.
 - **Character sheet:** magic armor is listed with the other magic items.
+- **Character sheet:** scrolled to the end of the page, the Rest button no longer covers the footer's last lines.
+- **Character sheet:** the spell table's DC and Mod. headings no longer run together on phones.
+- **Character sheet:** the opened weapon panel keeps its coloured bottom strip.
+- **Character sheet:** changing something on someone else's shared character shows the change without trying to save it, so there is no leave-page warning and no trip to sign-in.
+- **Character sheet:** only spells that make a spell attack show an attack roll; Bless and Cure Wounds no longer offer 1d20.
 - **Inventory:** the same gear from several sources adds up instead of one replacing the rest, such as a pack's rations plus rations picked by hand. (#138)
 - **Inventory:** two of the same weapon or armor count as two. (#340)
 - **Spells:** a spell can no longer be prepared once every preparation is used. (#728)
@@ -166,9 +178,12 @@ Homebrew is repaired instead of lost, a character that used to blank the page no
 - **Homebrew:** a homebrew entry that cannot be drawn costs only its own part of the page: one section of its builder, one list or source in My Content, one row of the monster list. Before, the whole page fell over.
 - **Homebrew:** a broken homebrew subclass, invocation, boon or subrace, or one whose name cannot be read, is set aside for repair and named; before, it vanished without a word, or every built-in class disappeared from the builder.
 - **Homebrew:** a library section stored as `true`, a shared monster with a broken name, size or type, a feat whose ability score increases were stored as a list, and a grant of a skill that does not exist no longer break the app, the monster list, the feat builder or the character builder.
+- **Homebrew:** a homebrew source no longer shows as "couldn't load" with a blank count and "No entries to repair" after all its entries have loaded again.
+- **Homebrew:** retrying a restore after one that could not be saved no longer adds the restored entry to the library twice.
 - **Sharing:** link previews of shared characters work on Discord, Mastodon, Slack, Telegram and X, with the character's title and image; `robots.txt` blocked the crawlers and every preview was empty. (#727)
 - **Reference:** spells and monsters that share a name (common across homebrew packs) each show as their own row; clearing a search no longer leaves duplicate rows, and opening one no longer opens the others.
 - **Reference:** the Spells, Monsters and Items lists come back at once when a search is cleared, even with large homebrew libraries.
+- **Reference:** on a phone, the Monsters page's filter toggle (shown as an arrow only) has a name screen readers announce and opens from the keyboard.
 - **Monsters:** stat blocks show reactions, such as the Marilith's Parry, and the monster builder can add one; the dragons, Succubus/Incubus and Spy show all their skills, the Flying Snake its Flyby trait, and the Alchemy Jug that its liquid can be created once a day. (#715)
 - **Printing:** some spells never printed, prepared ticks landed on the wrong rows, and styles 3 and 4 could not export a character with two casting classes. (#709)
 - **Printing:** the hit dice box, the second-page name box and style 4's allies and backstory are filled, the features page no longer lands between spell pages, fields read the same in every PDF viewer, negative numbers print correctly, and a reaction's casting time prints as "1 React." on spell cards. (#709)
@@ -184,6 +199,8 @@ Homebrew is repaired instead of lost, a character that used to blank the page no
 - **Site:** bold text renders bold, and buttons use the site font. (#711)
 - **Site:** dismissing the cookie notice now hides it on every page, not only the page where it was dismissed. (#729)
 - **Site:** an action that fails now says so and changes nothing; before, nothing visible happened, and the actions queued after it were dropped. (#729)
+- **Site:** notices such as Unsaved drafts show their thin amber ring in Firefox, instead of an amber wash that hid their text.
+- **Site:** pages without a composed portrait (the builder, the character list, a sheet) no longer download the artists' credits.
 - **Server:** sign-in, password reset and the character, party, folder and item lists stay fast as the site grows; the first start after upgrading builds the new indexes in the background, and until then an older account with a mixed-case email address signs in by username. (#721)
 - **Server:** the same content gets the same keys on a Turkish or other non-English server, and spell-card school names and the sheet's ability labels print the right letter ("Illusion", not "İllusion"). (#699)
 - **Server:** settings set in `.env` now reach the server under Docker Compose and Swarm; branding (`APP_*`) and most other settings were dropped, so the site ran on defaults. (#724)
@@ -194,6 +211,12 @@ Homebrew is repaired instead of lost, a character that used to blank the page no
 - **Server:** `./run --check` run without a terminal (CI, cron) only reports; it no longer starts setup or `--upgrade` by default. (#724)
 - **Server:** the Windows start scripts find their ports. (#701)
 - **Server:** uptime monitors and link previews that check a page with a HEAD request get its headers instead of "not found".
+- **Characters:** a character draft this browser can no longer read, in the old slot or a character's own draft, is kept aside instead of deleted, and Data View's draft page offers it for download.
+- **Characters:** two saves of the same character at once no longer store a choice twice, and a Data View save no longer overwrites changes made elsewhere since it opened; it offers a reload.
+- **Characters:** saving a character whose stored copy was damaged no longer moves it to a new address: it stays in its folders and parties, its share link keeps working, and other open tabs can still save it.
+- **Characters:** HP restored by a long rest, a cleared XP box and an unticked spell slot now stay that way after a reload, instead of the old value coming back (#295).
+- **Characters:** an HP box left blank puts back the character's HP instead of saving as full HP; 0 has to be typed.
+- **Characters:** a copy of the app from before save versions can no longer overwrite a newer save of the same character.
 
 ### Security
 - **Accounts:** sign-up no longer says when an email is already in use; it answers as for a new address and emails the account's owner instead. (#725)

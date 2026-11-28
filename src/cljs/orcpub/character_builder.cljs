@@ -111,9 +111,6 @@
            (= min max))
       (nil? max)))
 
-(defn get-event-value [e]
-  (.-value (.-target e)))
-
 (defn character-state-path [path]
   (concat [:character] path))
 
@@ -167,7 +164,7 @@
 ;; ---------------------------------------------------------------------------
 
 (defn set-class-fn [i options-map]
-  (fn [e] (let [new-key (keyword (.. e -target -value))]
+  (fn [e] (let [new-key (keyword (comps/event-value e))]
             (dispatch [:set-class new-key i options-map]))))
 
 ;; DO NOT MEMOIZE. See the block comment above set-class-fn.
@@ -181,7 +178,7 @@
 
 (defn set-class-level-fn [i]
   (fn [e]
-    (let [new-highest-level-str (.. e -target -value)
+    (let [new-highest-level-str (comps/event-value e)
           new-highest-level (js/parseInt (last (s/split new-highest-level-str #"-")))]
       (dispatch [:set-class-level i new-highest-level]))))
 
@@ -214,7 +211,7 @@
   [:button.planned-toggle.orange {:class class-name :aria-expanded @open?
                                   :on-click #(swap! open? not)}
    text
-   [:i.fa {:class (if @open? "fa-angle-up" "fa-angle-down") :aria-hidden true}]])
+   [comps/caret @open? {:kind :angle}]])
 
 (defn- choice-line
   "One row of the Choices list: `section`, the picked `names` and their `status`, with a Clear
@@ -307,7 +304,22 @@
                       [::char5e/make-starting-class key options-map]))}
        "1st"])))
 
-(defn class-level-selector []
+(defn class-not-applied-line
+  "Under the class row for picked class `key`: says the class is not in the built character, and
+  why when the loaded content has no such class (`template-option` nil). Returns hiccup."
+  [key template-option]
+  [:div.class-not-applied.f-s-12.m-t-5 {:role "status"}
+   (if template-option
+     (str (::t/name template-option) " isn't applied to the character right now. Change its level, or choose another class.")
+     (str (common/kw-to-name key true) " isn't in your loaded content, so it isn't applied. Choose another class, or turn its source back on in My Content."))])
+
+(defn class-level-selector
+  "One picked class's row in Class / Level, the `i`th: its class drop-down (this class and the
+  unpicked ones in `unselected-classes-set`, from `options`), level drop-down, remove button,
+  held-picks line and help. `selected-class` is its built entry, or {:not-applied? true}
+  when the build left it out; the drop-down then still shows `key`, with a line saying so.
+  `first-option`, given when there are several classes, puts the 1st badge on the row."
+  []
   (let [expanded? (r/atom false)]
     (fn [i key selected-class options unselected-classes-set built-char & [first-option]]
       (let [options-map (make-options-map options)
@@ -323,6 +335,9 @@
           [:select.builder-option.builder-option-dropdown.flex-grow-1.m-t-0
            {:value key
             :on-change (set-class i options-map)}
+           ;; a picked class the content lacks stays chosen, so the row keeps its drop-down
+           (when-not class-template-option
+             [:option.builder-dropdown-item {:value key} (str (common/kw-to-name key true) " (not in your content)")])
            (doall
             (map
              (fn [{:keys [::t/key ::t/name ::t/plugin-source] :as option}]
@@ -357,6 +372,8 @@
                available-levels))])
           [:i.fa.fa-minus-circle.orange.f-s-16.m-l-5.pointer
            {:on-click (delete-class key i options-map)}]]
+         (when (:not-applied? selected-class)
+           [class-not-applied-line key class-template-option])
          [class-planned-line key]
          (when @expanded?
            [:div.m-t-5.m-b-10 (views-aux/realize-help (::t/help class-template-option))])]))))
@@ -386,13 +403,29 @@
 ;; DO NOT MEMOIZE -- keyed on a seq of class options. See set-class-fn.
 (def add-class add-class-fn)
 
-(defn class-levels-selector [{:keys [selection]}]
+(defn class-rows
+  "The Class / Level rows, in pick order: [class-key entry] for each class in `picked` (the stored
+  :class picks, maps of ::entity/key and ::entity/options), where entry is that class's entry in
+  `built-levels` (the built character's levels), or {:class-level n :not-applied? true} when the
+  build left it out. Rows come from the picks so a class the build drops keeps its drop-down."
+  [picked built-levels]
+  (vec (for [{k ::entity/key opts ::entity/options} picked
+             :when k]
+         [k (or (get built-levels k)
+                {:class-level (max 1 (count (:levels opts))) :not-applied? true})])))
+
+(defn class-levels-selector
+  "The Class / Level section for the builder's `selection` (the template's :class selection): the
+  homebrew-source switch, one row per picked class (class-rows), and Add Levels in Another Class.
+  Returns hiccup."
+  [{:keys [selection]}]
   (let [options (::t/options selection)
         built-char @(subscribe [:built-character])
-        selected-classes @(subscribe [::char5e/levels])
+        selected-classes (class-rows (get-in @(subscribe [:character]) [::entity/options :class])
+                                     @(subscribe [::char5e/levels]))
         show-suffix? @(subscribe [::subs5e/show-class-source-suffix])
         unselected-classes (remove
-                            (set (keys selected-classes))
+                            (set (map first selected-classes))
                             (map ::t/key options))
         unselected-classes-set (set unselected-classes)
         remaining-classes (filter
@@ -403,8 +436,8 @@
                            options)]
     [:div
      [:div.m-b-5
-      {:on-click #(dispatch [::events5e/toggle-class-source-suffix])}
-      [builder-fields/labeled-checkbox "Show homebrew source on class names" show-suffix?]]
+      [comps/labeled-checkbox "Show homebrew source on class names" show-suffix? false
+       #(dispatch [::events5e/toggle-class-source-suffix]) "m-b-10 f-s-14"]]
      [:div
       (doall
        (map-indexed
@@ -1088,7 +1121,7 @@
            [:input.input.f-s-18.m-b-5.p-l-0.w-100-p
             {:value (k abilities)
              :type :number
-             :on-change (fn [e] (let [value (.-value (.-target e))
+             :on-change (fn [e] (let [value (comps/event-value e)
                                       new-v (when (not (s/blank? value))
                                               (js/parseInt value))]
                                   (dispatch [:set-ability-score k new-v])))}]])
@@ -1108,7 +1141,7 @@
                       (total-abilities k))
              :type :number
              :on-change (fn [e] (let [total (total-abilities k)
-                                      value (.-value (.-target e))
+                                      value (comps/event-value e)
                                       diff (- total
                                               (abilities k))
                                       new-v (when (not (s/blank? value))
@@ -1302,7 +1335,7 @@
            {:type :number
             :value total-hps
             :on-change (fn [e]
-                         (let [value (js/parseInt (.. e -target -value))
+                         (let [value (js/parseInt (comps/event-value e))
                                total-value (if (js/isNaN value) 0 (- value first-class-hit-die total-level-bonus))
                                average-value (int (/ total-value (count selections)))
                                remainder (rem total-value (count selections))
@@ -1368,7 +1401,7 @@
                                                   (not (pos? (:value level-value))))
                                             "b-red b-3")
                               :on-change (fn [e]
-                                           (let [value (js/parseInt (.. e -target -value))]
+                                           (let [value (js/parseInt (comps/event-value e))]
                                              (dispatch [:set-level-hit-points built-template character level-value value])))
                               :value (:value level-value)}]]
                    [:td.p-5 con-bonus-str]
@@ -2055,7 +2088,7 @@
     [:div {:on-paste (image-paste url)}
      [:span.personality-label.f-s-18 label]
      [:input.input {:type "url" :value (or url "") :placeholder "https://"
-                    :on-change #(set-draft (.. % -target -value))}]
+                    :on-change #(set-draft (comps/event-value %))}]
      [image-field-notice url false (get image-bytes url) (get server-reach url) set-draft]]))
 
 (defn description-fields []
@@ -2156,8 +2189,10 @@
 
 (defn builder-tab [title key current-tab]
   [:span.builder-tab
-   {:class (when (= current-tab key) "selected-builder-tab")
-    :on-click (set-builder-tab key)}
+   (merge {:class (when (= current-tab key) "selected-builder-tab")
+           :on-click (set-builder-tab key)}
+          (comps/tab-attrs (= current-tab key) title
+                             {:id (str "builder-tab-" (name key)) :panel-id "builder-tabpanel"}))
    [:span.builder-tab-text title]])
 
 (defn mobile-columns []
@@ -2165,17 +2200,18 @@
     [:div.p-r-10.w-100-p
      [:div.flex-grow-1.flex.p-l-10.p-t-10
       [:div.w-100-p
-       [:div.builder-tabs
+       [:div.builder-tabs {:role "tablist" :aria-label "Builder sections"}
         [builder-tab "Options" :options current-tab]
         [builder-tab "Description" :description current-tab]
         [builder-tab "Portrait" :portrait current-tab]
         [builder-tab "Details" :details current-tab]]
-       (case current-tab
-         :options [new-options-column 1]
-         :description [description-fields]
-         :portrait [portrait5e/tab-panel]
-         ;; nil id = the builder's own character (not a saved one).
-         [views5e/character-display nil true 1])]]]))
+       [:div (comps/tab-panel-attrs "builder-tabpanel" (str "builder-tab-" (name current-tab)))
+        (case current-tab
+          :options [new-options-column 1]
+          :description [description-fields]
+          :portrait [portrait5e/tab-panel]
+          ;; nil id = the builder's own character (not a saved one).
+          [views5e/character-display nil true 1])]]]]))
 
 
 (defn desktop-or-tablet-columns [device-type]
@@ -2187,14 +2223,15 @@
     [:div.w-100-p
      [:div.flex-grow-1.flex.p-l-10.p-t-10
       [:div.w-50-p
-       [:div.builder-tabs
+       [:div.builder-tabs {:role "tablist" :aria-label "Builder sections"}
         [builder-tab "Options" :options current-tab]
         [builder-tab "Description" :description current-tab]
         [builder-tab "Portrait" :portrait current-tab]]
-       (case current-tab
-         :options [new-options-column (if (= device-type :desktop) 2 1)]
-         :portrait [portrait5e/tab-panel]
-         [description-fields])]
+       [:div (comps/tab-panel-attrs "builder-tabpanel" (str "builder-tab-" (name current-tab)))
+        (case current-tab
+          :options [new-options-column (if (= device-type :desktop) 2 1)]
+          :portrait [portrait5e/tab-panel]
+          [description-fields])]]
       [:div.w-50-p.m-l-20.m-r-10
        ;; nil id = the builder's own character (not a saved one).
        [views5e/character-display nil true 1]]]]))
@@ -2260,13 +2297,12 @@
              [:i.fa.fa-exclamation-triangle.f-s-18]]
             [:span.m-l-10.orange.f-w-b
              (str "Missing Content (" (:missing-count report) ")")]
-            [:i.fa.m-l-5
-             {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]]
+            [comps/caret @expanded? {:class "m-l-5"}]]
            (when @expanded?
              [:div#missing-content-details.bg-warning.p-10.m-t-5
               [:div.f-s-14.m-b-10.main-text-color
                "This character uses content that isn't currently loaded. "
-               "Upload the relevant .orcbrew files to restore full functionality."]
+               "Upload the relevant .orcbrew files to restore it, or remove what you no longer need."]
               [:div
                (map-indexed
                 (fn [idx {:keys [key content-label inferred-source suggestions]}]
@@ -2294,7 +2330,13 @@
                           {:title (str "Point this character at :" (name s-key))
                            :on-click #(dispatch [::char5e/relink-content key s-key])}
                           (or s-name (str ":" (name s-key)))])]])])
-                (:items report))]])])))))
+                (:items report))]
+              (let [id (:db/id @(subscribe [:character]))]
+                [:a.form-button.m-t-5
+                 {:href (if id
+                          (routes/path-for routes/dnd-e5-char-data-page-route :id id)
+                          (routes/path-for routes/dnd-e5-draft-data-page-route))}
+                 "Fix in Data View"])])])))))
 
 #_(defn al-legality []
   (let [expanded? (r/atom false)]
@@ -2384,7 +2426,7 @@
   (let [theme @(subscribe [:theme])]
     [:div.pointer.setting-toggle
      (merge {:on-click toggle-theme}
-            (views5e/switch-attrs (= "light-theme" theme) toggle-theme))
+            (comps/switch-attrs (= "light-theme" theme) toggle-theme))
      [:span.m-r-5 (comps/checkbox-mark (= "light-theme" theme) false)]
      [:span.main-text-color "Light Theme"]]))
 
@@ -2397,7 +2439,7 @@
     (when (not= "light-theme" theme)
       (let [toggle #(dispatch [:toggle-dark-button-text])]
         [:div.pointer.setting-toggle.m-l-20
-         (merge {:on-click toggle} (views5e/switch-attrs on? toggle))
+         (merge {:on-click toggle} (comps/switch-attrs on? toggle))
          [:span.m-r-5 (comps/checkbox-mark on? false)]
          [:span.main-text-color "Dark Button Text"]]))))
 

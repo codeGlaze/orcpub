@@ -13,7 +13,7 @@ const { findChrome } = require('./lib/find-chrome');
 // a run by hand gets no overlay preload, so the What's New panel would cover every click
 const { suppressWhatsNew } = require('./lib/orcbrew-import');
 const fs = require('fs'), path = require('path');
-const BASE = 'http://localhost:8890';
+const BASE = process.env.E2E_BASE || 'http://localhost:8890';
 const OUT = process.env.PROBE_OUT || '/tmp/boot-rescue';
 const PLUGINS = '{"Rescue Me Pack" {:orcpub.dnd.e5/spells {:witchbolt {:option-pack "Rescue Me Pack" :name "Witch Bolt" :level 1}}}}';
 // What the store looks like after the user works for a while. The rescue must
@@ -93,7 +93,7 @@ async function rescues(page, label, expected = PLUGINS) {
   // ---- 2. bundle loads but throws on evaluation ---------------------------
   {
     const { ctx, page } = await seeded(browser, {
-      breakage: p => p.route('**/js/compiled/orcpub.js', r =>
+      breakage: p => p.route(u => u.pathname === '/js/compiled/orcpub.js', r =>
         r.fulfill({ status: 200, contentType: 'application/javascript',
                     body: 'throw new Error("simulated CLJS init failure");' })),
     });
