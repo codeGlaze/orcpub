@@ -23,4 +23,11 @@ const sectionCheckbox = (page, section, name) => page
   .locator('div.m-b-20', { has: page.locator(':scope > div.f-w-b', { hasText: new RegExp(`^${escapeRegExp(section)}$`) }) })
   .getByRole('checkbox', { name, exact: true }).first();
 
-module.exports = { checkbox, sectionCheckbox };
+/** Census descriptors: one checkbox row of the item builder. */
+const census = {
+  'itemBuilder.checkbox(Acid)': {
+    route: '/pages/dnd/5e/magic-item-builder', locator: page => checkbox(page, 'Acid'),
+    preconditions: { viewport: 'desktop' }, expectedCount: 1 },
+};
+
+module.exports = { checkbox, sectionCheckbox, census };

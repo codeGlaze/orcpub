@@ -176,6 +176,13 @@ for kind in $ORDER; do
   fi
 
   if [ "$SHARED_UP" = 1 ]; then
+    # The place census runs alone and first: a moved control then fails as one named line there
+    # before it times out deep in the suites that use it (plan-browser-toolbox.md, step 6).
+    rest=()
+    for f in "${tests[@]}"; do
+      if [ "$(basename "$f")" = place_census_e2e.js ]; then run_one "$f" "$kind" 1 1; else rest+=("$f"); fi
+    done
+    tests=("${rest[@]}")
     run_parallel "$kind" "${tests[@]}"
   else
     fail_all "$kind" "the shared server did not start" "${tests[@]}" "${probes[@]}"; probes=()
