@@ -1,8 +1,8 @@
 (ns orcpub.image-url
   "What can be told about a picture's address from the string alone, without fetching it:
    a PAGE's address rather than the picture's, a missing scheme, an http link the browser
-   will refuse. Advisory only and may be wrong; nothing here blocks anything, since server
-   address validation and browser CORS enforce what must hold."
+   will refuse. `advise` is advisory only. `fetchable` is the one gate: a picture's <img> uses
+   an address only when it passes, so typed text never requests the app's own server."
   (:require [clojure.string :as s]
             [orcpub.common :as common]))
 
@@ -58,6 +58,23 @@
 
 (defn- looks-like-a-file? [url]
   (re-find #"(?i)\.(png|jpe?g|gif|webp|bmp)(?:[?#]|$)" url))
+
+(defn fetchable
+  "`url`, trimmed, when the platform's own parser (the browser's URL, Java's URI) reads it as an
+   http or https address with a non-empty host; else nil. Anything else would resolve against
+   the page as a path on the app's own server, one request per edit (BRANCH.md, picture-link hotfix)."
+  [url]
+  (when (string? url)
+    (let [u (s/trim url)]
+      (when-not (s/blank? u)
+        #?(:cljs (try (let [p (js/URL. u)]
+                        (when (and (#{"http:" "https:"} (.-protocol p)) (seq (.-hostname p))) u))
+                      (catch :default _ nil))
+           :clj (try (let [p (java.net.URI. u)]
+                       (when (and (#{"http" "https"} (some-> (.getScheme p) common/ascii-lower-case))
+                                  (seq (.getHost p)))
+                         u))
+                     (catch Exception _ nil)))))))
 
 (defn advise
   "What is worth saying about `url` before anyone tries to fetch it: nil when nothing, else

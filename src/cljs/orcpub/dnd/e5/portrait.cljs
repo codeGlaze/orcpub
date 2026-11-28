@@ -18,7 +18,8 @@
             [orcpub.dnd.e5.portrait-face :as face]
             [orcpub.dnd.e5.portrait-light :as light]
             [orcpub.dnd.e5.portrait-layout :as layout]
-            [orcpub.fork.branding :as branding]))
+            [orcpub.fork.branding :as branding]
+            [orcpub.image-url :as image-url]))
 
 (defn- classes [& cs] (s/join " " (remove nil? cs)))
 
@@ -1534,14 +1535,14 @@
              [:div.pl-link-mode
               [:div.pl-link-preview
                (cond
-                 (s/blank? image-url)
+                 (not (image-url/fetchable image-url))
                  [:span.pl-empty-hint "Paste an image address, and the image shows here."]
                  (= image-url @failed-link)
                  [:span.pl-empty-hint
                   "No image loaded from that address. Check that it opens on its own in a browser tab, and that it is the image itself, not a page holding it. "
                   [:button.pl-mode-link {:type "button" :on-click #(reset! failed-link nil)} "Try again"]]
                  :else
-                 [:img {:src image-url :alt "The character's picture"
+                 [:img {:src (image-url/fetchable image-url) :alt "The character's picture"
                         :on-load #(when (= image-url @failed-link) (reset! failed-link nil))
                         :on-error #(reset! failed-link image-url)}])]
               [:div.pl-link link-field]]
@@ -1593,11 +1594,13 @@
         [:div.pl-root.pl-inline.pl-preview {:class theme}
          [:div.pl-preview-body
           [:div.pl-portrait-frame
-           (cond
-             link? [:img.pl-link-picture {:src image-url :alt "The character's picture"}]
-             any? [composite portrait]
-             :else [:div.pl-empty-hint {:style {"--pl-logo" (str "url(" branding/logo-path ")")}}
-                    "No portrait yet."])]
+           (let [src (image-url/fetchable image-url)
+                 empty-hint [:div.pl-empty-hint {:style {"--pl-logo" (str "url(" branding/logo-path ")")}}
+                             "No portrait yet."]]
+             (cond
+               link? (if src [:img.pl-link-picture {:src src :alt "The character's picture"}] empty-hint)
+               any? [composite portrait]
+               :else empty-hint))]
           (when (and any? (not link?)) [attribution (:layers portrait)])
           [:button.pl-mode-link {:type "button" :on-click #(dispatch [:portrait/open (if link? :compose :link)])}
            (if link? "Build a portrait instead" "Use an image from the web instead")]]
@@ -1688,12 +1691,13 @@
        (when-let [credit (pa/credit-line portrait-data)]
          [:div.pl-thumb-credit {:title credit} [linked-credit portrait-data]])]
 
-      image-url
-      (if editable?
-        [:div.m-r-20.m-t-10.m-b-10.pl-thumb-box
-         [:img.image-character-thumbnail {:src image-url}]
-         [edit-overlay]]
-        [:img.m-r-20.m-t-10.m-b-10.image-character-thumbnail {:src image-url}])
+      (image-url/fetchable image-url)
+      (let [src (image-url/fetchable image-url)]
+        (if editable?
+          [:div.m-r-20.m-t-10.m-b-10.pl-thumb-box
+           [:img.image-character-thumbnail {:src src}]
+           [edit-overlay]]
+          [:img.m-r-20.m-t-10.m-b-10.image-character-thumbnail {:src src}]))
 
       editable?
       [:div.m-r-20.m-t-10.m-b-10.pl-thumb-box.pl-thumb-empty

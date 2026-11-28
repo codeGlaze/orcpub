@@ -22,4 +22,30 @@ for (const name of ['Options', 'Description', 'Portrait']) {
 census['builder.tab(Details) phone'] = {
   route: ROUTE, locator: page => tab(page, 'Details'), preconditions: { viewport: 'phone' }, expectedCount: 1 };
 
-module.exports = { tab, census };
+/**
+ * The Description tab's Faction Image URL input. It has no accessible name (its label is a loose
+ * span shared by every builder text field), so it is found by that label's text.
+ * @param {import('playwright').Page} page
+ * @returns {import('playwright').Locator}
+ */
+const factionImageUrl = page => page
+  .locator('div', { has: page.locator(':scope > span.personality-label', { hasText: /^Faction Image URL/ }) })
+  .locator('input').first();
+
+/** The faction picture shown beside the Faction Image URL field (absent until the link is a web address). */
+const factionThumbnail = page => page.locator('img.image-faction-thumbnail');
+
+/** The Description tab's button that opens the picture drawer. */
+const changePicture = page => page.getByRole('button', { name: 'Change picture', exact: true });
+
+/** The picture drawer's switch to its link mode. */
+const pictureLinkMode = page => page.getByRole('button', { name: /^Use an image from the web/ });
+
+/** The picture drawer's image address field. */
+const pictureLink = page => page.getByRole('textbox', { name: 'Image address (URL)', exact: true });
+
+/** The picture drawer's button that makes the typed link the character's picture. */
+const useImage = page => page.getByRole('button', { name: /^(Use this image|Switch to this image)$/ });
+
+module.exports = { tab, census, factionImageUrl, factionThumbnail, changePicture, pictureLinkMode, pictureLink,
+                   useImage };

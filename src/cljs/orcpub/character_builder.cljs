@@ -2087,7 +2087,7 @@
         set-draft #(dispatch [:portrait/set-link-draft %])]
     [:div {:on-paste (image-paste url)}
      [:span.personality-label.f-s-18 label]
-     [:input.input {:type "url" :value (or url "") :placeholder "https://"
+     [:input.input {:type "url" :value (or url "") :placeholder "https://" :aria-label label
                     :on-change #(set-draft (comps/event-value %))}]
      [image-field-notice url false (get image-bytes url) (get server-reach url) set-draft]]))
 
@@ -2155,9 +2155,9 @@
      [:div.m-t-30
       [:span.personality-label.f-s-18 "Picture"]
       [:div.flex.align-items-c
-       (when image-url
+       (when-let [src (image-url/fetchable image-url)]
          ;; hidden: keeps the link's load checks running, which the thumbnail's own <img> does not
-         [:img {:style {:display "none"} :src image-url
+         [:img {:style {:display "none"} :src src
                              :on-error (image-error :failed-loading-image image-url)
                              :on-load (image-load :loaded-image image-url)}])
        [portrait5e/thumbnail (char5e/portrait built-char) image-url true]
@@ -2167,8 +2167,8 @@
       [:span.personality-label.f-s-18 "Faction Name"]
       [character-input entity-values ::char5e/faction-name]]
      [:div.flex.align-items-c.w-100-p.m-t-30
-      (when faction-image-url
-        [:img.m-r-10.image-faction-thumbnail {:src faction-image-url
+      (when-let [src (image-url/fetchable faction-image-url)]
+        [:img.m-r-10.image-faction-thumbnail {:src src
                       :on-error (image-error :failed-loading-faction-image faction-image-url)
                       :on-load (image-load :loaded-faction-image faction-image-url)}])
       [:div.flex-grow-1
