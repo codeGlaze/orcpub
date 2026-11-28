@@ -277,6 +277,11 @@ re-frame events. Routing via the app's own router is fine for navigation.
 
 ## Tests here
 
+- `image_link_requests_e2e.js` — text typed or pasted into a picture link never requests our server, a
+  valid address still previews, and prose saved as a picture draws nothing on the sheet.
+  Trap: the builder's text fields drop keys when `pressSequentially` types faster than about a
+  player (5 ms per key turned `https://img.test/...` into `htps/i.tt/...`); use about 60 ms. Paste
+  addresses with `fill`: typed key by key, each prefix is a valid outside address the browser tries.
 - `starting_equipment_ledger_e2e.js` — the base+delta round-trip and the "Based on <class>" callout.
 - `notification_flows_e2e.js` — message toasts render red/orange/green via `views.notifications`.
 - `notifications_acceptance_e2e.js` — toasts, confirmation dialog, callout, shared-content-banner.
