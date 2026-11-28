@@ -72,7 +72,7 @@ else here carries live state.*
     evidence, the startup report and email; brings the heavy Docker checks to `integration`).
   - Merged 2026-11-27: #99 `feature/character-rescue` (Data View, the server's version check, #295;
     merge `69edbbc27`). Not on the dev site until a release PR takes `integration` into `develop`.
-  - Active, no PR yet: `test/browser-toolbox` (wrapping 2026-11-27; steps 1-5 and 5c items 1-5 pushed, then the picture-link hotfix above; [plan-browser-toolbox.md](docs/kb/plan-browser-toolbox.md)),
+  - Active, no PR yet: `test/browser-toolbox` (PR #100 into `integration`, opened 2026-11-27, CodeRabbit review requested; steps 1-6 done; then the picture-link hotfix above; [plan-browser-toolbox.md](docs/kb/plan-browser-toolbox.md)),
     `feature/inventory-kits` (the `inventory` namespace and the Kits panel,
     [`plan-inventory-kits.md`](docs/kb/plan-inventory-kits.md)), `feature/srd-pipeline`.
     (`feature/guarded-homebrew` is fully in `integration`; its remote branch was deleted 2026-11-09.)

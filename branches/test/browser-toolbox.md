@@ -51,7 +51,7 @@ One branch, one PR; each plan step is commits here (owner, 2026-11-27). Steps ar
      pages without fixtures only (sign-in, fixtures and the header menu wait for steps 7-8). Trap: an
      opener must wait for its state to land (aria-selected, then two frames) before counting.
   2. Steps 7-9 are NOT on this branch (owner, 2026-11-27): a follow-on branch, named when it starts.
-  3. PR prep: full `lein lint`, `lein test`, cljs suite, the browser suites this branch touched
+  3. PR #100 opened 2026-11-27 (all prep checks green; `@coderabbitai full review` requested). Was: PR prep: full `lein lint`, `lein test`, cljs suite, the browser suites this branch touched
      (`weapons_table_e2e.js`, `tabs_keyboard_e2e.js`, `builder_checkboxes_e2e.js`, `spell_layout_pdf_e2e.js`,
      `inventory_kits_sheet_e2e.js`, `whats_new_e2e.js`), then the PR into `integration` when the owner says,
      then one `@coderabbitai full review`.
