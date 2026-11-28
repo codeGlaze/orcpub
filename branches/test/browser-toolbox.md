@@ -44,11 +44,10 @@ One branch, one PR; each plan step is commits here (owner, 2026-11-27). Steps ar
 - **Measuring:** a probe recording boxes of `MEASURE_SEL` on 16 pages at 1920 and phone, through `run.sh`
   (`NODE_PATH=$PWD/scripts/e2e/node_modules MEASURE_SEL=... MEASURE_OUT=...`). For a "before" after editing, a
   detached temp worktree at HEAD on `E2E_PORT=8894` works. The probe is not kept; save it to `scripts/` here if reused.
-- Also pushed: `46e96032f` branch changelog (keyboard checkboxes, tab keys, the shared-controls merge).
+- Also pushed: `5fe81f02a`, `d3b8597ba` (second-opinion fixes, plan's "Second opinion, 2026-11-27"); `46e96032f` branch changelog (keyboard checkboxes, tab keys, the shared-controls merge).
 - **Wrapping (owner, 2026-11-27):** the branch is not behind `integration` (checked 2026-11-27). Left, in order:
-  1. Step 6, place descriptors and the census (plan). Before building, one second opinion on its design
-     (descriptor shape, the failure kinds, how it runs first in `run-all.sh`): it is new behaviour, the rest
-     was mechanical and measured.
+  1. Step 6, place descriptors and the census: the design is in the plan ("Second opinion, 2026-11-27");
+     build from it.
   2. Steps 7-9 (recipes and fixtures, more places, KB page and pointer) only if the owner keeps them here;
      otherwise they go to a follow-on branch.
   3. PR prep: full `lein lint`, `lein test`, cljs suite, the browser suites this branch touched

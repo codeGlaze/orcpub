@@ -215,6 +215,35 @@ Not taken: its "smaller first PR". Steps go in commits, not in a series of PRs (
 
 Corrected in 1.0: the "hard-wired :8890" trap is in suites that build their own base, not in the helpers.
 
+## Second opinion, 2026-11-27 (5c items 2-5 and the step 6 design)
+
+Reviewed at `46e96032f` (source only). Checked against the code and taken (`5fe81f02a`, `d3b8597ba`):
+- the kits suite's `topLevelId` missed EDN character literals (`\{`, `\}`, `\"`): fixed, 7/7 cases;
+- the feat checks proved the cell builders, not the call sites: added map-shaped choices, a mixed
+  grid (choices beside flags) and the race builder's nested `[:profs :tool]`, each seen failing.
+  Our own trap on the way: a grep for `option-tool-proficiency` also matched `-or-expertise`; boxes are
+  now found inside their titled section (`places` `sectionCheckbox`).
+Its other Part A points found no regression (paths, event table, switch attributes, splash icons).
+
+Open, owner's call: `press-to-click` (behind nearly every keyboard control) does not check
+`e.repeat`, so a held Space or Enter clicks repeatedly. Native buttons repeat on a held Enter too;
+changing it changes every such control.
+
+**Step 6 design, adopted as the starting point:**
+- A place is plain data in its `places/` module: `route` (with `:id`-style params a fixture fills),
+  `locator` (role and name first; CSS or `data-part` only where the plan allows), `preconditions`
+  (`auth`, `fixture`, `viewport`, `openMenu`), `expectedCount` (usually 1). No setup callbacks in a
+  descriptor; setup lives in the toolbox recipes.
+- One line per failing place, the kinds exclusive and checked in order: setup failed, missing, wrong
+  count, hidden (zero size counts), covered (the centre's `elementFromPoint` is neither the element
+  nor inside it; name the cover). For example
+  `FAIL sheet.restButton: covered, centre hit by .cookie-banner on /pages/dnd/5e/characters/:id`.
+- Fast: one browser; group places by route and preconditions; one context per auth and viewport;
+  one navigation per route and state; an app-ready wait, not network idle or sleeps; immediate counts.
+  Check phone only where the layout differs.
+- Not: behaviour, persistence, every configuration, screenshots, discovering controls, page objects,
+  a navigation per place. Journey assertions stay the main guard.
+
 ## Owner decisions
 
 - 2026-11-26: names first. Accessible names do most of the work and help players with screen

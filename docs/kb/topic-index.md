@@ -592,7 +592,7 @@ _browser-probe-registration · browser probe registration_
 
 _builder-and-sheet-copies · builder and sheet copies_
 
-**topics:** 2026-10-15, 409, 410, autosave, builder, character, copy, draft, edit, edits, multi-tab-character-contamination, recorded, reply, save, sends, sheet, unsaved, version
+**topics:** 2026-10-15, 409, 410, autosave, builder, copy, draft, edit, edits, multi-tab-character-contamination, recorded, reply, save, sends, server, sheet, unsaved, version
 
 - What was lost, proven on a real server
 - The fix
@@ -1519,7 +1519,7 @@ _documentation-discipline · documentation discipline_
 
 _documentation-tenets · documentation tenets_
 
-**topics:** agentic, chose, commit, conclusion, dense, discovering, docs-only, dotfiles, instrument, investigation, narrate, per-change, readme, reminder, tenets, tradeoff, unioning, verification-discipline
+**topics:** agentic, chose, commit, conclusion, dense, docs-only, dotfiles, instrument, investigation, narrate, per-change, readme, rediscovering, reminder, tenets, tradeoff, unioning, verification-discipline
 
 - The tenets
 - What belongs here
@@ -3128,7 +3128,7 @@ _plan-agent-harness · plan agent harness_
 
 _plan-browser-toolbox · plan browser toolbox_
 
-**topics:** 2026-11-26, 2026-11-27, accessible, census, codex, controls, failed, journey, keyboard, players, preconditions, recipes, selector, suite, suites, tabs, toolbox, viewport
+**topics:** 2026-11-26, 2026-11-27, accessible, census, codex, control, controls, enter, journey, keyboard, preconditions, recipes, setup, suite, suites, tabs, toolbox, viewport
 
 - The problem, measured
 - What it is
@@ -3140,6 +3140,7 @@ _plan-browser-toolbox · plan browser toolbox_
 - Order of work
 - What it is not
 - Second opinion, 2026-11-26
+- Second opinion, 2026-11-27 (5c items 2-5 and the step 6 design)
 - Owner decisions
 
 ## plan-character-drafts.md
@@ -3861,7 +3862,7 @@ _spa-routing-architecture · spa routing architecture_
 
 _spell-granting-across-silos · spell granting across silos_
 
-**topics:** cast, castable, chain, class-gated, creator-declarable, magic-item, not-tested, per-silo, primitive, primitives, race, races, silo, spell, spells, sustainable, verified, wrapper
+**topics:** assembly, cast, castable, chain, class-gated, creator-declarable, magic-item, not-tested, per-silo, primitive, primitives, races, silo, spell, spells, sustainable, verified, wrapper
 
 - The two core primitives (what every bespoke spell function wraps)
 - Fixed spell — the chain per silo
