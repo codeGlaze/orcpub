@@ -1,8 +1,8 @@
 # Plan: a browser-test toolbox
 
 **Status: plan 1.3, revised 2026-11-27 after a third second opinion (below). Planned 2026-11-26 (owner: "exactly what I've been pushing for"). Branch
-`test/browser-toolbox`, cut from `integration` at `b14a515e4`. Steps 1-5 and 5c items 1-5 built and pushed (to
-`46e96032f`, 2026-11-27); step 6 next, then 7-9 or a follow-on branch. The whole toolbox is one branch and one PR, each step a commit (owner, 2026-11-27).**
+`test/browser-toolbox`, cut from `integration` at `b14a515e4`. Steps 1-6 built and pushed (to `6815276cc`,
+2026-11-27); the branch ends there. Steps 7-9 go to a follow-on branch. The whole toolbox is one branch and one PR, each step a commit (owner, 2026-11-27).**
 
 ## The problem, measured
 

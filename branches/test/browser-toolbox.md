@@ -46,8 +46,10 @@ One branch, one PR; each plan step is commits here (owner, 2026-11-27). Steps ar
   detached temp worktree at HEAD on `E2E_PORT=8894` works. The probe is not kept; save it to `scripts/` here if reused.
 - Also pushed: `5fe81f02a`, `d3b8597ba` (second-opinion fixes, plan's "Second opinion, 2026-11-27"); `46e96032f` branch changelog (keyboard checkboxes, tab keys, the shared-controls merge).
 - **Wrapping (owner, 2026-11-27):** the branch is not behind `integration` (checked 2026-11-27). Left, in order:
-  1. Step 6, place descriptors and the census: the design is in the plan ("Second opinion, 2026-11-27");
-     build from it.
+  1. Done: step 6 (`6815276cc`). `place_census_e2e.js`, 21 places with `census` descriptors in `places/`;
+     runs first in `run-all.sh` and the PR browser workflow; `--map` prints the map. Covers signed-out
+     pages without fixtures only (sign-in, fixtures and the header menu wait for steps 7-8). Trap: an
+     opener must wait for its state to land (aria-selected, then two frames) before counting.
   2. Steps 7-9 are NOT on this branch (owner, 2026-11-27): a follow-on branch, named when it starts.
   3. PR prep: full `lein lint`, `lein test`, cljs suite, the browser suites this branch touched
      (`weapons_table_e2e.js`, `tabs_keyboard_e2e.js`, `builder_checkboxes_e2e.js`, `spell_layout_pdf_e2e.js`,
