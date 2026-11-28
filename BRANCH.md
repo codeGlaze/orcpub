@@ -152,7 +152,8 @@ view is two: the hold decides what the built character applies; Data View edits 
 banned by CrowdSec on the DMV site: they pasted prose into a picture-link field, the app used the
 text as an `<img src>` on every keystroke, it resolved to `/pages/dnd/5e/<text>`, and each edit was a
 GET answered 404. Still on `integration` `69edbbc27`. Branch: `hotfix/image-link-requests` from
-`integration` (name proposed; the owner approves it when the work starts).
+`integration`, **approved by the owner 2026-11-28**: cut it once #100's CodeRabbit review is addressed and
+the PR is running its last checks before merging.
 - **Where:** five `<img src>` sites: `character_builder.cljs` picture link (~2163) and faction image
   (~2174); `portrait.cljs` ~1544, ~1597, ~1694.
 - **Spec (owner and reviewer, 2026-11-27):**
