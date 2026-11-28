@@ -46,4 +46,6 @@ shared key handlers), measured before and after at desktop and phone widths with
 
 ## Fixed
 
+- **Reference:** on a phone, the Monsters page's filter toggle (shown as an arrow only) has a name screen readers announce and opens from the keyboard.
+
 ## Security
