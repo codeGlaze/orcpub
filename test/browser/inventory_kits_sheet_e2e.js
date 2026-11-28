@@ -8,13 +8,15 @@ const { settle, BASE, EXECUTABLE } = ex;
 const OUT = process.env.SHOTS || require('os').tmpdir();
 // The :db/id of the top-level map in the save reply (EDN). The reply holds nested entities with
 // ids of their own, printed before the character's, so the first ":db/id" in the text is not
-// necessarily the character's. Reads only keys at the outer map's own depth, skipping strings.
+// necessarily the character's. Reads only keys at the outer map's own depth, skipping strings and
+// character literals (\{, \").
 function topLevelId(bodyText) {
   let depth = 0, inStr = false;
   for (let i = 0; i < bodyText.length; i++) {
     const c = bodyText[i];
     if (inStr) { if (c === '\\') i++; else if (c === '"') inStr = false; continue; }
-    if (c === '"') inStr = true;
+    if (c === '\\') i++;
+    else if (c === '"') inStr = true;
     else if ('{[('.includes(c) || (c === '#' && bodyText[i + 1] === '{')) { if (c === '#') i++; depth++; }
     else if ('}])'.includes(c)) depth--;
     else if (depth === 1 && bodyText.startsWith(':db/id', i)) {
