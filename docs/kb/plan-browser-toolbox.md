@@ -225,9 +225,9 @@ Reviewed at `46e96032f` (source only). Checked against the code and taken (`5fe8
   now found inside their titled section (`places` `sectionCheckbox`).
 Its other Part A points found no regression (paths, event table, switch attributes, splash icons).
 
-Open, owner's call: `press-to-click` (behind nearly every keyboard control) does not check
-`e.repeat`, so a held Space or Enter clicks repeatedly. Native buttons repeat on a held Enter too;
-changing it changes every such control.
+Decided (owner, 2026-11-27): no change. `press-to-click` (behind nearly every keyboard control) does not check
+`e.repeat`, so a held Space or Enter clicks repeatedly. Native buttons repeat on a held Enter too,
+and the refactor does not justify changing every such control.
 
 **Step 6 design, adopted as the starting point:**
 - A place is plain data in its `places/` module: `route` (with `:id`-style params a fixture fills),
@@ -245,6 +245,11 @@ changing it changes every such control.
   a navigation per place. Journey assertions stay the main guard.
 
 ## Owner decisions
+
+- 2026-11-27: `test/browser-toolbox` ends at step 6 (the census). Steps 7-9 (recipes and fixtures, more
+  places, the KB page and pointer) go to a follow-on branch, named and approved when it starts, so the
+  picture-link hotfix is not held behind more test tooling.
+- 2026-11-27: a held Space or Enter keeps repeating, as native buttons do; `press-to-click` is unchanged.
 
 - 2026-11-26: names first. Accessible names do most of the work and help players with screen
   readers, keyboard and voice control. The few remaining hooks are shipped in production under a

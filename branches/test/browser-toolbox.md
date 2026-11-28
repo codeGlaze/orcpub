@@ -6,7 +6,7 @@
 
 ## State (updated 2026-11-27, later)
 
-One branch, one PR; each plan step is commits here (owner, 2026-11-27). Steps are numbered as in the plan. All below is pushed unless it says otherwise.
+One branch, one PR; each plan step is commits here (owner, 2026-11-27). Steps are numbered as in the plan. The branch ends at step 6 (owner, 2026-11-27). All below is pushed unless it says otherwise.
 
 - Steps 1-3 (`c7de2f67a`): `toolbox.js` and its table test; `test/browser/places/` (builder, sheet, settings, weapons); `weapons_table_e2e.js` moved onto them.
 - Step 4 (`b937cb159`) and 4b (`e2da3723f`): `escapeRegExp`; `checker()` gives `check`, `attempt`, `must`, `watch`, `finish`; `must` throws `SetupFailed` and the suite's top-level catch ends through `finish()`; `attempt`/`must` take a function (`() => locator.click()`); `watch(page)` makes console errors, page errors and same-origin failed requests failed checks; `run.sh` builds `ledger.js` for suites with `// Needs: ledger`.
@@ -48,8 +48,7 @@ One branch, one PR; each plan step is commits here (owner, 2026-11-27). Steps ar
 - **Wrapping (owner, 2026-11-27):** the branch is not behind `integration` (checked 2026-11-27). Left, in order:
   1. Step 6, place descriptors and the census: the design is in the plan ("Second opinion, 2026-11-27");
      build from it.
-  2. Steps 7-9 (recipes and fixtures, more places, KB page and pointer) only if the owner keeps them here;
-     otherwise they go to a follow-on branch.
+  2. Steps 7-9 are NOT on this branch (owner, 2026-11-27): a follow-on branch, named when it starts.
   3. PR prep: full `lein lint`, `lein test`, cljs suite, the browser suites this branch touched
      (`weapons_table_e2e.js`, `tabs_keyboard_e2e.js`, `builder_checkboxes_e2e.js`, `spell_layout_pdf_e2e.js`,
      `inventory_kits_sheet_e2e.js`, `whats_new_e2e.js`), then the PR into `integration` when the owner says,
