@@ -67,7 +67,7 @@
   "Change handler adding the item whose key is the event's value to selection `key`."
   [key]
   (fn [e]
-     (let [value (.. e -target -value)
+     (let [value (comps/event-value e)
            item-key (keyword value)]
        (dispatch [:add-inventory-item key item-key]))))
 
@@ -125,7 +125,7 @@
               {:auto-focus true
                :value @query
                :placeholder "Search…"
-               :on-change #(reset! query (.. % -target -value))
+               :on-change #(reset! query (comps/event-value %))
                :on-key-down #(when (= 27 (.-keyCode %)) (close!))}]
              (if (empty? matches)
                [:div.inv-picker-empty (str "Nothing matches “" @query "”")]
@@ -162,7 +162,7 @@
            :value @value
            :placeholder (str "Add an item… (" (count items) ")")
            :on-change (fn [e]
-                        (let [v (.. e -target -value)]
+                        (let [v (comps/event-value e)]
                           ;; A pick from the list arrives as a complete, exact name; typing
                           ;; arrives partial. Only dispatch on an exact hit, then clear.
                           (if-let [item-key (by-name v)]
@@ -321,7 +321,7 @@
                             "Backspace" (when (and label (s/blank? @query)) (reset! preset nil))
                             nil))
            :on-change (fn [e]
-                        (reset! query (.. e -target -value))
+                        (reset! query (comps/event-value e))
                         ;; The old highlight points into the old result list.
                         (reset! active -1)
                         (open!))}]]
@@ -387,7 +387,7 @@
                              "Backspace" (when (and on? (s/blank? @query)) (reset! packs? false))
                              "Enter" (when offer? (.preventDefault e) (choose!))
                              nil))
-            :on-change (fn [e] (reset! query (.. e -target -value)) (hide-popover! pop-id))}]]
+            :on-change (fn [e] (reset! query (comps/event-value e)) (hide-popover! pop-id))}]]
          [:div.inv-combo-pop {:id pop-id :popover "auto" :style {:position-anchor anchor}}
           [:div.inv-combo-list {:role "listbox"}
            [:div.inv-combo-row.inv-combo-scope {:role "option" :on-click choose!}
@@ -565,7 +565,7 @@
           [:button.kit-summary {:on-click toggle :aria-expanded @open?}
            [:div.kit-name-line
             [:span.kit-name.f-w-b.f-s-16 (str name (when (> pack-count 1) (str " \u00d7" pack-count)))]
-            [:i.fa.m-l-5.f-s-12 {:class (if @open? "fa-caret-up" "fa-caret-down") :aria-hidden true}]]
+            [comps/caret @open? {:class "m-l-5 f-s-12"}]]
            [contents tracked budget]]
           (when low?
             [:button.form-button.kit-restock
@@ -786,10 +786,10 @@
           [:span.dev-mode-row.m-t-0
            [:span.dev-mode-label.f-s-14.pointer {:on-click #(swap! managing? not)} "Manage inventory"]
            [:span.toggle-switch
-            {:class (when @managing? "on") :role "switch" :aria-checked (str @managing?) :tabIndex 0
-             :aria-label "Manage inventory"
-             :on-click #(swap! managing? not)
-             :on-key-down #(when (#{"Enter" " "} (.-key %)) (.preventDefault %) (swap! managing? not))}]]]
+            (assoc (comps/switch-attrs @managing? (fn [_] (swap! managing? not)))
+                   :class (when @managing? "on")
+                   :aria-label "Manage inventory"
+                   :on-click #(swap! managing? not))]]]
          (when (some? backpack-worn?)
            (let [n (count (remove #(= :backpack (key %)) items))]
              [:div.flex.align-items-c.m-t-10.backpack-line

@@ -1,7 +1,8 @@
 (ns orcpub.dnd.e5.views.conflict-resolution
   "Conflict resolution modal, export warning modal, and combined overlay.
    Handles import key conflicts and missing-field warnings during orcbrew export."
-  (:require [re-frame.core :refer [subscribe dispatch]]
+  (:require [orcpub.components :as comps]
+            [re-frame.core :refer [subscribe dispatch]]
             [clojure.string :as s]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.dnd.e5.views.import-log :as import-log]))
@@ -348,7 +349,7 @@
        [:select.export-edit-select
         {:class (when-not (contains? edits edit-path) "unfilled")
          :value (str val)
-         :on-change #(let [v (.. % -target -value)]
+         :on-change #(let [v (comps/event-value %)]
                        (if (= v "")
                          (dispatch [:remove-export-edit edit-path])
                          (dispatch [:update-export-edit
@@ -364,7 +365,7 @@
        [:select.export-edit-select
         {:class (when-not (contains? edits edit-path) "unfilled")
          :value (str val)
-         :on-change #(let [v (.. % -target -value)]
+         :on-change #(let [v (comps/event-value %)]
                        (if (= v "")
                          (dispatch [:remove-export-edit edit-path])
                          (dispatch [:update-export-edit edit-path v])))}
@@ -381,7 +382,7 @@
          :value val
          :on-change #(dispatch [:update-export-edit
                                 edit-path
-                                (.. % -target -value)])}])]))
+                                (comps/event-value %)])}])]))
 
 (defn item-heading
   "Title and subtitle for an item in the missing-fields dialog. A nameless item reads

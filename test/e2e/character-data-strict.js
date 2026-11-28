@@ -1,3 +1,4 @@
+// Needs: ledger (the Data View page's own script, ledger.js; run.sh builds it when missing or stale).
 // The character data page under the production settings it has not otherwise been run with:
 //   1. CSP_POLICY=strict (DEV_MODE unset): a per-request nonce and an enforcing
 //      Content-Security-Policy, as production serves it;

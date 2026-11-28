@@ -76,11 +76,21 @@ jobs:
         with:
           node-version: '22'
 
+      # The shared helpers every browser suite imports; node only, no browser or server.
+      - name: Toolbox helpers pass their table test
+        timeout-minutes: 2
+        run: node test/browser/lib/toolbox_test.js
+
       - name: Install Playwright and Chromium
         working-directory: scripts/e2e
         run: |
           npm install --no-audit --no-fund
           npx playwright install --with-deps chromium
+
+      # Every mapped place is found, counted, visible and hittable, one line per place. It builds the
+      # production bundle the next step reuses.
+      - name: Place census
+        run: ./scripts/e2e/run.sh test/browser/place_census_e2e.js
 
       # Builds the production bundle and stylesheet, boots the app on in-memory Datomic, and exits
       # non-zero unless its last line reads "E2E RESULT ... PASS".

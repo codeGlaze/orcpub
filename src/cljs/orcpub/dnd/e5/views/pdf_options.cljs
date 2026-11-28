@@ -5,7 +5,7 @@
             [reagent.core :as r]
             [re-frame.core :refer [subscribe dispatch]]
             [orcpub.common :as common]
-            [orcpub.components :refer [make-event-handler make-arg-event-handler]]
+            [orcpub.components :as comps :refer [make-event-handler make-arg-event-handler]]
             [orcpub.pdf-spec :as pdf-spec]
             [orcpub.dnd.e5.character :as char]
             [orcpub.dnd.e5.emblems :as emblems]
@@ -19,7 +19,7 @@
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.fork.integrations :as integrations]
             [orcpub.dnd.e5.views.builder-fields :refer [option-checkbox option-group labeled-dropdown
-                                                        labeled-checkbox with-help]]))
+                                                        with-help]]))
 
 (defn file-name-format
   "The player's file name choices with pdf-spec/file-name-defaults filling the rest. Must be
@@ -472,12 +472,8 @@
                  "spell the character has; Prepared is only the ones marked "
                  "prepared today, which is what a Cleric or a Wizard casts from.")]
            [:div.flex
-            [:div.pointer
-             {:on-click (make-event-handler ::char/toggle-known-spells-print)}
-             [labeled-checkbox "Known" (not print-prepared-spells?)]]
-            [:div.m-l-20.pointer
-             {:on-click (make-event-handler ::char/toggle-known-spells-print)}
-             [labeled-checkbox "Prepared" print-prepared-spells?]]]]
+            [comps/labeled-checkbox "Known" (not print-prepared-spells?) false (make-event-handler ::char/toggle-known-spells-print) "m-b-10 f-s-14"]
+            [comps/labeled-checkbox "Prepared" print-prepared-spells? false (make-event-handler ::char/toggle-known-spells-print) "m-b-10 f-s-14 m-l-20"]]]
           (when (or print-spellbook? print-spell-cards?)
             [spellbook-dropdown "Spell order" :spell-order
              [{:title "By level, then name" :value "level"}

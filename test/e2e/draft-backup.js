@@ -1,3 +1,4 @@
+// Needs: ledger (the Data View page's own script, ledger.js; run.sh builds it when missing or stale).
 // A browser draft the app cannot read is set aside, not deleted, and Data View's draft page
 // offers it for download (character-rescue.md, item 5): the old single slot, and a tab's own
 // per-character draft. The unreadable draft is written into

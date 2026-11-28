@@ -1,3 +1,4 @@
+// Needs: ledger (the Data View page's own script, ledger.js; run.sh builds it when missing or stale).
 // The ways a player reaches the Data View page (character-rescue.md, entry points):
 //   a muted gear at the right end of the owner's share line, and after Delete in the owner's
 //   opened character-list row (neither shown to others);
