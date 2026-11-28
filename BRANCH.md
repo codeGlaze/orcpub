@@ -72,7 +72,9 @@ else here carries live state.*
     evidence, the startup report and email; brings the heavy Docker checks to `integration`).
   - Merged 2026-11-27: #99 `feature/character-rescue` (Data View, the server's version check, #295;
     merge `69edbbc27`). Not on the dev site until a release PR takes `integration` into `develop`.
-  - Active, no PR yet: `test/browser-toolbox` (PR #100 into `integration`, opened 2026-11-27, CodeRabbit review requested; steps 1-6 done; then the picture-link hotfix above; [plan-browser-toolbox.md](docs/kb/plan-browser-toolbox.md)),
+  - Merged 2026-11-28: #100 `test/browser-toolbox` (place map, census, shared controls; merge `502683084`; steps 7-9 go to a follow-on branch, [plan-browser-toolbox.md](docs/kb/plan-browser-toolbox.md)). Not on the dev site until a release PR.
+  - Active: `hotfix/image-link-requests` (cut 2026-11-28 at `502683084`, worktree `orcpub-hotfix`; spec above).
+  - Active, no PR yet:
     `feature/inventory-kits` (the `inventory` namespace and the Kits panel,
     [`plan-inventory-kits.md`](docs/kb/plan-inventory-kits.md)), `feature/srd-pipeline`.
     (`feature/guarded-homebrew` is fully in `integration`; its remote branch was deleted 2026-11-09.)
@@ -153,7 +155,9 @@ banned by CrowdSec on the DMV site: they pasted prose into a picture-link field,
 text as an `<img src>` on every keystroke, it resolved to `/pages/dnd/5e/<text>`, and each edit was a
 GET answered 404. Still on `integration` `69edbbc27`. Branch: `hotfix/image-link-requests` from
 `integration`, **approved by the owner 2026-11-28**: cut it once #100's CodeRabbit review is addressed and
-the PR is running its last checks before merging.
+the PR is running its last checks before merging. **Cut 2026-11-28 at `502683084` (#100 merged); worktree
+`/home/codeglaze/projects/orcpub-hotfix`; no commits yet.** The browser test can use the toolbox and add
+the fields to the place census.
 - **Where:** five `<img src>` sites: `character_builder.cljs` picture link (~2163) and faction image
   (~2174); `portrait.cljs` ~1544, ~1597, ~1694.
 - **Spec (owner and reviewer, 2026-11-27):**

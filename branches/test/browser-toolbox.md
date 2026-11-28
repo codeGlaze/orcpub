@@ -1,5 +1,7 @@
 # test/browser-toolbox
 
+**Merged 2026-11-28 as #100 (`502683084`). Done; steps 7-9 go to a follow-on branch (plan).**
+
 **Purpose:** one place map of the app for browser tests, plus a census check, recipes, fixtures and one helper library, so a UI change costs one map edit instead of trial runs per suite. Also, since 2026-11-27, the shared-controls merge (step 5c), because the map locates those controls. **Base:** `integration` at `b14a515e4` (2026-11-26), `integration` merged in at `519d1f23f` (#99).
 **PR into:** `integration`, when the owner says. **Worktree:** `/home/codeglaze/projects/orcpub-toolbox`.
 **KB:** [plan-browser-toolbox.md](../../docs/kb/plan-browser-toolbox.md) (the steps); the controls audit is in [monolith-decomposition-plan.md](../../docs/kb/monolith-decomposition-plan.md), "Shared controls and duplicates".
