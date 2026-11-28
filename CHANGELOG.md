@@ -98,10 +98,12 @@ Homebrew is repaired instead of lost, a character that used to blank the page no
 - **Characters:** the Missing Content warning also covers spells and languages, and ignores the built-in "Custom" option. (#524)
 - **Characters:** on phones every weapon picker opens in a bottom sheet. (#722)
 - **Character sheet:** the spell table's Attack column is gone; on a spell that makes a spell attack, its Mod. is the roll button, so the table is narrower and long names wrap less on phones.
+- **Character sheet:** the sheet's section tabs and the builder's tabs have names screen readers announce, and work from the keyboard (Tab, the arrow keys, Home, End, Enter, Space).
 - **Homebrew:** opening the app, importing and restoring are faster with a large library. (#723)
 - **Homebrew:** a value in the wrong form whose meaning is plain (`"25"` for a speed, one trait where a list belongs) is corrected once, and the import report lists each field it fixed and each entry it sets aside for repair. (#723)
 - **Homebrew:** content imported without a source lands in the real "Default Option Source".
 - **Homebrew:** saving checks every required field, dropdowns and multi-selects included.
+- **Homebrew:** every checkbox in the homebrew builders and PDF Options can be ticked from the keyboard (Space or Enter), and expand and collapse arrows are no longer read out by screen readers.
 - **Content:** SRD weapon and armor names in Title Case, without the Wikipedia links.
 - **Printing:** PDF Options opens as a full-window panel with grouped options, and Create PDF opens a tab that says the PDF is being made. (#726)
 - **Printing:** spell cards have a new design: the name with ATK and DC, concentration and ritual as ribbons, the casting facts labelled, and more of the spell's text on the front. (#726)
@@ -181,6 +183,7 @@ Homebrew is repaired instead of lost, a character that used to blank the page no
 - **Sharing:** link previews of shared characters work on Discord, Mastodon, Slack, Telegram and X, with the character's title and image; `robots.txt` blocked the crawlers and every preview was empty. (#727)
 - **Reference:** spells and monsters that share a name (common across homebrew packs) each show as their own row; clearing a search no longer leaves duplicate rows, and opening one no longer opens the others.
 - **Reference:** the Spells, Monsters and Items lists come back at once when a search is cleared, even with large homebrew libraries.
+- **Reference:** on a phone, the Monsters page's filter toggle (shown as an arrow only) has a name screen readers announce and opens from the keyboard.
 - **Monsters:** stat blocks show reactions, such as the Marilith's Parry, and the monster builder can add one; the dragons, Succubus/Incubus and Spy show all their skills, the Flying Snake its Flyby trait, and the Alchemy Jug that its liquid can be created once a day. (#715)
 - **Printing:** some spells never printed, prepared ticks landed on the wrong rows, and styles 3 and 4 could not export a character with two casting classes. (#709)
 - **Printing:** the hit dice box, the second-page name box and style 4's allies and backstory are filled, the features page no longer lands between spell pages, fields read the same in every PDF viewer, negative numbers print correctly, and a reaction's casting time prints as "1 React." on spell cards. (#709)
