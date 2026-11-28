@@ -167,4 +167,29 @@ const quietOverlays = ctx => ctx.addInitScript(id => {
   }
 }, currentWhatsNewId());
 
-module.exports = { formatDiagnostics, isSameOrigin, watchPage, SetupFailed, BASE, APP_BUNDLE, escapeRegExp, checker, phoneContext, quietOverlays, currentWhatsNewId };
+/**
+ * The :db/id of the top-level map in a save reply (EDN), for opening the saved character. The reply holds nested entities with
+ * ids of their own, printed before the character's, so the first ":db/id" in the text is not
+ * necessarily the character's. Reads only keys at the outer map's own depth, skipping strings and
+ * character literals (\{, \").
+ * @param {string} bodyText the reply body
+ * @returns {string|null} the id, or null when the outer map has none
+ */
+function topLevelId(bodyText) {
+  let depth = 0, inStr = false;
+  for (let i = 0; i < bodyText.length; i++) {
+    const c = bodyText[i];
+    if (inStr) { if (c === '\\') i++; else if (c === '"') inStr = false; continue; }
+    if (c === '\\') i++;
+    else if (c === '"') inStr = true;
+    else if ('{[('.includes(c) || (c === '#' && bodyText[i + 1] === '{')) { if (c === '#') i++; depth++; }
+    else if ('}])'.includes(c)) depth--;
+    else if (depth === 1 && bodyText.startsWith(':db/id', i)) {
+      const m = /^:db\/id\s+(\d+)/.exec(bodyText.slice(i));
+      if (m) return m[1];
+    }
+  }
+  return null;
+}
+
+module.exports = { topLevelId, formatDiagnostics, isSameOrigin, watchPage, SetupFailed, BASE, APP_BUNDLE, escapeRegExp, checker, phoneContext, quietOverlays, currentWhatsNewId };

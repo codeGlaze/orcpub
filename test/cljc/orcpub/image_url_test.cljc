@@ -78,3 +78,20 @@
     (is (nil? fix)))
   (is (nil? (iu/advise "https://example.com/characters/mine.png"))
       "a file name is enough to settle it"))
+
+(deftest only-a-web-address-is-fetchable
+  (testing "text that would resolve against the page, as a path on our own server, is not an address"
+    (doseq [typed ["Vecna causes necrotic magic to engulf one creature he can see"
+                   "htt" "https:/" "https://" "/api/x" "image.png" "www.example.com/a.png"]]
+      (is (nil? (iu/fetchable typed)) typed)))
+  (testing "other schemes are not fetched"
+    (doseq [typed ["ftp://example.com/a.png" "javascript:alert(1)" "data:image/png;base64,AAAA"
+                   "file:///etc/passwd"]]
+      (is (nil? (iu/fetchable typed)) typed)))
+  (testing "blank and non-strings"
+    (is (nil? (iu/fetchable nil)))
+    (is (nil? (iu/fetchable "   "))))
+  (testing "an http or https address with a host is used, trimmed"
+    (is (= "https://i.imgur.com/aBcDeF.png" (iu/fetchable "https://i.imgur.com/aBcDeF.png")))
+    (is (= "http://example.com/a" (iu/fetchable "  http://example.com/a ")))
+    (is (= "HTTPS://Example.com/a.png" (iu/fetchable "HTTPS://Example.com/a.png")))))

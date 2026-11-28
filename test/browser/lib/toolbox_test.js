@@ -2,7 +2,7 @@
 // bundle test with and without a cache stamp, and the current What's New id. No browser, no server.
 // Needs:     nothing. Run: node test/browser/lib/toolbox_test.js
 const { checker, APP_BUNDLE, currentWhatsNewId, escapeRegExp, SetupFailed,
-  formatDiagnostics, isSameOrigin, watchPage, BASE } = require('./toolbox');
+  formatDiagnostics, isSameOrigin, watchPage, BASE, topLevelId } = require('./toolbox');
 
 let passed = 0, failed = 0;
 /**
@@ -183,6 +183,17 @@ expect('the What\'s New id comes from the app', /^[a-z0-9-]+$/.test(currentWhats
     c.finish(); twoPages.push(c.results.filter(r => /^diagnostics/.test(r.name)).length);
   });
   expect('each watched page with findings adds its own failed check', twoPages[0] === 2);
+
+  // topLevelId: the save reply's own :db/id, never a nested entity's
+  for (const [edn, want] of [
+    ['{:a {:db/id 111} :items [{:db/id 222}] :db/id 333}', '333'],
+    ['{:description \\{ :db/id 12345}', '12345'],
+    ['{:description \\} :db/id 12345}', '12345'],
+    ['{:d \\" :db/id 12345}', '12345'],
+    ['{:a "x\\"}" :db/id 7}', '7'],
+    ['{:s #{1 {:db/id 9}} :t #inst "2020" :db/id 8}', '8'],
+    ['{:a {:db/id 1}}', null],
+  ]) expect(`topLevelId ${edn} -> ${want}`, topLevelId(edn) === want);
 
   console.log(`toolbox_test: ${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
