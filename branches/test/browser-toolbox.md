@@ -35,13 +35,16 @@ One branch, one PR; each plan step is commits here (owner, 2026-11-27). Steps ar
   - `8430cbdb6` (owner yes, 2026-11-27): svg-icon-2 gone; the splash buttons call `(comps/themed-icon icon :css "dark-theme")`.
     `themed-icon` size `:css` writes no inline size, because index.clj CSS sizes `.splash-button .svg-icon` (64, 32 under 768 px).
     Home page in both themes, desktop, phone and server-rendered: 14 icons each, byte-identical screenshots.
-- **Failing, older than this work:** `inventory_kits_sheet_e2e.js` fails "its sheet shows the kit as saved:
-  Torch 9/10" then times out on "One fewer", identically at `592468dab`, `69d4aade0` and `ccce7e06c` (3 runs).
-  Cause not traced. Check `origin/integration` and `feature/inventory-kits` first.
+- Fixed `254ade5a5`: `inventory_kits_sheet_e2e.js` read the saved id as the first `:db/id` in the EDN save
+  reply, which is a nested entity's; it opened a blank sheet. `topLevelId` reads the outer map's own. 43/43.
+- **Found 2026-11-27, not this branch's scope (owner to place it):** picture links are used as `<img src>` raw
+  on every keystroke (character_builder.cljs faction image ~2174 and picture ~2163, portrait.cljs ~1544,
+  ~1597, ~1694). Text that is not a URL resolves under /pages/dnd/5e/ and each edit GETs a 404; CrowdSec
+  banned a player for it. Still on `integration` `69edbbc27`.
 - **Measuring:** a probe recording boxes of `MEASURE_SEL` on 16 pages at 1920 and phone, through `run.sh`
   (`NODE_PATH=$PWD/scripts/e2e/node_modules MEASURE_SEL=... MEASURE_OUT=...`). For a "before" after editing, a
   detached temp worktree at HEAD on `E2E_PORT=8894` works. The probe is not kept; save it to `scripts/` here if reused.
-- **Next:** the inventory suite failure, then 5c item 6 (one dropdown, shared modal: look first), then 6 (place
+- **Next:** 5c item 6 (one dropdown, shared modal: look first), then 6 (place
   descriptors and the census), 7-9.
 
 ## Owner decisions
