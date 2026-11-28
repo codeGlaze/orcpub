@@ -73,7 +73,7 @@ else here carries live state.*
   - Merged 2026-11-27: #99 `feature/character-rescue` (Data View, the server's version check, #295;
     merge `69edbbc27`). Not on the dev site until a release PR takes `integration` into `develop`.
   - Merged 2026-11-28: #100 `test/browser-toolbox` (place map, census, shared controls; merge `502683084`; steps 7-9 go to a follow-on branch, [plan-browser-toolbox.md](docs/kb/plan-browser-toolbox.md)). Not on the dev site until a release PR.
-  - Active: `hotfix/image-link-requests` (cut 2026-11-28 at `502683084`, worktree `orcpub-hotfix`; spec above).
+  - Open: #101 `hotfix/image-link-requests` into `integration` (opened 2026-11-28, CodeRabbit review requested; worktree `orcpub-hotfix`; spec above). Built and tested to spec; upstream issue to draft (it reached the DMV site).
   - Active, no PR yet:
     `feature/inventory-kits` (the `inventory` namespace and the Kits panel,
     [`plan-inventory-kits.md`](docs/kb/plan-inventory-kits.md)), `feature/srd-pipeline`.
