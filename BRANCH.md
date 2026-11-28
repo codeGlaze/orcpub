@@ -164,7 +164,8 @@ GET answered 404. Still on `integration` `69edbbc27`. Branch: `hotfix/image-link
   - valid http(s) links keep previewing as they do now;
   - out of scope: a preview delay or debounce, CrowdSec or server changes.
 - **Tests (browser):** ordinary prose; partial text before the host (`htt`, `https:/`); malformed
-  http(s); valid http(s), still previewing; a valid link edited to prose; a saved character whose
+  http(s); valid http(s), still previewing; a valid link edited to prose (assert the old picture is
+  no longer shown, not only that no request went out); a saved character whose
   stored link is prose, opened on its sheet. For invalid input, assert **zero requests to our own
   origin** (not only `/pages/`), not just that an error note shows. `https://i.im` while typing is a
   valid address and may request that outside host; that is accepted.
