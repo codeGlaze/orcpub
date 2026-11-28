@@ -323,7 +323,18 @@
 (deftest sheet-tab-scope-ids
   (is (= "new" (views/sheet-tab-scope nil)))
   (is (= "17592186045418" (views/sheet-tab-scope 17592186045418)))
-  (is (= "abc" (views/sheet-tab-scope "abc"))))
+  (is (= "abc" (views/sheet-tab-scope "abc")))
+  (testing "a sheet's instance number keeps one character shown twice apart"
+    (is (= "new-3" (views/sheet-tab-scope nil 3)))
+    (is (= "17592186045418-4" (views/sheet-tab-scope 17592186045418 4)))))
+
+(deftest shown-tab-picks-a-rendered-tab
+  (let [all [["summary" {}] ["combat" {}] ["equipment" {}]]
+        two-column (rest all)]
+    (is (= "combat" (views/shown-tab "combat" all)) "a rendered tab stays selected")
+    (is (= "combat" (views/shown-tab "summary" two-column))
+        "Summary is not a tab on the two-column layout: the first rendered tab is selected")
+    (is (= "summary" (views/shown-tab nil all)) "no selection: the first tab")))
 
 (deftest tab-attrs-ids-and-controls
   (testing "with ids, the selected tab controls the one rendered panel; others name no panel"

@@ -88,7 +88,7 @@ What's New release as seen, read from `src/cljc/orcpub/whats_new.cljc`). `node
 test/browser/lib/toolbox_test.js` tests it without a browser.
 
 `places/` has one module per screen (`builder.js`, `sheet.js`, `settings.js`, `weapons.js`,
-`item_builder.js`, `feat_builder.js`): plain
+`item_builder.js`, `feat_builder.js`, `reference.js`): plain
 functions that take a `page` and return Playwright locators, by role and accessible name first.
 **Use a place by name instead of typing a selector in a suite**, and add one when a suite needs a
 control that has none. When a screen changes, change its place; every suite that uses it follows.
