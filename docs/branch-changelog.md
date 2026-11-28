@@ -33,13 +33,16 @@ Rules:
 
 The first PR of the browser-test toolbox: a shared helper library and a map of screen controls for
 the browser suites, proven on the Weapons table suite. Controls are found by role and name, so the
-app's tabs got names and roles first (the one player-visible change, below).
+app's tabs got names and roles first. The duplicated controls the map locates were merged into
+shared ones in the same branch (one checkbox, one checkbox grid, one caret, one builder text field,
+shared key handlers), measured before and after at desktop and phone widths with no pixel change.
 
 ## Added
 
 ## Changed
 
-- **Accessibility:** the character sheet's section tabs and the builder's tabs have names screen readers announce, and work from the keyboard (Tab, Enter, Space).
+- **Accessibility:** the character sheet's section tabs and the builder's tabs have names screen readers announce, and work from the keyboard (Tab, the arrow keys, Home, End, Enter, Space).
+- **Homebrew:** every checkbox in the homebrew builders and PDF Options can be ticked from the keyboard (Space or Enter), and expand and collapse arrows are no longer read out by screen readers.
 
 ## Fixed
 
