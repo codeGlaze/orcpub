@@ -77,9 +77,10 @@ const loadMagic = (page, keys) => page.evaluate(keys => {
 // `step` is `must` when later checks depend on the rows (a failure ends the journey) or `attempt`
 // when they do not; returns whether they all arrived.
 const eightRows = async (scope, step) => {
-  await step('see the Flame Tongue row', () => scope.locator(W.name, { hasText: /^Flame Tongue, Longsword$/ }).first()
+  const flame = await step('see the Flame Tongue row', () => scope.locator(W.name, { hasText: /^Flame Tongue, Longsword$/ }).first()
     .waitFor({ timeout: 5000 }));
-  return step('see 8 weapon rows', () => scope.locator(W.row).nth(7).waitFor({ timeout: 5000 }));
+  const eight = await step('see 8 weapon rows', () => scope.locator(W.row).nth(7).waitFor({ timeout: 5000 }));
+  return flame && eight;
 };
 
 /**

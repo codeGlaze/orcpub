@@ -26,7 +26,9 @@ const path = require('path');
 const zlib = require('zlib');
 const { chromium } = require('playwright');
 const { findChrome } = require('./lib/find-chrome');
-const { BASE } = require('./lib/toolbox');
+const toolbox = require('./lib/toolbox');
+// run.sh sets E2E_BASE; a hand run may still name the server with ORCPUB_E2E_URL.
+const BASE = process.env.E2E_BASE ? toolbox.BASE : (process.env.ORCPUB_E2E_URL || toolbox.BASE);
 
 // Click something that may not be there, without paying a 30s default timeout for the
 // privilege. `locator.click().catch(() => {})` waits the full default when the element is

@@ -360,10 +360,16 @@
            subtypes))]])])
 
 (defn monster-filter-toggle
-  "The link that shows or hides the monster trait filters; `filters-expanded?` is a ratom."
+  "The control that shows or hides the monster trait filters; `filters-expanded?` is a ratom. A
+   button by role and name (\"Show filters\" / \"Hide filters\"), since a phone shows only its caret."
   [filters-expanded?]
   [:div.orange.pointer.m-r-10
-   {:on-click (toggle-handler filters-expanded?)}
+   {:on-click (toggle-handler filters-expanded?)
+    :role "button"
+    :tab-index 0
+    :aria-label (if @filters-expanded? "Hide filters" "Show filters")
+    :aria-expanded (str (boolean @filters-expanded?))
+    :on-key-down comps/press-to-click}
    (when (not= @(subscribe [:device-type]) :mobile)
      [:span.underline (if @filters-expanded?
                         "hide"

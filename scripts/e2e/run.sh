@@ -150,6 +150,9 @@ if [ "$NEEDS_LEDGER" = 1 ]; then
   LEDGER_DIRS="$(sed -n 's/.*:watch-dirs *\[\([^]]*\)\].*/\1/p' ledger.cljs.edn | tr -d '"')"
   [ -n "$LEDGER_JS" ] && [ -n "$LEDGER_DIRS" ] || fail "could not read :output-to and :watch-dirs from ledger.cljs.edn"
   LEDGER_EXTERNS="$(sed -n 's/.*:externs *\[\([^]]*\)\].*/\1/p' ledger.cljs.edn | tr -d '"')"
+  if grep -q ':externs' ledger.cljs.edn && [ -z "$(echo $LEDGER_EXTERNS)" ]; then
+    fail "could not read :externs from ledger.cljs.edn (this runner reads the vector only when it is on one line)"
+  fi
   for f in $LEDGER_EXTERNS; do [ -f "$f" ] || fail "ledger.cljs.edn lists the extern $f, which does not exist"; done
   LEDGER_WHY=""
   if [ ! -f "$LEDGER_JS" ]; then LEDGER_WHY="$LEDGER_JS is missing"

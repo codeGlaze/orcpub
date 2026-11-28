@@ -4178,9 +4178,19 @@
 
 (defn sheet-tab-scope
   "Id fragment that keeps one sheet's tab and panel ids apart from other sheets on the page: the
-   character's id as a string, or \"new\" when the sheet has none (the builder's own character)."
-  [id]
-  (if (nil? id) "new" (str id)))
+   character's id as a string, or \"new\" when the sheet has none (the builder's own character),
+   then `-instance` when given, so one character shown twice on a page keeps distinct ids."
+  [id & [instance]]
+  (str (if (nil? id) "new" (str id)) (when instance (str "-" instance))))
+
+(defonce ^{:doc "Counts mounted character sheets; each takes the next number for its tab ids."}
+  sheet-instances (atom 0))
+
+(defn shown-tab
+  "The sheet tab to select: `tab` when it is among `shown` (the [title spec] pairs rendered), else
+   the first shown title. Returns a title string."
+  [tab shown]
+  (if (some #(= tab (first %)) shown) tab (ffirst shown)))
 
 (defn details-tab
   "One tab of the character sheet's tab bar: `title`, `icon`, `device-type` (:desktop shows the
@@ -4470,15 +4480,15 @@
                          :on-click #(dispatch [:edit-character character])}])}])))))
 
 (defn character-display []
-  (let [show-selections? (r/atom false)]
+  (let [show-selections? (r/atom false)
+        instance (swap! sheet-instances inc)]
     (fn [id show-summary? num-columns]
       (let [device-type @(subscribe [:device-type])
             selected-tab @(subscribe [::char/selected-display-tab])
             two-columns? (= 2 num-columns)
-            tab (or selected-tab
-                    (if two-columns?
-                      "combat"
-                      "summary"))]
+            shown (if two-columns? (rest details-tabs) details-tabs)
+            tab (shown-tab (or selected-tab (if two-columns? "combat" "summary")) shown)
+            scope (sheet-tab-scope id instance)]
         [:div.w-100-p
          [:div
           [character-health-warning id]
@@ -4508,13 +4518,11 @@
                    device-type
                    (= title tab)
                    (make-event-handler ::char/set-selected-display-tab title)
-                   (sheet-tab-scope id)]])
-               (if two-columns?
-                 (rest details-tabs)
-                 details-tabs)))]
+                   scope]])
+               shown))]
             ^{:key tab}
-            [:div (comps/tab-panel-attrs (str "sheet-tabpanel-" (sheet-tab-scope id))
-                                  (str "sheet-tab-" (sheet-tab-scope id) "-" tab))
+            [:div (comps/tab-panel-attrs (str "sheet-tabpanel-" scope)
+                                  (str "sheet-tab-" scope "-" tab))
              [error-boundary
               (fn [error stack retry] [feature-render-error (s/capitalize tab) id error stack retry])
               [(-> tab details-tabs :view) num-columns id]]]]]

@@ -2,7 +2,7 @@
 // bundle test with and without a cache stamp, and the current What's New id. No browser, no server.
 // Needs:     nothing. Run: node test/browser/lib/toolbox_test.js
 const { checker, APP_BUNDLE, currentWhatsNewId, escapeRegExp, SetupFailed,
-  formatDiagnostics, isSameOrigin, watchPage } = require('./toolbox');
+  formatDiagnostics, isSameOrigin, watchPage, BASE } = require('./toolbox');
 
 let passed = 0, failed = 0;
 /**
@@ -156,7 +156,7 @@ expect('the What\'s New id comes from the app', /^[a-z0-9-]+$/.test(currentWhats
   const diagCases = [
     ['a page error', 'pageerror', { message: 'late' }, 1],
     ['a console error', 'console', { type: () => 'error', text: () => 'bad' }, 1],
-    ['a same-origin 404', 'response', { status: () => 404, url: () => 'http://localhost:8890/x', request: () => ({ method: () => 'GET' }) }, 1],
+    ['a same-origin 404', 'response', { status: () => 404, url: () => `${BASE}/x`, request: () => ({ method: () => 'GET' }) }, 1],
     ['a cross-origin 404', 'response', { status: () => 404, url: () => 'http://elsewhere/x', request: () => ({ method: () => 'GET' }) }, 0],
     ['a console log', 'console', { type: () => 'log', text: () => 'fine' }, 0],
   ];

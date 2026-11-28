@@ -111,11 +111,13 @@ async function judge(loc, expected) {
   const cover = await target.evaluate(el => {
     const b = el.getBoundingClientRect();
     const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
-    if (!hit || hit === el || el.contains(hit)) return null;
+    if (!hit) return { offscreen: true };
+    if (hit === el || el.contains(hit)) return null;
     const cls = typeof hit.className === 'string' && hit.className.trim()
       ? '.' + hit.className.trim().split(/\s+/).join('.') : '';
     return hit.tagName.toLowerCase() + (hit.id ? '#' + hit.id : '') + cls;
   });
+  if (cover && cover.offscreen) return 'hidden: its centre is outside the viewport';
   return cover ? `covered: centre hit by ${cover}` : null;
 }
 
